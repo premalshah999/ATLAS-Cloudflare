@@ -242,19 +242,23 @@ const envs = [
 export function Computer() {
   const takeover = useApp((s) => s.takeover);
   const paused = useApp((s) => s.paused);
-  const [env, setEnv] = useState('auto');
+  // Live app: a real, interactive browser first, then the recorded QA runs agents produced.
+  const LiveTab = live.on ? slots.LiveBrowser : undefined;
+  const modes = LiveTab ? [{ id: 'live', label: 'Live browser' }, { id: 'auto', label: 'Recorded QA runs' }] : envs.map((e) => ({ id: e.id, label: e.label }));
+  const [env, setEnv] = useState(LiveTab ? 'live' : 'auto');
   const [step, setStep] = useState(live.on ? Math.max(0, browserActions.length - 1) : 5);
   const Shot = live.on ? slots.Shot : undefined;
   const cur = browserActions[Math.min(step, browserActions.length - 1)];
   const shotId = live.on ? [...browserActions.slice(0, step + 1)].reverse().find((b) => b.shot)?.shot : undefined;
-  if (live.on && env === 'auto' && !browserActions.length) return <div className="at-screen at-computer"><div className="at-pagehead"><span className="heading">Browser & desktop</span><Seg value={env} onChange={setEnv} items={envs.map((e) => ({ id: e.id, label: e.label }))} /></div><EmptyState center icon={IGlobe} title="No browser run in this mission yet" body="When verification or the Browser QA agent drives the app, every step and screenshot appears here." /></div>;
+  if (LiveTab && env === 'live') return <div className="at-screen at-computer"><div className="at-pagehead"><span className="heading">Browser & desktop</span><Seg value={env} onChange={setEnv} items={modes} /></div><div className="lv-lb-host"><LiveTab /></div></div>;
+  if (live.on && env === 'auto' && !browserActions.length) return <div className="at-screen at-computer"><div className="at-pagehead"><span className="heading">Browser & desktop</span><Seg value={env} onChange={setEnv} items={modes} /></div><EmptyState center icon={IGlobe} title="No browser run in this mission yet" body="When verification or the Browser QA agent drives the app, every step and screenshot appears here." /></div>;
   const A = actions();
   const agentPaused = takeover || paused;
   return (
     <div className="at-screen at-computer">
       <div className="at-pagehead">
         <span className="heading">Browser & desktop</span>
-        <Seg value={env} onChange={setEnv} items={envs.map((e) => ({ id: e.id, label: e.label }))} />
+        <Seg value={env} onChange={setEnv} items={modes} />
         <span style={{ flex: 1 }} />
         {env === 'auto' && !live.on && <>
           <Button icon={agentPaused ? IPlay : IPause} disabled={takeover} onClick={() => A.set({ paused: !paused })}>{paused ? 'Resume agent' : 'Pause agent'}</Button>

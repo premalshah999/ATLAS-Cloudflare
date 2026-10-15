@@ -6,3 +6,4 @@ export { applicationStage, runApplicationChecks } from './stages';
 export { createBrowserTool, BrowserActionArgs, type BrowserTool } from './tool';
 export { visualStage, runVisual, visualPages, pixelDiff, capturePage, materializeBase, removeBase, type PixelDiff, type PageShot } from './visual';
 export { snapshotFn, resolveRefFn } from './snapshot';
+export { LiveTab, launchLiveChromium, type LiveInput, type LiveInputKind, type LiveState } from './live';

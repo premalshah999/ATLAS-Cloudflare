@@ -70,7 +70,7 @@ export interface DesignAdapter {
 }
 export let adapter: DesignAdapter | null = null;
 /** Live components the design screens host (the operator's real sandboxed terminal). */
-export const slots: { HumanTerminal?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element; Page?: Partial<Record<'projects' | 'team' | 'preferences', () => JSX.Element>> } = {};
+export const slots: { HumanTerminal?: () => JSX.Element; LiveBrowser?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element; Page?: Partial<Record<'projects' | 'team' | 'preferences', () => JSX.Element>> } = {};
 export const setAdapter = (a: DesignAdapter | null) => { adapter = a; };
 export function createStore(init: Partial<AppState> = {}) {
   const wide = typeof window === 'undefined' || window.innerWidth >= 1300;
