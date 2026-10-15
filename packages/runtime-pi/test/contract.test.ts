@@ -125,6 +125,25 @@ describe('Pi planner', () => {
 });
 
 describe('Pi adapter isolation', () => {
+  it('bounds a provider advertising a huge output ceiling before making the request', async () => {
+    const faux = createFauxCore({ provider: 'atlas-faux' });
+    const fm = faux.getModel();
+    faux.setResponses([fauxAssistantMessage('Ready.')]);
+    const ceilings: number[] = [];
+    const rt = new PiRuntime({
+      agentDir: tmpDir('atlas-pi-'), model: `atlas-faux/${fm.id}`,
+      configure: r => r.registerProvider('atlas-faux', { name: 'Faux', baseUrl: 'http://faux.invalid', apiKey: 'test-only', api: faux.api,
+        streamSimple: ((model: any, context: any, options: any) => { ceilings.push(model.maxTokens); return faux.streamSimple(model, context, options); }) as any,
+        models: [{ id: fm.id, name: 'Faux', reasoning: false, input: ['text'], cost: fm.cost, contextWindow: 1_000_000, maxTokens: 384_000 }],
+      }),
+    });
+    const handle = await rt.start(input(invoker([]), new AbortController().signal));
+    try {
+      expect((await collect(rt, handle)).at(-1)?.type).toBe('completed');
+      expect(ceilings.length).toBeGreaterThan(0);
+      expect(ceilings.every(n => n > 0 && n <= 16_384)).toBe(true);
+    } finally { await rt.dispose(handle); }
+  });
   it('fails health when no model has credentials', async () => {
     const rt = new PiRuntime({ agentDir: tmpDir('atlas-pi-'), model: 'anthropic/definitely-not-a-model' });
     const h = await rt.health();
