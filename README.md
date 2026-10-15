@@ -6,7 +6,9 @@ This edition adds, on top of ATLAS's governed multi-agent missions:
 
 - **Cloudflare Workers + Artifacts.** A completed mission's base, every agent's branch and the integrated result are published to a per-mission Artifacts repository; the Worker reads each commit back and ATLAS records the publication only when every hash matches.
 - **Concurrent agents you can watch.** Independent writers run at the same time in separate worktrees; their work is integrated, re-tested and reviewed before you decide.
-- **A dashboard for all of it.** Home (what needs you, what is running, what is ready for review, setup), Activity across missions, Agents (each role's tools, permissions, model tier and limits) and a per-mission Report — the design preview's screens, now built from real data.
+- **Mission Control, live.** The design's Control view is the real mission screen: the workforce of agents in dependency columns, what needs you, each agent's thread and terminal, an inspector (objective, context usage, model, sandbox, branch, worktree, permissions, tools) and a composer that **directs a running agent** — delivered to its live session, keeping its context.
+- **A dashboard for all of it.** Home, Activity across missions, Agents, and full-screen Reviews, Deployments, Terminal and Browser & desktop workbenches, plus a per-mission Report — the design preview's screens, built from real data.
+- **GitHub, end to end.** Verified missions are accepted, pushed and opened as pull requests; ATLAS reads the CI result and can start a follow-up mission that fixes a failing check. It uses your GitHub CLI sign-in when no token is saved.
 - **Every key-based model provider, checked live.** Settings → Test verifies a key at the provider's own API for free; DeepSeek is used only through api.deepseek.com, and its balance is checked too.
 - **macOS support**: the sandbox, terminal and packaged app are tested on a Mac.
 
