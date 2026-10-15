@@ -45,26 +45,26 @@ Finish with a short summary of what you changed and why.`,
     budget: { maxToolCalls: 160, maxTokens: 1_200_000, wallClockMs: 30 * 60_000 },
   },
   reviewer: {
-    id: 'reviewer', version: 'reviewer@3', title: 'Reviewer', writes: false, modelPreference: 'strong',
+    id: 'reviewer', version: 'reviewer@4', title: 'Reviewer', writes: false, modelPreference: 'strong',
     tools: ['read_file', 'list_files', 'git_status', 'view_diff', 'run_tests', 'shell_exec', ...PROCESS_TOOLS, 'report_finding'],
     instructions: `${COMMON}
 
 You are the Reviewer. Read the diff (view_diff) against the acceptance criteria. Report each real problem with report_finding: file, line, severity, what you observed, the evidence, and a recommended fix kept separate from the observation.
 A finding is "confirmed" only if you reproduced it: run the failing command first (run_tests or shell_exec) and pass its artifact id as reproducedBy. Otherwise report it as "suspected" or "informational". Do not report style preferences as blockers.
 ${PROCESSES}`,
-    budget: { maxToolCalls: 40, maxTokens: 300_000, wallClockMs: 15 * 60_000 },
+    budget: { maxToolCalls: 120, maxTokens: 900_000, wallClockMs: 25 * 60_000 },
   },
   tester: {
-    id: 'tester', version: 'tester@4', title: 'Tester', writes: false, modelPreference: 'fast',
+    id: 'tester', version: 'tester@5', title: 'Tester', writes: false, modelPreference: 'fast',
     tools: ['read_file', 'list_files', 'git_status', 'run_tests', 'shell_exec', ...PROCESS_TOOLS],
     instructions: `${COMMON}\n\nYou are the Tester. Run the project's checks and report results precisely. Do not modify files.\n${PROCESSES}`,
-    budget: { maxToolCalls: 20, maxTokens: 100_000, wallClockMs: 10 * 60_000 },
+    budget: { maxToolCalls: 80, maxTokens: 400_000, wallClockMs: 20 * 60_000 },
   },
   browser_qa: {
-    id: 'browser_qa', version: 'browser_qa@3', title: 'Browser QA', writes: false, modelPreference: 'default',
+    id: 'browser_qa', version: 'browser_qa@4', title: 'Browser QA', writes: false, modelPreference: 'default',
     tools: ['read_file', 'list_files', 'browser_action'],
     instructions: `${COMMON}\n\nYou are Browser QA. Exercise the application in the browser with browser_action the way a careful user would. Take a snapshot to see the page, act on elements by their ref, and take a new snapshot after anything changes the page. Assert visible outcomes, capture screenshots of anything surprising, and read console and network to find errors and failed requests behind what you see. Use refs and DOM actions, never pixel guesses.`,
-    budget: { maxToolCalls: 60, maxTokens: 200_000, wallClockMs: 15 * 60_000 },
+    budget: { maxToolCalls: 120, maxTokens: 600_000, wallClockMs: 25 * 60_000 },
   },
   desktop_operator: {
     id: 'desktop_operator', version: 'desktop_operator@2', title: 'Desktop operator', writes: false, modelPreference: 'default',
@@ -73,7 +73,7 @@ ${PROCESSES}`,
     budget: { maxToolCalls: 80, maxTokens: 300_000, wallClockMs: 20 * 60_000 },
   },
   security_reviewer: {
-    id: 'security_reviewer', version: 'security_reviewer@2', title: 'Security engineer', writes: false, modelPreference: 'strong',
+    id: 'security_reviewer', version: 'security_reviewer@3', title: 'Security engineer', writes: false, modelPreference: 'strong',
     tools: ['read_file', 'list_files', 'git_status', 'view_diff', 'run_tests', 'shell_exec', ...PROCESS_TOOLS, 'security_scan', 'report_finding'],
     instructions: `${COMMON}
 
@@ -85,13 +85,13 @@ You are the Security engineer. Review the change (view_diff) the way an attacker
 - races on security checks; resource exhaustion from unbounded input.
 Report each real problem with report_finding, with file, line, severity, the attack it enables, and the fix. A finding is "confirmed" only if you demonstrated it: run a command that shows the flaw (a failing test, a request that succeeds when it must not) and pass its artifact id as reproducedBy. Otherwise report it as "suspected". Do not report generic best practice as a blocker.
 ${PROCESSES}`,
-    budget: { maxToolCalls: 40, maxTokens: 300_000, wallClockMs: 15 * 60_000 },
+    budget: { maxToolCalls: 120, maxTokens: 900_000, wallClockMs: 25 * 60_000 },
   },
   deployment_verifier: {
-    id: 'deployment_verifier', version: 'deployment_verifier@2', title: 'Deployment verifier', writes: false, modelPreference: 'default',
+    id: 'deployment_verifier', version: 'deployment_verifier@3', title: 'Deployment verifier', writes: false, modelPreference: 'default',
     tools: ['read_file', 'list_files', 'inspect_logs', 'browser_action'],
     instructions: `${COMMON}\n\nYou are the Deployment verifier. Investigate a staging deployment: read logs, exercise key flows, and describe what you observe. ATLAS's staging checks decide the gate; you add investigation, not verdicts.`,
-    budget: { maxToolCalls: 40, maxTokens: 200_000, wallClockMs: 15 * 60_000 },
+    budget: { maxToolCalls: 100, maxTokens: 600_000, wallClockMs: 25 * 60_000 },
   },
 };
 

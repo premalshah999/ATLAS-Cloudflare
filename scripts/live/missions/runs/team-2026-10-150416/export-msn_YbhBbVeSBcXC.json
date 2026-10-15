@@ -1,0 +1,183 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/12-export.json",
+    "key": "export",
+    "title": "Export complaints to CSV",
+    "goal": "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV with a header row and a Content-Disposition attachment filename containing the date. Protect against CSV/formula injection: any cell starting with =, +, -, @, tab or carriage return must be prefixed with a single quote. Stream or bound the response so large exports do not exhaust memory (cap at 10,000 rows and say so in a response header). In the frontend Complaints page add an 'Export CSV' button that downloads the export for the current filters. Add backend tests for headers, escaping of commas/quotes/newlines, formula-injection protection, filtering and the row cap, and a frontend test for the button.",
+    "constraints": "Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass."
+  },
+  "mission": {
+    "id": "msn_YbhBbVeSBcXC",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Export complaints to CSV",
+    "goal": "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV with a header row and a Content-Disposition attachment filename containing the date. Protect against CSV/formula injection: any cell starting with =, +, -, @, tab or carriage return must be prefixed with a single quote. Stream or bound the response so large exports do not exhaust memory (cap at 10,000 rows and say so in a response header). In the frontend Complaints page add an 'Export CSV' button that downloads the export for the current filters. Add backend tests for headers, escaping of commas/quotes/newlines, formula-injection protection, filtering and the row cap, and a frontend test for the button.",
+    "constraints": "Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: review-csv-export failed (Budget exhausted (tool calls 41/40, tokens 60547/300000))",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T04:16:44.107Z",
+    "updatedAt": "2026-10-15T04:40:04.224Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_3Xh5Nrx9GNig",
+      "missionId": "msn_YbhBbVeSBcXC",
+      "key": "backend-export-endpoint",
+      "title": "Implement GET /api/complaints/export.csv reusing list filters",
+      "role": "coder",
+      "dependencies": [],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "GET /api/complaints/export.csv returns 200 with Content-Type text/csv and a Content-Disposition attachment filename containing the current date.",
+        "The endpoint accepts the same filter query parameters as GET /api/complaints and returns the same filtered set, implemented by reusing/extracting the existing filter logic rather than duplicating it.",
+        "Output begins with a header row and each record is RFC 4180 compliant (comma separators, doubled quotes inside quoted fields, records ended with CRLF).",
+        "Any cell value starting with =, +, -, @, tab or carriage return is prefixed with a single quote before quoting.",
+        "Response is streamed or otherwise bounded and capped at 10,000 rows, with a response header (e.g. X-Export-Truncated or X-Total-Rows) indicating the cap was applied when truncated.",
+        "No new dependencies are added."
+      ],
+      "resultRef": "art_3FqrdhfyyqG7",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_YbhBbVeSBcXC/backend-export-endpoint-1",
+      "branch": "atlas/msn_YbhBbVeSBcXC/backend-export-endpoint-1",
+      "checkpoint": "de312cf35cea65bfe625c516d0c8a7cdfa8ceb65",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_XN4wytzadttq",
+      "missionId": "msn_YbhBbVeSBcXC",
+      "key": "frontend-export-button",
+      "title": "Add Export CSV button to Complaints page",
+      "role": "coder",
+      "dependencies": [
+        "tsk_3Xh5Nrx9GNig"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "frontend/src/pages/Complaints.tsx renders an 'Export CSV' button.",
+        "Clicking the button navigates/triggers a download of /api/complaints/export.csv with the currently applied filters serialized as query parameters.",
+        "Button is disabled or hidden when no filters/list context is available and does not break existing page rendering.",
+        "No new dependencies are added."
+      ],
+      "resultRef": "art_WYAcakjVmt5b",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_YbhBbVeSBcXC/frontend-export-button-1",
+      "branch": "atlas/msn_YbhBbVeSBcXC/frontend-export-button-1",
+      "checkpoint": "9b5c6dab54e40c03663c8fb7ee7c0452293b11c5",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_PavM25eUdrVG",
+      "missionId": "msn_YbhBbVeSBcXC",
+      "key": "backend-export-tests",
+      "title": "Backend tests for CSV export headers, escaping, injection, filtering, cap",
+      "role": "coder",
+      "dependencies": [
+        "tsk_3Xh5Nrx9GNig"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "A new test module under backend/tests/ covers: response headers (Content-Type, Content-Disposition with date) and header row.",
+        "Tests assert correct escaping of commas, double quotes and newlines inside cell values.",
+        "Tests assert formula-injection values beginning with =, +, -, @, tab, or CR are prefixed with a single quote.",
+        "Tests assert filtering matches the existing complaints list endpoint for at least one filter combination.",
+        "Tests assert the 10,000-row cap and the truncation/row-count response header using a seeded dataset larger than the cap.",
+        "Tests run green via scripts/atlas/test-backend.sh."
+      ],
+      "resultRef": "art_Prj6aeUu5h63",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_YbhBbVeSBcXC/backend-export-tests-1",
+      "branch": "atlas/msn_YbhBbVeSBcXC/backend-export-tests-1",
+      "checkpoint": "3bee11db43e86469db69f8bf7132ade9ee791ab1",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_FgfvJkt6Y8hk",
+      "missionId": "msn_YbhBbVeSBcXC",
+      "key": "frontend-export-test",
+      "title": "Frontend test for Export CSV button",
+      "role": "coder",
+      "dependencies": [
+        "tsk_XN4wytzadttq"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "A test verifies the 'Export CSV' button renders on the Complaints page.",
+        "The test verifies clicking the button requests /api/complaints/export.csv with the current filter query parameters (e.g. via mocked fetch/window.location).",
+        "Test runs green under scripts/atlas/test-frontend.sh and type/lint checks pass."
+      ],
+      "resultRef": "art_7SSh6dPGzaCd",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_YbhBbVeSBcXC/frontend-export-test-1",
+      "branch": "atlas/msn_YbhBbVeSBcXC/frontend-export-test-1",
+      "checkpoint": "93c09bfd2a0c5edc7ece3b993d39502093381b75",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_S6iX7bfpjS8i",
+      "missionId": "msn_YbhBbVeSBcXC",
+      "key": "review-csv-export",
+      "title": "Review CSV export implementation and tests",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_3Xh5Nrx9GNig",
+        "tsk_XN4wytzadttq",
+        "tsk_PavM25eUdrVG",
+        "tsk_FgfvJkt6Y8hk"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Reviewer confirms filter logic is reused, not duplicated, between the list and export endpoints.",
+        "Reviewer confirms RFC 4180 quoting rules and the formula-injection prefix rule are applied to every cell including the header.",
+        "Reviewer confirms the 10,000-row cap is enforced and reported in a response header.",
+        "Reviewer confirms frontend button wires current filters and does not regress existing Complaints page behavior.",
+        "Reviewer runs the backend and frontend test suites (scripts/atlas/test-backend.sh, scripts/atlas/test-frontend.sh) and reports any failures as findings."
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_YbhBbVeSBcXC/review-csv-export-1",
+      "branch": "atlas/msn_YbhBbVeSBcXC/review-csv-export-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 456323,
+    "toolCalls": 322,
+    "tasks": 5,
+    "agentsNow": 0,
+    "elapsedMs": 1272634
+  }
+}
