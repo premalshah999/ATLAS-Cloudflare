@@ -141,7 +141,7 @@ export function LiveStatusBar() {
       <span className="at-sb-item">{running} running</span>
       <span className={cx('at-sb-item', waiting > 0 && 'at-warn')} data-testid="awaiting-count">{waiting} awaiting you</span>
       <span style={{ flex: 1 }} />
-      <span className="at-sb-item at-subtle">Local-first · nothing leaves this machine except model requests you configure</span>
+      <span className="at-sb-item at-subtle">Local-first · governed execution · explicit cloud publication</span>
       <button type="button" className="at-sb-item at-sb-btn" onClick={togglePalette} aria-label="Command palette"><Kbd k="⌘ K" /></button>
     </footer>
   );

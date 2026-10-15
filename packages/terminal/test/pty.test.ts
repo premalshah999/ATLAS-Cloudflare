@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { detectSandbox, openPty, ptySupported } from '../src';
 import { tmpDir } from '../../../tests/helpers';
 
-describe.skipIf(!ptySupported().ok || detectSandbox().kind !== 'bwrap')('operator PTY', () => {
+describe.skipIf(!ptySupported().ok || detectSandbox().kind === 'none')('operator PTY', () => {
   it('is a real terminal inside the sandbox with the requested size', async () => {
     const dir = tmpDir();
     let out = '';
@@ -10,9 +10,9 @@ describe.skipIf(!ptySupported().ok || detectSandbox().kind !== 'bwrap')('operato
     const p = openPty({ cwd: dir, cols: 101, rows: 31, sandbox: { root: dir, writable: true, network: false }, onData: (t) => { out += t; }, onExit: (c) => { code = c; } });
     p.write('tty; stty size; echo HOME=$HOME; touch made-here; exit\n');
     for (let i = 0; i < 100 && code === undefined; i++) await new Promise((r) => setTimeout(r, 50));
-    expect(out).toMatch(/\/dev\/pts\/\d+/);
+    expect(out).toMatch(process.platform === 'darwin' ? /\/dev\/ttys\d+/ : /\/dev\/pts\/\d+/);
     expect(out).toContain('31 101');
-    expect(out).toContain('HOME=/home/atlas-sandbox');
+    if (process.platform !== 'darwin') expect(out).toContain('HOME=/home/atlas-sandbox');
     expect(code).toBe(0);
     expect((await import('node:fs')).existsSync(`${dir}/made-here`)).toBe(true);
   });

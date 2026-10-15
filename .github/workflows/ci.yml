@@ -17,7 +17,9 @@ jobs:
           # Ubuntu 24.04 restricts unprivileged user namespaces; bubblewrap needs them.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - run: pnpm install --frozen-lockfile
-      - run: pnpm doctor
+      - run: node node_modules/electron/install.js
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run doctor
       - run: pnpm pi:version
       - run: pnpm lint
       - run: pnpm typecheck

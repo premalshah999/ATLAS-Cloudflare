@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "pnpm --filter @atlas/desktop dev",
     "build": "pnpm --filter @atlas/desktop build",
-    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck && tsc -p tsconfig.tests.json",
+    "typecheck": "pnpm cloud:types && pnpm -r --workspace-concurrency=1 typecheck && tsc -p tsconfig.tests.json && tsc -p cloudflare/tsconfig.json",
     "lint": "node scripts/check-deps.mjs && eslint .",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -21,7 +21,13 @@
     "pi:version": "node scripts/pi-version.mjs",
     "seed:sample": "node scripts/seed-sample.mjs",
     "screenshots": "pnpm build && playwright test -c tests/e2e-electron/screenshots.config.ts",
-    "eval": "vitest run --project eval"
+    "eval": "vitest run --project eval",
+    "start": "pnpm --filter @atlas/desktop start",
+    "cloud:types": "wrangler types --config cloudflare/wrangler.jsonc cloudflare/worker-configuration.d.ts",
+    "cloud:check": "pnpm cloud:types && tsc -p cloudflare/tsconfig.json",
+    "cloud:deploy": "wrangler deploy --config cloudflare/wrangler.jsonc",
+    "cloud:login": "wrangler login",
+    "cloud:secret": "wrangler secret put ATLAS_CLOUD_TOKEN --config cloudflare/wrangler.jsonc"
   },
   "devDependencies": {
     "@atlas/browser": "workspace:*",
@@ -41,6 +47,7 @@
     "eslint": "9.17.0",
     "typescript": "5.7.2",
     "typescript-eslint": "8.18.1",
-    "vitest": "2.1.8"
+    "vitest": "2.1.8",
+    "wrangler": "4.145.0"
   }
 }

@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { ApprovalMode, Id, MissionBudget, RuntimeKind } from './domain';
 import { DesktopAction, DesktopControl } from './desktop';
 
+export const Provider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'deepseek', 'xai', 'groq', 'mistral', 'cerebras']);
+export type ProviderId = z.infer<typeof Provider>;
+
 const empty = z.object({}).strict();
 const missionRef = z.object({ missionId: Id }).strict();
 
@@ -31,6 +34,8 @@ export const Requests = {
   'mission.decide': z.object({ missionId: Id, decision: z.enum(['accept', 'reject']) }).strict(),
   'task.cancel': z.object({ taskId: Id }).strict(),
   'mission.export': missionRef,
+  'cloud.publish': missionRef,
+  'cloud.status': missionRef,
   'mission.import': empty,
   'mission.delete': missionRef,
   'mission.reverify': missionRef,
@@ -62,10 +67,12 @@ export const Requests = {
     z.object({ key: z.literal('deploy.allowedTargets'), value: z.array(z.string().min(1).max(100)).max(50) }).strict(),
     z.object({ key: z.literal('deploy.autoRollback'), value: z.boolean() }).strict(),
     z.object({ key: z.literal('desktop.enabled'), value: z.boolean() }).strict(),
+    z.object({ key: z.literal('cloud.url'), value: z.union([z.literal(''), z.string().url().max(500)]) }).strict(),
+    z.object({ key: z.literal('runtime.model'), value: z.string().max(200) }).strict(),
   ]),
   'credentials.list': empty,
-  'credentials.set': z.object({ provider: z.enum(['anthropic', 'openai', 'google']), key: z.string().trim().min(8).max(500) }).strict(),
-  'credentials.remove': z.object({ provider: z.enum(['anthropic', 'openai', 'google']) }).strict(),
+  'credentials.set': z.object({ provider: Provider, key: z.string().trim().min(8).max(500) }).strict(),
+  'credentials.remove': z.object({ provider: Provider }).strict(),
 } as const;
 
 /** Methods only the main process may send to the daemon (never exposed to the renderer). */
@@ -77,7 +84,7 @@ export const InternalRequests = {
 } as const;
 export type InternalMethod = keyof typeof InternalRequests;
 
-export const PROVIDER_ENV: Record<string, string> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GEMINI_API_KEY' };
+export const PROVIDER_ENV: Record<string, string> = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', google: 'GEMINI_API_KEY', openrouter: 'OPENROUTER_API_KEY', deepseek: 'DEEPSEEK_API_KEY', xai: 'XAI_API_KEY', groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', cerebras: 'CEREBRAS_API_KEY' };
 
 /** Messages between Electron main and the daemon process. */
 export type DaemonInbound = { kind: 'req'; id: number; method: string; params: unknown };

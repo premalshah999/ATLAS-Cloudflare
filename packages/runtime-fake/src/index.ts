@@ -4,7 +4,7 @@ import type { AgentEvent, AgentHandle, AgentInput, AgentRuntime, PlanProposal, P
 import { EventQueue } from './queue';
 
 export { EventQueue } from './queue';
-export { sampleSlugifyScript, SAMPLE_FIX, sampleDesktopScript, samplePlanner, DESKTOP_SAMPLE_MARKER } from './scripts';
+export { sampleSlugifyScript, SAMPLE_FIX, sampleDesktopScript, sampleRegressionScript, samplePlanner, DESKTOP_SAMPLE_MARKER } from './scripts';
 
 export type FakeStep =
   | { say: string }

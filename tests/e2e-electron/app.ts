@@ -11,9 +11,11 @@ export async function launch(opts: { userData?: string; openDir?: string; env?: 
   const env: Record<string, string> = { ...(process.env as Record<string, string>), ATLAS_E2E: '1', ATLAS_USER_DATA: userData };
   if (opts.openDir) env.ATLAS_E2E_OPEN_DIR = opts.openDir;
   Object.assign(env, opts.env ?? {});
-  delete env.ANTHROPIC_API_KEY; delete env.OPENAI_API_KEY; delete env.GEMINI_API_KEY;
+  for (const key of Object.keys(env)) if (/_API_KEY$/.test(key)) delete env[key];
+  delete env.ELECTRON_RUN_AS_NODE;
   // --no-sandbox only because CI containers run as root; the renderer still runs with sandbox: true.
-  const app = await electron.launch({ args: ['--no-sandbox', desktop], cwd: desktop, env });
+  const executablePath = process.env.ATLAS_TEST_EXECUTABLE;
+  const app = await electron.launch({ executablePath, args: [...(process.platform === 'linux' ? ['--no-sandbox'] : []), ...(executablePath ? [] : [desktop])], cwd: desktop, env });
   const page = await app.firstWindow();
   await page.getByTestId('daemon-status').and(page.locator('[data-state="ready"]')).waitFor({ timeout: 30_000 });
   return { app, page, userData };

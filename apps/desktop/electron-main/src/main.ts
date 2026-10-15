@@ -1,7 +1,7 @@
 // ATLAS main process (manual E1–E4): windows, OS dialogs, daemon supervision and IPC routing.
 // It never executes model-proposed commands; it forwards validated intents to the daemon.
 import { app, BrowserWindow, dialog, ipcMain, session, shell, type IpcMainInvokeEvent } from 'electron';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { IPC, parseRequest, PROVIDER_ENV, type Envelope, type Method } from '@atlas/contracts';
 import { DaemonClient, type DaemonStatus } from './daemon';
@@ -35,6 +35,11 @@ function daemonEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const k of ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'TMP', 'SHELL', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'APPDATA', 'LOCALAPPDATA', 'USERPROFILE']) {
     if (process.env[k]) env[k] = process.env[k]!;
+  }
+  // Finder launches have a minimal PATH; include common user-installed Node/Git locations.
+  if (isMac) {
+    const extra = [path.join(app.getPath('home'), '.local/bin'), '/opt/homebrew/bin', '/usr/local/bin'].filter(existsSync);
+    env.PATH = [...new Set([...(env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin').split(path.delimiter), ...extra])].join(path.delimiter);
   }
   // Where to find a browser for QA; never credentials.
   for (const k of ['PLAYWRIGHT_BROWSERS_PATH', 'ATLAS_CHROMIUM_PATH', 'DISPLAY', 'XAUTHORITY', 'WAYLAND_DISPLAY']) if (process.env[k]) env[k] = process.env[k]!;

@@ -7,12 +7,13 @@ import { Menu, MenuItem } from '../ui/primitives';
 import { BrowserPanel, BudgetMeter, DeployPanel, DesktopPanel, Findings, TaskGraph, TerminalPanel } from './panels';
 import { go, refreshLists } from './store';
 import { call } from './api';
+import { CloudPanel } from './cloud';
 import { useMission } from './useMission';
 import { describeEvent, fmtMs, markOf, resultWord, roleMark, roleName, stateWord, time, type Row } from './format';
 import { toast } from './toast';
 
 const ACTIVE = new Set(['planning', 'running', 'verifying']);
-type Tab = 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'browser' | 'deploy' | 'desktop' | 'terminal';
+type Tab = 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'browser' | 'deploy' | 'desktop' | 'terminal';
 
 export function MissionView({ missionId }: { missionId: string }) {
   const { snap, events, error } = useMission(missionId);
@@ -87,6 +88,7 @@ export function MissionView({ missionId }: { missionId: string }) {
                 { id: 'graph', label: 'Tasks', icon: IGraph, count: snap.tasks.length || undefined },
                 { id: 'changes', label: 'Changes', icon: IFileDiff, count: patchCount || undefined },
                 { id: 'evidence', label: 'Evidence', icon: ITube, count: snap.checks.length || undefined },
+                { id: 'cloud', label: 'Cloudflare', icon: IGlobe },
                 { id: 'findings', label: 'Review', icon: IReviews, count: snap.findings.filter((f) => f.status === 'open').length || undefined },
                 ...(hasBrowser ? [{ id: 'browser' as Tab, label: 'Browser', icon: IGlobe }] : []),
                 ...(m.targetEnvironment ? [{ id: 'deploy' as Tab, label: 'Deploy', icon: IDeploy }] : []),
@@ -94,6 +96,7 @@ export function MissionView({ missionId }: { missionId: string }) {
                 ...(m.archived ? [] : [{ id: 'terminal' as Tab, label: 'Terminal', icon: ITerminal }]),
               ]} />
             </div>
+            {tab === 'cloud' && <CloudPanel mission={m} />}
             {tab === 'activity' && <ActivityTimeline events={events} />}
             {tab === 'graph' && <TaskGraph snap={snap} />}
             {tab === 'changes' && <Changes snap={snap} />}

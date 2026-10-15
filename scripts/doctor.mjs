@@ -18,7 +18,7 @@ add(!!pnpm, 'pnpm', pnpm ?? 'not found — run `corepack enable`');
 add(existsSync('node_modules/electron/dist'), 'Electron binary', existsSync('node_modules/electron/dist') ? 'installed' : 'downloaded on first launch, or now with `npx install-electron`');
 const keys = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY'].filter((k) => process.env[k]);
 add(true, 'Model credentials', keys.length ? `found in environment: ${keys.join(', ')} (values not shown)` : 'none in environment — the scripted runtime works without; add a key in Settings for Pi');
-add(true, 'Platform', `${process.platform} ${process.arch}${process.platform === 'linux' ? ' (tested)' : ' (not yet tested — see docs/adr/0004)'}`);
+add(true, 'Platform', `${process.platform} ${process.arch}${process.platform === 'linux' ? ' (tested)' : process.platform === 'darwin' ? ' (local validation: docs/VALIDATION-2026-10-14.md)' : ' (not yet tested — see docs/adr/0004)'}`);
 let sandbox = { ok: false, detail: '' };
 if (process.platform === 'linux') {
   const bwrap = ver('bwrap', ['--version']);

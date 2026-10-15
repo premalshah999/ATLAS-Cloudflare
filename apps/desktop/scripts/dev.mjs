@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+// IDE terminals can inherit this from their Electron host.
+delete process.env.ELECTRON_RUN_AS_NODE;
 const procs = [];
 const run = (cmd, args, env = {}) => { const p = spawn(cmd, args, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } }); procs.push(p); return p; };
 

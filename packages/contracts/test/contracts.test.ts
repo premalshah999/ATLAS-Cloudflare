@@ -23,6 +23,14 @@ describe('IPC request validation', () => {
     expect(() => parseRequest('mission.get', { missionId: newId('msn'), extra: 1 })).toThrow();
     expect(() => parseRequest('approval.respond', { approvalId: newId('apr'), decision: 'maybe' })).toThrow();
   });
+  it('supports configured API-key providers and rejects undeclared credential destinations', () => {
+    for (const provider of ['anthropic', 'openai', 'google', 'openrouter', 'deepseek', 'xai', 'groq', 'mistral', 'cerebras']) {
+      expect(parseRequest('credentials.set', { provider, key: 'test-key-placeholder' }).params).toMatchObject({ provider });
+    }
+    expect(() => parseRequest('credentials.set', { provider: 'https://evil.test', key: 'test-key-placeholder' })).toThrow();
+    expect(() => parseRequest('cloud.publish', { missionId: newId('msn'), root: '/other/repo' })).toThrow();
+    expect(() => parseRequest('settings.set', { key: 'cloud.secret', value: 'plaintext' })).toThrow();
+  });
   it('accepts well-formed payloads and applies defaults', () => {
     const r = parseRequest('mission.create', { workspaceId: newId('ws'), title: 'T', goal: 'G', approvalMode: 'ask_risky', runtime: 'fake' });
     expect(r.params).toMatchObject({ constraints: '' });

@@ -1,5 +1,19 @@
 # ATLAS
 
+## Cloudflare challenge edition — October 14, 2026
+
+This edition adds Mac setup fixes, a reproducible concurrent-agent demo, nine API-key provider inputs with model selection, and a Workers + Artifacts publication integration.
+
+**Deployment status:** local Mac missions are tested. Live Cloudflare deployment is blocked: the account requires Workers Paid for Artifacts (error 10403). The integration is implemented and locally tested, but no live Artifacts push/readback has been verified. Local Wrangler development also uses remote Artifacts; it is not a free storage emulator.
+
+- [Run on your Mac and configure model keys](docs/MAC-SETUP.md)
+- [Cloudflare integration and deployment](docs/CLOUDFLARE.md)
+- [Submission draft and remaining requirement](docs/SUBMISSION.md)
+- [Validation report](docs/VALIDATION-2026-10-14.md)
+
+For the concurrent sample, use the objective `[parallel sample] Fix slugify and add regression coverage in parallel, then review and verify the integrated result.` Select the scripted runtime; decisions are scripted, while worktrees, scheduling, edits, integration and checks are real.
+
+
 Local-first mission control for autonomous software engineering. You open a repository and describe an outcome. ATLAS proposes a plan for you to approve. It then runs agents in isolated git worktrees inside an OS sandbox, through policy-governed tools, integrates their work, and verifies the result independently: tests, review, browser and API checks, and optionally a staging deployment whose served revision it reads back. It shows you the evidence, and you accept or reject the change. Your checkout is never edited.
 
 > An agent claim is not evidence. ATLAS marks work verified only on a real process exit, test assertion or operator decision.
@@ -146,7 +160,7 @@ The original design-system prototype stays available from the rail, under a pers
 ```bash
 corepack enable          # pnpm 10
 pnpm install
-pnpm doctor              # checks Node, git, Electron, sandbox, browser, desktop tools, credentials (values never printed)
+pnpm run doctor              # checks Node, git, Electron, sandbox, browser, desktop tools, credentials (values never printed)
 pnpm seed:sample         # creates ~/atlas-sample-app: a small project with a real bug and real tests
 pnpm dev                 # launches the desktop app
 ```
@@ -249,4 +263,4 @@ Linux x64 is the tested platform; CI runs the Electron e2e suite there. Requirem
 - for browser checks, Chromium (Playwright's build or a system Chrome);
 - for desktop control, Xvfb, xdotool and ImageMagick.
 
-`pnpm doctor` checks all of these. macOS (sandbox-exec profile) and Windows builds are configured but untested and unsigned; desktop control is Linux-only.
+`pnpm run doctor` checks all of these. macOS (sandbox-exec profile) and Windows builds are configured but untested and unsigned; desktop control is Linux-only.

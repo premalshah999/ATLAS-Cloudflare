@@ -1,12 +1,13 @@
 // Settings & models (manual §24, §43): runtime health, provider credentials, versions and provenance.
 import React, { useEffect, useState } from 'react';
-import type { RuntimeHealth } from '@atlas/contracts';
+import type { RuntimeHealth, ProviderId } from '@atlas/contracts';
 import { Badge, Button, Field, Input, KV, Status, Toggle } from '../ui/primitives';
 import { call, type AppInfo, type Credentials, type DesktopState, type RoleInfo, type SettingsState } from './api';
+import { CloudSettings, ModelSettings } from './cloud';
 import { roleName } from './format';
 import { toast } from './toast';
 
-const NAMES: Record<string, string> = { anthropic: 'Anthropic', openai: 'OpenAI', google: 'Google Gemini' };
+const NAMES: Record<string, string> = { anthropic: 'Anthropic', openai: 'OpenAI', google: 'Google Gemini', openrouter: 'OpenRouter', deepseek: 'DeepSeek', xai: 'xAI', groq: 'Groq', mistral: 'Mistral', cerebras: 'Cerebras' };
 
 export function Settings() {
   const [health, setHealth] = useState<RuntimeHealth[] | null>(null);
@@ -26,11 +27,11 @@ export function Settings() {
     catch (e) { toast({ tone: 'danger', title: 'Setting not saved', body: (e as Error).message }); }
   };
   useEffect(load, []);
-  const save = async (provider: 'anthropic' | 'openai' | 'google') => {
+  const save = async (provider: ProviderId) => {
     try { setCreds(await call('credentials.set', { provider, key: draft[provider] ?? '' })); setDraft((d) => ({ ...d, [provider]: '' })); toast({ tone: 'info', title: `${NAMES[provider]} key saved`, body: 'Encrypted with the OS credential store. It is never shown again or sent to the interface.' }); load(); }
     catch (e) { toast({ tone: 'danger', title: 'Key not saved', body: (e as Error).message }); }
   };
-  const remove = async (provider: 'anthropic' | 'openai' | 'google') => {
+  const remove = async (provider: ProviderId) => {
     try { setCreds(await call('credentials.remove', { provider })); toast({ tone: 'info', title: `${NAMES[provider]} key removed` }); load(); }
     catch (e) { toast({ tone: 'danger', title: 'Key not removed', body: (e as Error).message }); }
   };
@@ -57,7 +58,7 @@ export function Settings() {
                 <span className="at-muted lv-small">
                   {settings.sandbox.kind === 'none'
                     ? settings.sandbox.detail
-                    : 'Agent commands and checks run with no access to your home directory, other projects or credentials, no network unless you approve a network command, and their own process namespace.'}
+                    : settings.sandbox.kind === 'sandbox-exec' ? 'macOS Seatbelt restricts home-directory reads, writes and network access. Unlike Linux bubblewrap, it does not provide a private process namespace.' : 'Agent commands and checks run with no access to your home directory, other projects or credentials, no network unless you approve a network command, and their own process namespace.'}
                 </span>
               </div>
             )}
@@ -80,6 +81,8 @@ export function Settings() {
           {settings && <DeploySection settings={settings} onChange={setSettings} />}
           {settings && <RetentionSection settings={settings} onChange={setSettings} />}
           <RolesSection />
+          {settings && <CloudSettings settings={settings} onChange={setSettings} />}
+          {settings && <ModelSettings settings={settings} health={health ?? []} onChange={(s) => { setSettings(s); load(); }} />}
           <section className="lv-section">
             <div className="at-label">Model provider keys</div>
             <p className="at-muted lv-small">Keys are encrypted with the operating system credential store and passed only to the agent runtime process. They are redacted from every log, event and artifact.{creds && !creds.available ? ' No credential store is available on this system: export the variable before launching ATLAS instead.' : ''}</p>
@@ -98,7 +101,7 @@ export function Settings() {
             {info && <KV col={150} rows={[
               ['ATLAS', info.version], ['Electron', info.electron], ['Chromium', info.chrome], ['Daemon Node', info.node], ['Database schema', `v${info.schema}`],
               ['Pi runtime', `${info.pi.package}@${info.pi.version}`], ['Pi source', `${info.pi.repository} @ ${info.pi.gitHead.slice(0, 12)} · ${info.pi.license}`],
-              ['Network', 'No telemetry. Outbound traffic only to model providers you configure.'],
+              ['Network', 'No telemetry. Model requests, approved network commands, and explicit Cloudflare publication.'],
             ]} />}
           </section>
         </div>

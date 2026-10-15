@@ -1,0 +1,16 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "atlas-mission-control",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-07",
+  "artifacts": [
+    {
+      "binding": "ARTIFACTS",
+      "namespace": "atlas",
+      "remote": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

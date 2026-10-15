@@ -122,8 +122,11 @@ export function wrapCommand(command: string, args: string[], cwd: string, spec: 
     const q = (p: string) => JSON.stringify(p);
     const profile = [
       '(version 1)', '(allow default)',
-      `(deny file-write* (require-all ${writable.map((p) => `(require-not (subpath ${q(p)}))`).join(' ')} (require-not (literal "/dev/null")) (require-not (subpath "/dev/fd"))))`,
-      `(deny file-read* (require-all (subpath ${q(home)}) ${readable.map((p) => `(require-not (subpath ${q(p)}))`).join(' ')}))`,
+      `(deny file-write* (require-all ${writable.map((p) => `(require-not (subpath ${q(p)}))`).join(' ')} (require-not (literal "/dev/null")) (require-not (literal "/dev/tty")) (require-not (subpath "/dev/fd"))))`,
+      ...(!spec.writable ? [`(deny file-write* (subpath ${q(root)}))`] : []),
+      // Node resolves npm's symlinks by lstat-ing each ancestor (including $HOME).
+      // Permit metadata lookup; continue denying file contents and directory listing.
+      `(deny file-read-data (require-all (subpath ${q(home)}) ${readable.map((p) => `(require-not (subpath ${q(p)}))`).join(' ')}))`,
       ...(spec.network ? [] : ['(deny network-outbound (require-not (remote unix-socket)))', '(deny network-inbound)']),
     ].join('\n');
     const dir = path.join(os.tmpdir(), 'atlas-sb');

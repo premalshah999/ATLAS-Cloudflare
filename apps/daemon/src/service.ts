@@ -1,12 +1,13 @@
 // The control plane (manual §5, E1): storage, orchestration and runtimes in one supervised process.
 // It receives already-validated intents from Electron main and re-validates them before acting.
 import path from 'node:path';
+import { publishMission, workerUrl, type Publication } from '@atlas/cloudflare';
 import { mkdirSync } from 'node:fs';
 import { AtlasError, InternalRequests, parseRequest, PROVIDER_ENV, registerSecret, type AtlasEvent, type Method } from '@atlas/contracts';
 import { ArtifactStore, openDb, Repo, schemaVersion, type Db } from '@atlas/storage';
 import { Orchestrator, replay, ROLES } from '@atlas/orchestrator';
 import { ROLE_GRANTS } from '@atlas/policy';
-import { FakeRuntime, sampleDesktopScript, samplePlanner, sampleSlugifyScript } from '@atlas/runtime-fake';
+import { FakeRuntime, sampleDesktopScript, samplePlanner, sampleSlugifyScript, sampleRegressionScript } from '@atlas/runtime-fake';
 import { PiRuntime, PI_PINNED } from '@atlas/runtime-pi';
 import { detectSandbox } from '@atlas/terminal';
 import { applicationStage, createBrowserTool, resolveBrowser } from '@atlas/browser';
@@ -24,7 +25,7 @@ export class DaemonService {
   readonly log: Logger;
   private readonly db: Db;
   private pi: PiRuntime;
-  private readonly fake = new FakeRuntime([sampleSlugifyScript, sampleDesktopScript], 350, samplePlanner);
+  private readonly fake = new FakeRuntime([sampleRegressionScript, sampleSlugifyScript, sampleDesktopScript], 350, samplePlanner);
   private keys: Record<string, string>;
   private deploySecrets: Record<string, Record<string, string>>;
   readonly deploy: DeployManager;
@@ -77,7 +78,7 @@ export class DaemonService {
   }
 
   private makePi() {
-    return new PiRuntime({ agentDir: path.join(this.o.dataDir, 'pi'), apiKeys: this.keys, model: this.o.model });
+    return new PiRuntime({ agentDir: path.join(this.o.dataDir, 'pi'), apiKeys: this.keys, model: this.repo.setting<string>('runtime.model', '') || this.o.model });
   }
 
   onEvent(fn: (e: AtlasEvent) => void) { return this.repo.onEvent(fn); }
@@ -182,10 +183,23 @@ export class DaemonService {
         const max = 400_000;
         return { artifact: r.artifact, intact: r.intact, truncated: r.text.length > max, text: r.text.slice(0, max) };
       }
+      case 'cloud.status': return this.repo.setting<Publication | null>(`cloud.publication.${p.missionId}`, null);
+      case 'cloud.publish': {
+        const m = this.repo.mission(p.missionId);
+        if (!m || m.archived || m.state !== 'completed' || m.decision === 'rejected' || !m.baseCommit) throw new AtlasError('invalid_request', 'Publish a completed, non-rejected local mission.');
+        const workspace = this.repo.workspace(m.workspaceId);
+        if (!workspace) throw new AtlasError('invalid_request', 'Workspace unavailable');
+        const result = await publishMission({ root: workspace.root, missionId: m.id, baseCommit: m.baseCommit, url: this.repo.setting('cloud.url', ''), secret: this.deploySecrets.cloudflare?.ATLAS_CLOUD_TOKEN ?? '' });
+        this.repo.setSetting(`cloud.publication.${m.id}`, result);
+        this.repo.append({ missionId: m.id, taskId: null, attemptId: null, type: 'operator.action', actor: { kind: 'operator' }, payload: { action: 'cloudflare.published', ...result }, artifactIds: [] });
+        return result;
+      }
       case 'runtime.health': return Promise.all([this.fake.health(), this.pi.health()]);
       case 'settings.get': return { values: this.settingValues(), sandbox: detectSandbox(true) };
       case 'settings.set': {
+        if (p.key === 'cloud.url' && p.value) workerUrl(p.value);
         this.repo.setSetting(p.key, p.value);
+        if (p.key === 'runtime.model') { this.pi = this.makePi(); this.orch.setRuntime('pi', this.pi); }
         this.log.warn('setting changed', { key: p.key, value: p.value });
         return { values: this.settingValues(), sandbox: detectSandbox() };
       }
@@ -198,6 +212,8 @@ export class DaemonService {
       'execution.allowUnsandboxed': this.repo.setting('execution.allowUnsandboxed', false), 'retention.days': this.repo.setting('retention.days', 0),
       'deploy.allowedTargets': this.repo.setting<string[]>('deploy.allowedTargets', []), 'deploy.autoRollback': this.repo.setting('deploy.autoRollback', true),
       'desktop.enabled': this.repo.setting('desktop.enabled', false),
+      'cloud.url': this.repo.setting('cloud.url', ''),
+      'runtime.model': this.repo.setting('runtime.model', ''),
     };
   }
 

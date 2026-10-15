@@ -20,6 +20,7 @@
     "@atlas/runtime-pi": "workspace:*",
     "@atlas/storage": "workspace:*",
     "@atlas/terminal": "workspace:*",
-    "@atlas/workspace": "workspace:*"
+    "@atlas/workspace": "workspace:*",
+    "@atlas/cloudflare": "workspace:*"
   }
 }

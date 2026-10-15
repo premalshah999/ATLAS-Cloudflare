@@ -7,6 +7,7 @@ export const SAMPLE_FIX = `// Fixed by the ATLAS sample script.
 export function slugify(title) {
   return title
     .normalize('NFKD')
+    .replace(/[\\u0300-\\u036f]/g, '')
     .toLowerCase()
     .replace(/[\\u2019'.]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
@@ -42,11 +43,33 @@ export const sampleSlugifyScript: FakeScript = {
 /** Marker in a mission objective that selects the scripted desktop sample. */
 export const DESKTOP_SAMPLE_MARKER = '[desktop sample]';
 
+export const sampleRegressionScript: FakeScript = {
+  name: 'sample-regression',
+  matches: (input) => input.prompt.includes('Work on task regression now.') && existsSync(path.join(input.cwd, 'src/slugify.js')),
+  steps: () => [
+    { say: 'Adding independent regression coverage in my own worktree while the implementation task runs.' },
+    { tool: 'read_file', args: { path: 'test/slugify.test.js' } },
+    { wait: 3000 },
+    { tool: 'write_file', args: { path: 'test/slugify.additional.test.js', content: "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { slugify } from '../src/slugify.js';\ntest('accented titles normalize', () => assert.equal(slugify('Café Déjà Vu'), 'cafe-deja-vu'));\ntest('empty titles remain empty', () => assert.equal(slugify(''), ''));\n" } },
+    { claim: 'Added two regression assertions. Their result must be checked on the integrated commit.' },
+  ],
+};
+
 /**
  * Scripted planner for the samples: plans a desktop operator task for the desktop sample and declines
  * otherwise (the orchestrator then uses its deterministic plan).
  */
 export function samplePlanner(req: { objective: string; verification: { name: string; required: boolean }[] }): unknown {
+  if (req.objective.includes('[parallel sample]')) return {
+    summary: 'Two independent agents change implementation and regression tests concurrently, then a reviewer checks their integrated work. Scripted decisions; real worktrees and checks.',
+    scope: 'src/slugify.js and test/slugify.additional.test.js in isolated worktrees.',
+    tasks: [
+      { key: 'implement', title: 'Fix slug generation', role: 'coder', dependsOn: [], files: ['src/slugify.js'], acceptance: ['Normalize titles into lowercase URL slugs'], tools: ['read_file', 'write_file', 'run_tests'], risk: 'low' },
+      { key: 'regression', title: 'Add independent regression coverage', role: 'coder', dependsOn: [], files: ['test/slugify.additional.test.js'], acceptance: ['Cover accents and empty input'], tools: ['read_file', 'write_file'], risk: 'low' },
+      { key: 'review', title: 'Review both checkpoints', role: 'reviewer', dependsOn: ['implement', 'regression'], acceptance: ['Inspect the integrated diff and execute its tests'], tools: ['view_diff', 'run_tests', 'report_finding'], risk: 'low' },
+    ],
+    verification: req.verification,
+  };
   if (!req.objective.includes(DESKTOP_SAMPLE_MARKER)) return null;
   return {
     summary: 'Scripted desktop sample: a desktop operator works on an isolated virtual display.',
