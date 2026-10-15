@@ -47,6 +47,8 @@ export const Requests = {
   'mission.cancel': missionRef,
   'mission.decide': z.object({ missionId: Id, decision: z.enum(['accept', 'reject']) }).strict(),
   'task.cancel': z.object({ taskId: Id }).strict(),
+  /** Operator direction to the task's running agent; it keeps its context. */
+  'task.direct': z.object({ taskId: Id, text: z.string().trim().min(1).max(4000) }).strict(),
   'mission.export': missionRef,
   'cloud.publish': missionRef,
   'cloud.status': missionRef,

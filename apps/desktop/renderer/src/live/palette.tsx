@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { IconType } from 'react-icons';
 import { Dot, Icon, Kbd, usePresence } from '../ui/primitives';
-import { IActivity, IAgents, IUsers, IWorkspaces, IEnter, IFolderOpen, IHome, IPalette, IPlus, ISearch, ISettings, IShield, IFolder } from '../lib/icons';
+import { IActivity, IAgents, IUsers, IWorkspaces, IReviews, IDeploy, ITerminal, IGlobe, IEnter, IFolderOpen, IHome, IPalette, IPlus, ISearch, ISettings, IShield, IFolder } from '../lib/icons';
 import { get, go, set, useLive } from './store';
 import { openRepository, dotFor } from './shell';
 import { missionStatus } from './format';
@@ -47,6 +47,10 @@ function PaletteSession({ closing }: { closing: boolean }) {
       { id: 'projects', label: 'Projects', group: 'Go to', icon: IWorkspaces, kbd: '⌘ 1', run: () => go({ screen: 'projects' }) },
       { id: 'team', label: 'Team', group: 'Go to', icon: IUsers, kbd: '⌘ 2', run: () => go({ screen: 'team' }) },
       { id: 'activity', label: 'Activity across missions', group: 'Go to', icon: IActivity, kbd: '⌘ 3', run: () => go({ screen: 'activity' }) },
+      { id: 'reviews', label: 'Reviews', group: 'Go to', icon: IReviews, kbd: '⌘ 5', run: () => go({ screen: 'reviews' }) },
+      { id: 'deployments', label: 'Deployments', group: 'Go to', icon: IDeploy, kbd: '⌘ 6', run: () => go({ screen: 'deployments' }) },
+      { id: 'terminal', label: 'Terminal', group: 'Go to', icon: ITerminal, kbd: '⌘ 7', run: () => go({ screen: 'terminal' }) },
+      { id: 'browser', label: 'Browser & desktop', group: 'Go to', icon: IGlobe, kbd: '⌘ 8', run: () => go({ screen: 'browser' }) },
       { id: 'agents', label: 'Agents and their permissions', group: 'Go to', icon: IAgents, kbd: '⌘ 4', run: () => go({ screen: 'agents' }) },
       { id: 'settings', label: 'Settings', group: 'Go to', icon: ISettings, kbd: '⌘ ,', run: () => go({ screen: 'settings' }) },
       { id: 'preview', label: 'Design preview (sample data)', group: 'Go to', icon: IPalette, run: () => go({ screen: 'preview' }) },

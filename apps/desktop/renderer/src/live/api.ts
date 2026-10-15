@@ -69,6 +69,7 @@ type Results = {
   'mission.cancel': Mission;
   'mission.decide': Mission;
   'task.cancel': Task;
+  'task.direct': Task;
   'mission.export': { path: string; records: number; sha256: string } | null;
   'mission.import': Mission | null;
   'mission.delete': { deleted: string };

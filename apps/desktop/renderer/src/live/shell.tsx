@@ -2,7 +2,7 @@
 import React from 'react';
 import type { IconType } from 'react-icons';
 import { cx, Dot, Icon, Kbd, Menu, MenuItem, Tip } from '../ui/primitives';
-import { IActivity, IAgents, IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IWorkspaces, IMissions, IPlus, ISettings, IPalette, ISearch, IShield, IUsers } from '../lib/icons';
+import { IActivity, IAgents, IReviews, IDeploy, ITerminal, IGlobe, IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IWorkspaces, IMissions, IPlus, ISettings, IPalette, ISearch, IShield, IUsers } from '../lib/icons';
 import { call } from './api';
 import { go, refreshLists, useLive, type Route } from './store';
 import { missionStatus } from './format';
@@ -29,8 +29,12 @@ const NAV: { id: Route['screen']; label: string; icon: IconType; kbd?: string }[
   { id: 'projects', label: 'Projects', icon: IWorkspaces, kbd: '⌘ 1' },
   { id: 'new', label: 'New mission', icon: IPlus, kbd: '⌘ N' },
   { id: 'team', label: 'Team', icon: IUsers, kbd: '⌘ 2' },
-  { id: 'activity', label: 'Activity', icon: IActivity, kbd: '⌘ 3' },
   { id: 'agents', label: 'Agents', icon: IAgents, kbd: '⌘ 4' },
+  { id: 'reviews', label: 'Reviews', icon: IReviews, kbd: '⌘ 5' },
+  { id: 'deployments', label: 'Deployments', icon: IDeploy, kbd: '⌘ 6' },
+  { id: 'activity', label: 'Activity', icon: IActivity, kbd: '⌘ 3' },
+  { id: 'terminal', label: 'Terminal', icon: ITerminal, kbd: '⌘ 7' },
+  { id: 'browser', label: 'Browser & desktop', icon: IGlobe, kbd: '⌘ 8' },
 ];
 
 export function LiveTitleBar() {

@@ -1,0 +1,6 @@
+{
+  "title": "Fix Content Security Policy violations on every page",
+  "goal": "Every page of the Operon dashboard logs browser console errors caused by the backend's own Content-Security-Policy header: (1) the Google Fonts stylesheet (fonts.googleapis.com) is refused, so Inter and JetBrains Mono never load, and (2) an inline <script> in frontend/index.html is refused by \"script-src 'self'\", so it never runs. Fix both so that pages load with zero console errors while keeping a strict CSP: do not add 'unsafe-inline' or 'unsafe-eval' to script-src. Prefer moving the inline script into a same-origin module and either self-hosting the fonts or allowing exactly the font origins needed (style-src for fonts.googleapis.com, font-src for fonts.gstatic.com). Add a backend test that asserts the CSP header still forbids inline scripts and allows only the intended font origins.",
+  "constraints": "Keep the CSP strict (no unsafe-inline/unsafe-eval in script-src). Do not change unrelated pages or features. Backend tests, frontend tests, typecheck, lint and build must keep passing.",
+  "timeoutMin": 45
+}

@@ -11,6 +11,7 @@ import { NewMission } from './newMission';
 import { MissionView } from './mission';
 import { Settings } from './settings';
 import { Agents, GlobalActivity, Home } from './dashboard';
+import { Workbench } from './workbench';
 import { TeamScreen } from './team';
 import { bridge } from './api';
 import { LivePalette, togglePalette } from './palette';
@@ -28,6 +29,10 @@ function Keys() {
       else if (k === '1') { e.preventDefault(); go({ screen: 'projects' }); }
       else if (k === '3') { e.preventDefault(); go({ screen: 'activity' }); }
       else if (k === '4') { e.preventDefault(); go({ screen: 'agents' }); }
+      else if (k === '5') { e.preventDefault(); go({ screen: 'reviews' }); }
+      else if (k === '6') { e.preventDefault(); go({ screen: 'deployments' }); }
+      else if (k === '7') { e.preventDefault(); go({ screen: 'terminal' }); }
+      else if (k === '8') { e.preventDefault(); go({ screen: 'browser' }); }
       else if (k === '2') { e.preventDefault(); go({ screen: 'team' }); }
       else if (k === 'n') { e.preventDefault(); go({ screen: 'new' }); }
       else if (k === ',') { e.preventDefault(); go({ screen: 'settings' }); }
@@ -73,6 +78,10 @@ export function LiveApp() {
             {route.screen === 'projects' && <Projects />}
             {route.screen === 'activity' && <GlobalActivity />}
             {route.screen === 'agents' && <Agents />}
+            {route.screen === 'reviews' && <Workbench key="reviews" kind="reviews" />}
+            {route.screen === 'deployments' && <Workbench key="deployments" kind="deployments" />}
+            {route.screen === 'terminal' && <Workbench key="terminal" kind="terminal" />}
+            {route.screen === 'browser' && <Workbench key="browser" kind="browser" />}
             {route.screen === 'new' && <NewMission key={route.item?.id ?? 'new'} workspaceId={route.workspaceId} item={route.item} />}
             {route.screen === 'team' && <TeamScreen workspaceId={route.workspaceId} />}
             {route.screen === 'mission' && <MissionView missionId={route.missionId} />}

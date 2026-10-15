@@ -13,6 +13,7 @@ export async function launch(opts: { userData?: string; openDir?: string; env?: 
   if (opts.openDir) env.ATLAS_E2E_OPEN_DIR = opts.openDir;
   // A developer's own GitHub token never reaches a test app; a test passes its fake one explicitly.
   delete env.ATLAS_GITHUB_TOKEN; delete env.ATLAS_GITHUB_API;
+  env.ATLAS_NO_GH_CLI = '1';
   // Nor a real search key (ADR 0030).
   for (const k of ['TAVILY_API_KEY', 'BRAVE_API_KEY', 'BRAVE_SEARCH_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_CSE_ID', 'ATLAS_WEB_TEST_BASE']) delete env[k];
   // No real provider key from the developer's shell reaches the app; a test passes its own fake key in opts.env.

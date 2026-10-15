@@ -98,6 +98,8 @@ export interface AgentRuntime {
   interrupt(handle: AgentHandle): Promise<void>;
   resume(handle: AgentHandle, checkpoint: string): Promise<void>;
   dispose(handle: AgentHandle): Promise<void>;
+  /** Operator direction to a running agent: delivered as its next turn, interrupting the current one. It keeps its context. Optional. */
+  message?(handle: AgentHandle, text: string): Promise<void>;
   /** Whether a conversation saved for this attempt survives and can be continued. Optional: absent means never. */
   canResume?(attemptId: string): boolean;
   /** Delete whatever the runtime saved for this attempt. Called once an attempt has ended or been resumed. */

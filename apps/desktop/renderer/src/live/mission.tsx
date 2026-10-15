@@ -2,23 +2,24 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { pipelineOf, type Approval, type AtlasEvent, type CheckRecord, type Mission, type Task } from '@atlas/contracts';
 import { Badge, Button, cx, EmptyState, Icon, PanelHead, RoleMark, Status, Tabs, Tip } from '../ui/primitives';
-import { ICheck, ICheckCircle, IClock, IFileDiff, IShield, IStopCircle, ITerminal, IWarn, IXCircle, IUndo, IMerge, IFileText, ITube, ITree, IGraph, IReviews, IGlobe, IImage, IDeploy, IComputer, IMore, IDisk, IClose, IUsers, IDoc } from '../lib/icons';
+import { ICheck, ICheckCircle, IClock, IFileDiff, IShield, IStopCircle, ITerminal, IWarn, IXCircle, IUndo, IMerge, IFileText, ITube, ITree, IGraph, IReviews, IGlobe, IImage, IDeploy, IComputer, IMore, IDisk, IClose, IUsers, IDoc, INetworkGraph } from '../lib/icons';
 import { Menu, MenuItem } from '../ui/primitives';
 import { BrowserPanel, BudgetMeter, DeployPanel, DesktopPanel, Findings, TaskGraph, TerminalPanel, VisualPanel } from './panels';
 import { go, refreshLists } from './store';
 import { call, type ForgeView } from './api';
 import { CloudPanel } from './cloud';
 import { ReportPanel } from './report';
+import { ControlPanel } from './control';
 import { useMission } from './useMission';
 import { actorName, describeEvent, fmtMs, markOf, missionStatus, resultWord, roleMark, roleName, stalledTasks, stateWord, time, type Row } from './format';
 import { toast } from './toast';
 
 const ACTIVE = new Set(['planning', 'running', 'verifying']);
-type Tab = 'report' | 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'visual' | 'browser' | 'deploy' | 'desktop' | 'terminal';
+type Tab = 'control' | 'report' | 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'visual' | 'browser' | 'deploy' | 'desktop' | 'terminal';
 
 export function MissionView({ missionId }: { missionId: string }) {
   const { snap, events, error } = useMission(missionId);
-  const [tab, setTab] = useState<Tab>('activity');
+  const [tab, setTab] = useState<Tab>('control');
   const [log, setLog] = useState<{ name: string; text: string } | null>(null);
   const showLog = (artifactId: string) => void call('artifact.read', { artifactId }).then((r) => setLog({ name: r.artifact.name, text: r.text })).catch(() => {});
   const [busy, setBusy] = useState(false);
@@ -26,7 +27,7 @@ export function MissionView({ missionId }: { missionId: string }) {
     setBusy(true);
     try { await fn(); } catch (e) { toast({ tone: 'danger', title: label, body: (e as Error).message }); } finally { setBusy(false); }
   };
-  useEffect(() => { if (snap && ['completed', 'failed'].includes(snap.mission.state)) setTab((t) => (t === 'activity' ? 'evidence' : t)); }, [snap?.mission.state]);
+  useEffect(() => { if (snap && ['completed', 'failed'].includes(snap.mission.state)) setTab((t) => (t === 'activity' || t === 'control' ? 'evidence' : t)); }, [snap?.mission.state]);
 
   if (error) return <div className="at-screen lv-page"><EmptyState center icon={IXCircle} title="Mission unavailable" body={error} /></div>;
   if (!snap) return <div className="at-screen lv-page"><div className="lv-loading">Loading mission…</div></div>;
@@ -100,6 +101,7 @@ export function MissionView({ missionId }: { missionId: string }) {
           <div className="lv-mmain">
             <div className="lv-tabs">
               <Tabs value={tab} onChange={setTab} items={[
+                { id: 'control', label: 'Control', icon: INetworkGraph },
                 { id: 'activity', label: 'Activity', count: events.length },
                 { id: 'graph', label: 'Tasks', icon: IGraph, count: snap.tasks.length || undefined },
                 { id: 'changes', label: 'Changes', icon: IFileDiff, count: patchCount || undefined },
@@ -114,6 +116,7 @@ export function MissionView({ missionId }: { missionId: string }) {
                 ...(m.archived ? [] : [{ id: 'terminal' as Tab, label: 'Terminal', icon: ITerminal }]),
               ]} />
             </div>
+            {tab === 'control' && <ControlPanel snap={snap} events={events} />}
             {tab === 'report' && <ReportPanel snap={snap} events={events} />}
             {tab === 'cloud' && <CloudPanel mission={m} />}
             {tab === 'activity' && <ActivityTimeline events={events} />}
@@ -133,7 +136,7 @@ export function MissionView({ missionId }: { missionId: string }) {
               </div>
             )}
           </div>
-          <aside className="lv-mside">
+          {tab !== 'control' && <aside className="lv-mside">
             <PanelHead label="Needs you" count={pending.length} />
             <div className="lv-needs" data-testid="needs-you">
               {pending.length === 0 ? <div className="at-subtle lv-small" style={{ padding: '10px 12px' }}>Nothing is waiting for you.</div> : pending.map((a) => <ApprovalCard key={a.id} a={a} />)}
@@ -143,7 +146,7 @@ export function MissionView({ missionId }: { missionId: string }) {
             <PanelHead label="Tasks" count={snap.tasks.length} />
             <div className="lv-tasks">{snap.tasks.map((t) => <TaskRow key={t.id} t={t} stalled={stalled.has(t.id)} attempts={snap.attempts.filter((a) => a.taskId === t.id).length} />)}</div>
             <ProcessPane events={events} />
-          </aside>
+          </aside>}
         </div>
       )}
     </div>
@@ -281,7 +284,7 @@ function Detail({ text }: { text: string }) {
   );
 }
 
-function ApprovalCard({ a }: { a: Approval }) {
+export function ApprovalCard({ a }: { a: Approval }) {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(t); }, []);
@@ -327,7 +330,7 @@ function TaskRow({ t, attempts, stalled }: { t: Task; attempts: number; stalled:
   );
 }
 
-function ProcessPane({ events }: { events: AtlasEvent[] }) {
+export function ProcessPane({ events }: { events: AtlasEvent[] }) {
   const lines = useMemo(() => {
     const out: { k: 'cmd' | 'out' | 'exit'; text: string; ok?: boolean }[] = [];
     for (const e of events) {
@@ -355,7 +358,7 @@ function ProcessPane({ events }: { events: AtlasEvent[] }) {
   );
 }
 
-function Changes({ snap }: { snap: NonNullable<ReturnType<typeof useMission>['snap']> }) {
+export function Changes({ snap }: { snap: NonNullable<ReturnType<typeof useMission>['snap']> }) {
   const patches = snap.artifacts.filter((a) => a.kind === 'patch');
   const [text, setText] = useState<string | null>(null);
   const [intact, setIntact] = useState(true);

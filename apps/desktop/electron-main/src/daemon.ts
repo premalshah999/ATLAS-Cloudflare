@@ -59,7 +59,7 @@ export class DaemonClient {
     }
   }
 
-  async request<T = unknown>(method: string, params: unknown, timeoutMs = method === 'mission.plan' ? 360_000 : method === 'cloud.publish' ? 240_000 : 120_000): Promise<T> {
+  async request<T = unknown>(method: string, params: unknown, timeoutMs = method === 'mission.plan' ? 540_000 : method === 'cloud.publish' ? 240_000 : 120_000): Promise<T> {
     await this.ready;
     if (!this.proc) throw Object.assign(new Error('Daemon is restarting'), { kind: 'stale_session' });
     const id = ++this.seq;

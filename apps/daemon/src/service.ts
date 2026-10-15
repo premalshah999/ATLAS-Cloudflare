@@ -445,6 +445,7 @@ export class DaemonService {
       case 'mission.fixCi': return this.orch.fixCi(p.missionId);
       case 'mission.approveDefinition': return this.orch.approveDefinitionChange(p.missionId, p.hash);
       case 'task.cancel': return this.orch.cancelTask(p.taskId);
+      case 'task.direct': return this.orch.directAgent(p.taskId, p.text);
       case 'roles.list': return Object.values(ROLES).map((r) => ({ id: r.id, version: r.version, title: r.title, tools: r.tools, writes: r.writes, modelPreference: r.modelPreference, budget: r.budget, capabilities: ROLE_GRANTS[r.id], instructions: r.instructions }));
       case 'desktop.list': return { support: desktopSupport(), enabled: this.repo.setting('desktop.enabled', false), sessions: this.desktop.list() };
       case 'desktop.control': {

@@ -1,0 +1,301 @@
+{
+  "spec": {
+    "title": "Fix Content Security Policy violations on every page",
+    "goal": "Every page of the Operon dashboard logs browser console errors caused by the backend's own Content-Security-Policy header: (1) the Google Fonts stylesheet (fonts.googleapis.com) is refused, so Inter and JetBrains Mono never load, and (2) an inline <script> in frontend/index.html is refused by \"script-src 'self'\", so it never runs. Fix both so that pages load with zero console errors while keeping a strict CSP: do not add 'unsafe-inline' or 'unsafe-eval' to script-src. Prefer moving the inline script into a same-origin module and either self-hosting the fonts or allowing exactly the font origins needed (style-src for fonts.googleapis.com, font-src for fonts.gstatic.com). Add a backend test that asserts the CSP header still forbids inline scripts and allows only the intended font origins.",
+    "constraints": "Keep the CSP strict (no unsafe-inline/unsafe-eval in script-src). Do not change unrelated pages or features. Backend tests, frontend tests, typecheck, lint and build must keep passing.",
+    "timeoutMin": 45
+  },
+  "mission": {
+    "id": "msn_yukDCZzaujhg",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Fix Content Security Policy violations on every page",
+    "goal": "Every page of the Operon dashboard logs browser console errors caused by the backend's own Content-Security-Policy header: (1) the Google Fonts stylesheet (fonts.googleapis.com) is refused, so Inter and JetBrains Mono never load, and (2) an inline <script> in frontend/index.html is refused by \"script-src 'self'\", so it never runs. Fix both so that pages load with zero console errors while keeping a strict CSP: do not add 'unsafe-inline' or 'unsafe-eval' to script-src. Prefer moving the inline script into a same-origin module and either self-hosting the fonts or allowing exactly the font origins needed (style-src for fonts.googleapis.com, font-src for fonts.gstatic.com). Add a backend test that asserts the CSP header still forbids inline scripts and allows only the intended font origins.",
+    "constraints": "Keep the CSP strict (no unsafe-inline/unsafe-eval in script-src). Do not change unrelated pages or features. Backend tests, frontend tests, typecheck, lint and build must keep passing.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "4ba4646cf9837f98070cf7514956ed9436345786",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Blocked: frontend-tests failed, frontend-types-lint failed, frontend-build failed, app failed",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 3,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": "atlas/msn_yukDCZzaujhg/integration",
+    "integrationCommit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30",
+    "archived": false,
+    "targetEnvironment": null,
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T02:50:51.747Z",
+    "updatedAt": "2026-10-15T03:01:58.866Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_bTEXRM8cj4nw",
+      "missionId": "msn_yukDCZzaujhg",
+      "key": "implement",
+      "title": "Implement the objective",
+      "role": "coder",
+      "dependencies": [],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Every page of the Operon dashboard logs browser console errors caused by the backend's own Content-Security-Policy header: (1) the Google Fonts stylesheet (fonts.googleapis.com) is refused, so Inter a",
+        "Respect constraints: Keep the CSP strict (no unsafe-inline/unsafe-eval in script-src). Do not change unrelated pages or features. Backend tests, frontend tests, typecheck, lint and build must keep passing.",
+        "No test command detected — result will be reported as unverified"
+      ],
+      "resultRef": "art_uA5vWLciTbts",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_yukDCZzaujhg/implement-1",
+      "branch": "atlas/msn_yukDCZzaujhg/implement-1",
+      "checkpoint": "b4d2b528ab3b3e73d77ddbf6e318c23db308b218",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_nuBaLsZca9BC",
+      "missionId": "msn_yukDCZzaujhg",
+      "key": "review",
+      "title": "Review the change against the acceptance criteria",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_bTEXRM8cj4nw"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Every reported problem has file, line, severity and evidence",
+        "Confirmed findings reference a reproduction ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_yukDCZzaujhg/review-1",
+      "branch": "atlas/msn_yukDCZzaujhg/review-1",
+      "checkpoint": "b4d2b528ab3b3e73d77ddbf6e318c23db308b218",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_zL6mptN7ivWu",
+      "missionId": "msn_yukDCZzaujhg",
+      "key": "security",
+      "title": "Security review of the change",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_bTEXRM8cj4nw"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Each security problem is reported with file, line, severity, the attack it enables and the fix",
+        "Confirmed findings reference a demonstration ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_yukDCZzaujhg/security-1",
+      "branch": "atlas/msn_yukDCZzaujhg/security-1",
+      "checkpoint": "b4d2b528ab3b3e73d77ddbf6e318c23db308b218",
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [
+    {
+      "id": "chk_vPEHwBVYq83j",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "verification-definition",
+      "command": null,
+      "required": true,
+      "result": "pass",
+      "exitCode": null,
+      "durationMs": null,
+      "reason": "Unchanged since the approved base (1 test file(s) added)",
+      "artifactId": "art_9ZRbsYiu9npi",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_Nb7rniAwP7fy",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "tests",
+      "command": "bash scripts/atlas/test-backend.sh",
+      "required": true,
+      "result": "pass",
+      "exitCode": 0,
+      "durationMs": 8383,
+      "reason": "Exit code 0",
+      "artifactId": "art_3qdp48sveCxt",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_wkEQ9yuZqwJd",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "frontend-tests",
+      "command": "bash scripts/atlas/test-frontend.sh",
+      "required": true,
+      "result": "fail",
+      "exitCode": 1,
+      "durationMs": 536,
+      "reason": "Exit code 1",
+      "artifactId": "art_Vp8j3DXVQCX3",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_UgEqqzPC4ByF",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "frontend-types-lint",
+      "command": "bash scripts/atlas/lint-frontend.sh",
+      "required": true,
+      "result": "fail",
+      "exitCode": 1,
+      "durationMs": 5318,
+      "reason": "Exit code 1",
+      "artifactId": "art_4vVgAnSMCCMp",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_3b7kw6ihFkrC",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "frontend-build",
+      "command": "bash scripts/atlas/build.sh",
+      "required": true,
+      "result": "fail",
+      "exitCode": 1,
+      "durationMs": 315,
+      "reason": "Exit code 1",
+      "artifactId": "art_yN9QyYNeCy75",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_4Gsp7GETrDVG",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "review",
+      "command": null,
+      "required": true,
+      "result": "pass",
+      "exitCode": null,
+      "durationMs": null,
+      "reason": "3 findings; none confirmed and blocking (1 suspected, 2 informational)",
+      "artifactId": null,
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_Rvg9G2K4spJC",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "security",
+      "command": null,
+      "required": true,
+      "result": "pass",
+      "exitCode": null,
+      "durationMs": 260,
+      "reason": "No security problems found in the change",
+      "artifactId": "art_EjFyHjx26uUN",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_fnSmeErYfFBB",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "app",
+      "command": "bash scripts/atlas/serve.sh",
+      "required": true,
+      "result": "fail",
+      "exitCode": null,
+      "durationMs": null,
+      "reason": "App not ready: process exited before becoming ready",
+      "artifactId": "art_9i42S7FXCqND",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    },
+    {
+      "id": "chk_rhTKJqfrnLpv",
+      "missionId": "msn_yukDCZzaujhg",
+      "name": "visual",
+      "command": "3 pages at 4ba4646 and 50d7be4",
+      "required": false,
+      "result": "pass",
+      "exitCode": null,
+      "durationMs": 2411,
+      "reason": "No visual change on 3 pages; operations did not render (App not ready: process exited before becoming ready); cases did not render (App not ready: process exited before becoming ready); analyze did not render (App not ready: process exited before becoming ready)",
+      "artifactId": "art_uBPBUGTjpPtK",
+      "commit": "50d7be412b822e44fb15ac0fa67e4245f0f65c30"
+    }
+  ],
+  "findings": [
+    {
+      "id": "fnd_CSUURTyHB6UJ",
+      "missionId": "msn_yukDCZzaujhg",
+      "taskId": "tsk_zL6mptN7ivWu",
+      "file": "backend/security.py",
+      "line": 29,
+      "endLine": null,
+      "severity": "info",
+      "kind": "informational",
+      "title": "Trust expansion is confined to the two required font origins",
+      "observation": "The CSP now permits fonts.googleapis.com under style-src and fonts.gstatic.com under font-src, which are the minimum origins the task requires to load Inter/JetBrains Mono. script-src remains 'self' (no unsafe-inline/unsafe-eval) and connect-src remains 'self', so a compromised font-CDN could at worst inject CSS but has no channel to exfiltrate data or execute script. style-src 'unsafe-inline' is pre-existing and was present in the original header, so it is not introduced by this change.",
+      "recommendation": null,
+      "evidence": "backend/security.py lines 27-34 define CSP_STYLE_SRC=\"'self' 'unsafe-inline' https://fonts.googleapis.com\" and CSP_FONT_SRC=\"'self' data: https://fonts.gstatic.com\"; script-src stays \"'self'\" and connect-src stays \"'self'\". The removed inline <script> in frontend/index.html is replaced by a same-origin module revealed via revealApp() in main.tsx, reducing attack surface.",
+      "reproductionArtifactId": null,
+      "confidence": 0.9,
+      "status": "open",
+      "fingerprint": "643d65560d292850da4b5073",
+      "createdAt": "2026-10-15T03:00:19.642Z",
+      "source": "review"
+    },
+    {
+      "id": "fnd_cNFBNe75H2Gs",
+      "missionId": "msn_yukDCZzaujhg",
+      "taskId": "tsk_nuBaLsZca9BC",
+      "file": "backend/tests/test_csp.py",
+      "line": 69,
+      "endLine": null,
+      "severity": "medium",
+      "kind": "suspected",
+      "title": "Stylesheet-coverage test matches nothing and passes vacuously",
+      "observation": "The regex in test_frontend_shell_stylesheets_are_covered_by_the_csp never matches the HTML it reads, so the test body asserts nothing. The regex requires the attribute order `<link ... rel=\"stylesheet\" ... href=\"...\">`, but frontend/index.html writes the stylesheet link as `<link href=\"https://fonts.googleapis.com/css2?...&display=swap\" rel=\"stylesheet\" />` (href precedes rel). Because `rel=\"stylesheet\"` is followed only by ` />` with no later `href=`, the negative result is zero matches and the for-loop body (which contains the only assertion) is never executed. The test therefore reports green without ever verifying that the Google Fonts stylesheet origin is allowed by style-src.",
+      "recommendation": "Make the regex order-independent, e.g. extract the href first and check rel separately, or use a regex like r\"<link(?=[^>]*\\brel=[\\\"']stylesheet[\\\"'])[^>]+href=[\\\"']([^\\\"']+)\". Then assert the extracted origin is in style_sources.",
+      "evidence": "frontend/index.html contains: <link href=\"https://fonts.googleapis.com/css2?family=Inter:...&display=swap\" rel=\"stylesheet\" /> (href before rel). The test's pattern is r\"<link[^>]+rel=[\\\"']stylesheet[\\\"'][^>]+href=[\\\"']([^\\\"']+)\". After matching rel=\"stylesheet\", the required trailing href= cannot be found (only \" />\" follows), so re.findall returns an empty list. The suite still logged 21 passed (log art_imvVf4RRTMXR), including this test.",
+      "reproductionArtifactId": null,
+      "confidence": 0.9,
+      "status": "open",
+      "fingerprint": "d2b1aa8dfdddb0205074d088",
+      "createdAt": "2026-10-15T03:01:24.891Z",
+      "source": "review"
+    },
+    {
+      "id": "fnd_AimhqQ8gGJGs",
+      "missionId": "msn_yukDCZzaujhg",
+      "taskId": "tsk_nuBaLsZca9BC",
+      "file": "backend/tests/test_csp.py",
+      "line": 54,
+      "endLine": null,
+      "severity": "low",
+      "kind": "informational",
+      "title": "Page-path assertions hit 404 responses rather than rendered pages",
+      "observation": "test_csp_applies_to_pages_and_respects_the_strict_script_policy fetches \"/\" and \"/cases\" without asserting a 200 status. The backend's serve_frontend route returns 404 when FRONTEND_DIST does not exist, which is the case under pytest (the frontend is never built by the test harness). The requests therefore return 404 responses that still carry the CSP header (the middleware applies it to every response), so the test passes while never actually exercising a rendered dashboard page. This is mitigated by the fact that the CSP is a single module-level constant applied uniformly by the middleware, and the core font/inline-script assertions are covered by the other tests.",
+      "recommendation": "Assert response.status_code == 200 in the page loop, or build/serve the frontend dist in the fixture so the test exercises real HTML responses.",
+      "evidence": "backend/main.py serve_frontend: if not FRONTEND_DIST.exists(): raise HTTPException(404, \"Frontend build not found\"). The conftest fixture only reloads database/main and sets env vars; it never builds frontend/dist. Yet the test asserts only header presence, not status_code == 200 (unlike _csp, which asserts 200).",
+      "reproductionArtifactId": null,
+      "confidence": 0.85,
+      "status": "open",
+      "fingerprint": "45d1bf16357d3568ba2bfd95",
+      "createdAt": "2026-10-15T03:01:24.891Z",
+      "source": "review"
+    }
+  ],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 3,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 113307,
+    "toolCalls": 74,
+    "tasks": 3,
+    "agentsNow": 0,
+    "elapsedMs": 367013
+  }
+}

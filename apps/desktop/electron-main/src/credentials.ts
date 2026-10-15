@@ -1,7 +1,9 @@
 // Provider credentials (manual §24, E2): encrypted with the OS credential store via safeStorage.
 // Values never reach the renderer; only "configured: yes/no" does.
 import { app, safeStorage } from 'electron';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { PROVIDER_ENV, SERVICE_ENV } from '@atlas/contracts';
 
@@ -9,6 +11,23 @@ import { PROVIDER_ENV, SERVICE_ENV } from '@atlas/contracts';
 const ALL_ENV: Record<string, string> = { ...PROVIDER_ENV, ...SERVICE_ENV };
 
 const file = () => path.join(app.getPath('userData'), 'credentials.json');
+
+/**
+ * The GitHub CLI's sign-in, used when no GitHub token is stored or exported: `gh auth token` prints the token gh
+ * already keeps in the OS keychain. Read on demand, never written anywhere by ATLAS. Off with ATLAS_NO_GH_CLI=1.
+ */
+let ghCache: { at: number; token: string | null } | null = null;
+function ghCliToken(): string | null {
+  if (process.env.ATLAS_NO_GH_CLI === '1') return null;
+  if (ghCache && Date.now() - ghCache.at < 60_000) return ghCache.token;
+  let token: string | null = null;
+  for (const gh of [path.join(os.homedir(), '.local/bin/gh'), '/opt/homebrew/bin/gh', '/usr/local/bin/gh', '/usr/bin/gh']) {
+    if (!existsSync(gh)) continue;
+    try { const t = execFileSync(gh, ['auth', 'token'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }).trim(); if (/^[A-Za-z0-9_]{20,255}$/.test(t)) { token = t; break; } } catch { /* not signed in */ }
+  }
+  ghCache = { at: Date.now(), token };
+  return token;
+}
 
 function load(): Record<string, string> {
   if (!existsSync(file())) return {};
@@ -30,11 +49,15 @@ export const credentials = {
     for (const [provider, enc] of Object.entries(load())) {
       try { out[provider] = safeStorage.decryptString(Buffer.from(enc, 'base64')); } catch { /* unreadable entry: ignored */ }
     }
+    if (!out.github) { const t = ghCliToken(); if (t) out.github = t; }
     return out;
   },
   list() {
     const stored = load();
-    return Object.entries(ALL_ENV).map(([provider, env]) => ({ provider, stored: provider in stored, fromEnvironment: !!process.env[env], env }));
+    return Object.entries(ALL_ENV).map(([provider, env]) => {
+      if (provider === 'github' && !(provider in stored) && !process.env[env] && ghCliToken()) return { provider, stored: false, fromEnvironment: true, env: 'GitHub CLI sign-in' };
+      return { provider, stored: provider in stored, fromEnvironment: !!process.env[env], env };
+    });
   },
   set(provider: string, key: string) {
     if (!safeStorage.isEncryptionAvailable()) throw Object.assign(new Error('No OS credential store is available. Export the provider variable before launching ATLAS instead.'), { kind: 'secrets' });

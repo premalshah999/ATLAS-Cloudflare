@@ -3,7 +3,7 @@
 import path from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import {
-  AtlasError, DEFAULT_BUDGET, MissionBudget, newId, nowIso, RETRYABLE, type AgentRole, type AgentRuntime, type Approval, type ApprovalMode, type Attempt, type AtlasEvent,
+  AtlasError, DEFAULT_BUDGET, MissionBudget, newId, nowIso, RETRYABLE, type AgentHandle, type AgentRole, type AgentRuntime, type Approval, type ApprovalMode, type Attempt, type AtlasEvent,
   type CheckRecord, type Finding, type Mission, type MissionState, type NewEvent, type Plan, type ReleaseStage, type RuntimeKind, type StageContext, type Task, type TaskState,
   type ToolResult, type Workspace, type Actor, redact,
 } from '@atlas/contracts';
@@ -112,6 +112,9 @@ const SYSTEM = (component: string) => ({ kind: 'system' as const, component });
 const OPERATOR = { kind: 'operator' as const };
 type Outcome = { kind: 'completed'; summary: string } | { kind: 'error'; errorKind: string; message: string };
 
+/** Model planning budget. Reasoning models (DeepSeek V4 Pro) can take several minutes for a full plan. */
+const PLANNER_TIMEOUT_MS = 8 * 60_000;
+
 export class Orchestrator {
   private readonly repo: Repo;
   private readonly artifacts: ArtifactStore;
@@ -120,6 +123,8 @@ export class Orchestrator {
   private readonly taskAborts = new Map<string, AbortController>();
   private readonly waiters = new Map<string, (a: Approval) => void>();
   private readonly running = new Map<string, Promise<void>>();
+  /** Agents running now, by task: where operator direction is delivered. */
+  private readonly liveAgents = new Map<string, { rt: AgentRuntime; handle: AgentHandle }>();
   private readonly activeAgents = new Map<string, number>();
   private readonly budgetTimers = new Map<string, NodeJS.Timeout>();
   private readonly maxAttempts: number;
@@ -378,7 +383,7 @@ export class Orchestrator {
     const rt = this.o.runtimes[m.runtime];
     if (!candidate && !options.skipModel && rt?.plan && w.isGit && w.head) {
       const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), 5 * 60_000);
+      const timer = setTimeout(() => ac.abort(), PLANNER_TIMEOUT_MS);
       try {
         const req = {
           missionId, title: m.title, objective: m.goal, constraints: m.constraints, approvalMode: m.approvalMode, repoMap: await repoMap(w.root), excerpts: await this.excerpts(w.root),
@@ -740,6 +745,7 @@ export class Orchestrator {
         permittedTools: permitted, contextRefs: [ctxArt.id], budget: def.budget, tools, signal: ac.signal,
         resume: resume ? { attemptId: resume.attemptId, prompt: resumePrompt(t.key) } : undefined, model,
       });
+      this.liveAgents.set(t.id, { rt, handle });
       if (resume) {
         // The fork is the attempt's own copy now; the lost attempt's saved conversation is no longer needed.
         rt.discard?.(resume.attemptId);
@@ -767,6 +773,7 @@ export class Orchestrator {
     } catch (e) {
       outcome = { kind: 'error', errorKind: ac.signal.aborted ? 'cancelled' : e instanceof AtlasError ? e.kind : 'internal', message: (e as Error).message };
     } finally {
+      this.liveAgents.delete(t.id);
       this.unwatchSignal(attempt.id);
       if (handle) await rt.dispose(handle).catch(() => {});
       // Saved conversations exist for crash recovery only: once the attempt has an outcome, drop it. On shutdown it is
@@ -1395,6 +1402,18 @@ export class Orchestrator {
       this.repo.updateMission(missionId, { outcome: 'Cancelled by operator' });
     }
     return this.mission(missionId);
+  }
+
+  /** The operator directs a running agent (the design's "Direct this agent"): recorded, then delivered as its next turn. */
+  async directAgent(taskId: string, text: string): Promise<Task> {
+    const t = this.repo.task(taskId);
+    if (!t) throw new AtlasError('invalid_request', 'Unknown task');
+    const live = this.liveAgents.get(taskId);
+    if (!live) throw new AtlasError('invalid_request', `Task ${t.key} has no running agent to direct (it is ${t.state}).`);
+    if (!live.rt.message) throw new AtlasError('invalid_request', `The ${live.rt.kind} runtime cannot take directions while it runs.`);
+    this.emit({ missionId: t.missionId, taskId, type: 'operator.action', actor: OPERATOR, payload: { action: 'direct', key: t.key, text } });
+    await live.rt.message(live.handle, `Direction from the operator (follow it; it overrides earlier instructions where they conflict):\n${text}`);
+    return t;
   }
 
   async cancelTask(taskId: string): Promise<Task> {

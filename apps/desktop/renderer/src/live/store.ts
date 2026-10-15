@@ -8,6 +8,10 @@ export type Route =
   | { screen: 'projects' }
   | { screen: 'activity' }
   | { screen: 'agents' }
+  | { screen: 'reviews' }
+  | { screen: 'deployments' }
+  | { screen: 'terminal' }
+  | { screen: 'browser' }
   | { screen: 'new'; workspaceId?: string; item?: { id: string; title: string; detail: string } }
   | { screen: 'team'; workspaceId?: string }
   | { screen: 'mission'; missionId: string }
