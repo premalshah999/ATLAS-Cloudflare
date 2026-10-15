@@ -20,7 +20,7 @@ try {
   await go('home'); await shot('home');
   await go('mission'); await shot('mission-control');
   await go('graph'); await shot('task-graph');
-  const coder = await page.evaluate(() => window.__atlasPreview.get().agent);
+  const coder = process.env.AGENT ?? 'csp-font-fix';
   await go('agent', { agent: coder }); await shot('agent');
   await go('review'); await shot('review');
   await go('studio'); await shot('studio');
