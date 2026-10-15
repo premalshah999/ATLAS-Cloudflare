@@ -26,11 +26,17 @@ https://github.com/premalshah999/ATLAS-Cloudflare
 
 ## Instructions to run
 
-Clone the repository, install Node.js 22.19+ and pnpm 10.28, run `pnpm install --frozen-lockfile`, `node node_modules/electron/install.js`, `pnpm exec playwright install chromium`, `pnpm build`, and `pnpm seed:sample ~/ATLAS-Demo`. Start with `pnpm start`.
+Requirements: macOS or Linux, Node.js 22.19+, pnpm 10.28, git.
 
-Open the sample repository in ATLAS. Create a scripted mission with objective `[parallel sample] Fix slugify and add regression coverage in parallel, then review and verify the integrated result.` Approve the plan and inspect Tasks, Changes, Evidence, Report, Review and Browser, then Home, Activity and Agents. Scripted decisions require no API keys; worktrees, concurrent scheduling, edits, merges and checks are real. Add provider keys in Settings and select Pi for live model missions.
+```sh
+git clone https://github.com/premalshah999/ATLAS-Cloudflare && cd ATLAS-Cloudflare
+pnpm install --frozen-lockfile && node node_modules/electron/install.js && pnpm exec playwright install chromium
+pnpm build && pnpm seed:sample ~/ATLAS-Demo && pnpm start
+```
 
-For Cloudflare, use an account with Workers Paid, run `pnpm cloud:login`, `pnpm cloud:deploy`, and `pnpm cloud:secret`. Save the deployed Worker URL and matching connection token in ATLAS Settings. Publish a completed mission from its Cloudflare tab and verify that every remote hash matches. Detailed instructions: `docs/MAC-SETUP.md` and `docs/CLOUDFLARE.md`.
+ATLAS opens on the dashboard. Open a repository (the sample, or your own git project). In Settings add a model provider key (DeepSeek, Anthropic, OpenAI and every other Pi key-based provider; Settings → Test checks it at the provider's own API) and choose models per tier. Create a mission from Home or New mission: the orchestrator model proposes a plan, you approve it, agents work concurrently in sandboxed worktrees, and ATLAS verifies the result independently. Accept to keep the integration branch, or publish it as a GitHub pull request (uses your GitHub CLI sign-in). Without a key, a deterministic scripted runtime runs the bundled sample end to end.
+
+Cloudflare: with Workers Paid, `pnpm cloud:login`, `pnpm cloud:deploy`, `pnpm cloud:secret`, then put the Worker URL and connection token in Settings and use **Publish to Cloudflare** on a completed mission. Live check: `ATLAS_CLOUD_URL=… ATLAS_CLOUD_TOKEN=… pnpm test:cloud-live`. Details: `docs/MAC-SETUP.md`, `docs/CLOUDFLARE.md`.
 
 ## Video
 
