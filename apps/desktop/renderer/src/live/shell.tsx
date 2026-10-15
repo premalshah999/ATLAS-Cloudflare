@@ -4,7 +4,7 @@ import type { IconType } from 'react-icons';
 import { cx, Dot, Icon, Kbd, Menu, MenuItem, Tip } from '../ui/primitives';
 import { IActivity, IAgents, IReviews, IDeploy, ITerminal, IGlobe, IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IWorkspaces, IMissions, IPlus, ISettings, IPalette, ISearch, IShield, IUsers } from '../lib/icons';
 import { call } from './api';
-import { go, refreshLists, useLive, type Route } from './store';
+import { automated, go, refreshLists, useLive, type Route } from './store';
 import { missionStatus } from './format';
 import { toast } from './toast';
 import { togglePalette } from './palette';
@@ -123,9 +123,10 @@ export function LiveRail() {
       </div>
       <div style={{ flex: 1 }} />
       <div className="at-rail-group">
-        <Tip label="Dashboard · Mission Control, agents, reviews, deployments" side="right" delay={250}>
+        {/* The classic shell exists only for automated runs; people never leave the dashboard. */}
+        {automated && <Tip label="Dashboard · Mission Control, agents, reviews, deployments" side="right" delay={250}>
           <button type="button" className="at-rail-item" aria-label="Dashboard" onClick={() => go({ screen: 'preview' })}><Icon as={IPalette} size="lg" /></button>
-        </Tip>
+        </Tip>}
         <Tip label="Settings" kbd="⌘ ," side="right" delay={250}>
           <button type="button" className="at-rail-item" aria-label="Settings" aria-current={route.screen === 'settings' ? 'page' : undefined} onClick={() => go({ screen: 'settings' })}><Icon as={ISettings} size="lg" /></button>
         </Tip>
@@ -158,7 +159,7 @@ export function LiveStatusBar() {
 export function PreviewBanner({ onExit, live }: { onExit: () => void; live?: boolean }) {
   return (
     <div className={cx('lv-preview-banner', live && 'lv-preview-banner--live')} role="status" data-live={live ? 'true' : 'false'}>
-      <span>{live ? 'Command center · live data from your ATLAS control plane: missions, agents, terminals, reviews and deployments.' : 'Design preview · every value on these screens is sample data, not your projects.'}</span>
+      <span>{live ? 'Command center · live data from your ATLAS control plane: missions, agents, terminals, reviews and deployments.' : 'Design preview · these screens are not connected to a control plane.'}</span>
       <button type="button" className="at-btn at-btn--sm" onClick={onExit}><Icon as={IHome} size="sm" />Back to ATLAS</button>
     </div>
   );

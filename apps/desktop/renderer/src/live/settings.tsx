@@ -61,7 +61,7 @@ export function Settings() {
             <div className="at-label">Agent runtimes</div>
             {(health ?? []).map((h) => (
               <div key={h.runtime} className="lv-rt" data-testid={`runtime-${h.runtime}`}>
-                <Status s={h.ok ? 'done' : 'warning'} label={h.runtime === 'pi' ? `Pi ${h.version}` : 'Scripted runtime'} />
+                <Status s={h.ok ? 'done' : 'warning'} label={h.runtime === 'pi' ? `Pi ${h.version}` : 'Local runtime'} />
                 <span className="at-muted lv-small">{h.detail}</span>
               </div>
             ))}

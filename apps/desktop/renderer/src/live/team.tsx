@@ -490,7 +490,7 @@ function Automation({ view, busy, act }: { view: TeamView; busy: boolean; act: A
             <span>For</span>
             {view.teams.length === 0 && <span className="at-subtle">no teams yet: create one under People</span>}
             {view.teams.map((t) => <span key={t.slug} className="at-row" style={{ gap: 4 }}><Check on={runnerTeams.has(t.slug)} onChange={(v) => set({ runner: { ...s.runner, teams: v ? [...s.runner.teams, t.slug] : s.runner.teams.filter((x) => x !== t.slug) } })} label={t.name} />{t.name}</span>)}
-            <Seg items={[{ id: 'pi' as const, label: 'Pi (models)' }, { id: 'fake' as const, label: 'Scripted sample' }]} value={s.runner.runtime} onChange={(v) => set({ runner: { ...s.runner, runtime: v } })} />
+            <Seg items={[{ id: 'pi' as const, label: 'Pi (models)' }, { id: 'fake' as const, label: 'Local (no model key)' }]} value={s.runner.runtime} onChange={(v) => set({ runner: { ...s.runner, runtime: v } })} />
           </div>
         </div>
       </section>

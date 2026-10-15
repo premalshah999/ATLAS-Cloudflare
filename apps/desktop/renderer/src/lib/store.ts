@@ -8,7 +8,9 @@ export type ScreenId =
   | 'welcome' | 'home' | 'workspaces' | 'create' | 'mission' | 'graph' | 'agent' | 'terminal' | 'review'
   | 'computer' | 'deploy' | 'studio' | 'settings' | 'report' | 'activity'
   /** Live pages hosted inside the dashboard (registered by the live app through slots.Page). */
-  | 'projects' | 'team' | 'preferences';
+  | HostedId;
+/** Live pages the dashboard hosts: projects, team spaces, full settings and a mission's full record. */
+export type HostedId = 'projects' | 'team' | 'preferences' | 'record';
 
 export interface Toast { id: number; tone: 'success' | 'warning' | 'danger' | 'info' | 'human'; title: string; body?: string; action?: { label: string; screen?: ScreenId } }
 
@@ -67,10 +69,14 @@ export interface DesignAdapter {
   exportAudit(): Promise<void>;
   /** Leave the design screens for a full live page (settings, team, projects). */
   openLive(screen: 'settings' | 'team' | 'projects'): void;
+  /** The operating system folder picker; registers the repository with the control plane. */
+  openRepository?(): Promise<boolean>;
 }
 export let adapter: DesignAdapter | null = null;
 /** Live components the design screens host (the operator's real sandboxed terminal). */
-export const slots: { HumanTerminal?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element; Page?: Partial<Record<'projects' | 'team' | 'preferences', () => JSX.Element>> } = {};
+export const slots: { HumanTerminal?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element; Page?: Partial<Record<HostedId, () => JSX.Element>> } = {};
+/** With the live control plane attached, the design screens for these open their real pages instead. */
+const liveScreen: Partial<Record<ScreenId, ScreenId>> = { settings: 'preferences', workspaces: 'projects' };
 export const setAdapter = (a: DesignAdapter | null) => { adapter = a; };
 export function createStore(init: Partial<AppState> = {}) {
   const wide = typeof window === 'undefined' || window.innerWidth >= 1300;
@@ -85,7 +91,7 @@ export function createStore(init: Partial<AppState> = {}) {
       state = { ...state, ...p };
       listeners.forEach((l) => l());
     },
-    go: (screen: ScreenId, extra: Partial<AppState> = {}) => api.set({ screen, palette: false, notifications: false, ...extra }),
+    go: (screen: ScreenId, extra: Partial<AppState> = {}) => api.set({ screen: (adapter && liveScreen[screen]) || screen, palette: false, notifications: false, ...extra }),
     selectAgent: (id: string, open = true) => api.set((s) => ({ agent: id, inspector: open ? true : s.inspector })),
     toast: (t: Omit<Toast, 'id'>) => {
       const id = toastId++;

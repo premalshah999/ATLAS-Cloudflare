@@ -51,7 +51,7 @@ export function MissionView({ missionId }: { missionId: string }) {
           <div className="at-row" style={{ gap: 12 }}>
             <h1 className="display at-trunc" style={{ margin: 0 }}>{m.title}</h1>
             <span data-testid="mission-state" data-verdict={m.verdict ?? ''}><Status s={missionStatus(m).dot} label={missionStatus(m).word} /></span>
-            {m.runtime === 'fake' && <Tip label="Scripted sample runtime: no model is called. Tool calls, commands and checks are real."><span><Badge tone="sample">scripted runtime</Badge></span></Tip>}
+            {m.runtime === 'fake' && <Tip label="Local runtime: plans and executes deterministically without a model key. Tool calls, commands and checks are real."><span><Badge tone="outline">Local runtime</Badge></span></Tip>}
           </div>
           <div className="at-muted at-trunc" style={{ maxWidth: 900 }}>{m.goal}</div>
         </div>

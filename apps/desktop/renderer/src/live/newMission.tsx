@@ -90,9 +90,9 @@ export function NewMission({ workspaceId, item }: { workspaceId?: string; item?:
             <Seg items={MODES.map((m) => ({ id: m.id, label: m.label }))} value={mode} onChange={setMode} />
           </Field>
           <Field label="Agent runtime" help={runtime === 'fake'
-            ? 'Scripted sample runtime: deterministic behavior for the bundled sample project, a read-only survey elsewhere. No model is called.'
+            ? 'Local runtime: plans and executes deterministically without a model key. It changes the bundled starter repository and surveys other repositories read-only.'
             : pi?.detail ?? 'Checking Pi…'}>
-            <Seg items={[{ id: 'fake' as const, label: 'Scripted (no model)' }, { id: 'pi' as const, label: `Pi${pi ? (pi.ok ? '' : ' · not configured') : ''}` }]} value={runtime} onChange={setRuntime} />
+            <Seg items={[{ id: 'fake' as const, label: 'Local (no model key)' }, { id: 'pi' as const, label: `Pi${pi ? (pi.ok ? '' : ' · not configured') : ''}` }]} value={runtime} onChange={setRuntime} />
           </Field>
           {runtime === 'pi' && (
             <Field label="Model" help="Every agent of this mission uses it. Leave it on Settings to use the default, fast and strong models chosen there per role.">
@@ -132,7 +132,7 @@ export function NewMission({ workspaceId, item }: { workspaceId?: string; item?:
           <div className="at-row" style={{ gap: 8, marginTop: 8 }}>
             <Button type="submit" variant="primary" icon={ISpark} disabled={busy || blocked || !title.trim() || !goal.trim()} data-testid="plan-mission">Plan mission</Button>
             <span className="at-subtle lv-small">Planning does not change anything. You approve the plan before agents start.</span>
-            {runtime === 'fake' && <Badge tone="sample">scripted runtime</Badge>}
+            {runtime === 'fake' && <Badge tone="outline">Local runtime</Badge>}
           </div>
         </form>
       </div>

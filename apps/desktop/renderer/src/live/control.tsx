@@ -173,7 +173,7 @@ export function ControlPanel({ snap, events }: { snap: MissionSnapshot; events: 
             </>}
             <span className="at-label">Environment</span>
             <dl className="lv-kv">
-              <dt>Model</dt><dd className="at-mono">{info?.started?.model ?? snap.mission.model ?? (snap.mission.runtime === 'fake' ? 'scripted runtime' : '—')}</dd>
+              <dt>Model</dt><dd className="at-mono">{info?.started?.model ?? snap.mission.model ?? (snap.mission.runtime === 'fake' ? 'Local runtime' : '—')}</dd>
               <dt>Runs in</dt><dd>{info?.started?.sandbox === 'sandbox' ? 'Isolated worktree · OS sandbox' : info?.started?.sandbox ?? 'Isolated worktree'}</dd>
               <dt>Branch</dt><dd className="at-mono at-trunc">{info?.started?.branch ?? selected.branch ?? '—'}</dd>
               <dt>Worktree</dt><dd className="at-mono at-trunc" title={info?.started?.worktree}>{info?.started?.worktree ? `…/${info.started.worktree.split('/').slice(-2).join('/')}` : '—'}</dd>

@@ -9,7 +9,7 @@ import { ApprovalCard } from '../ui/overlays';
 import { VerificationRow } from '../ui/verify';
 
 import {
-  IPause, IPlay, IHistory, IMaximize, IXCircle, IArrowRight, IRetry, IUndo, IHand, ICheck, IClose, IFilter, IRows, IMessage, ITerminal,
+  IPause, IPlay, IHistory, IMaximize, IXCircle, IArrowRight, IRetry, IUndo, IHand, ICheck, IClose, IFilter, IRows, IMessage, ITerminal, IFileText,
 } from '../lib/icons';
 
 export function MissionHeader({ tab }: { tab: 'control' | 'graph' | 'report' }) {
@@ -41,6 +41,7 @@ export function MissionHeader({ tab }: { tab: 'control' | 'graph' | 'report' }) 
             items={[{ id: 'control', label: 'Control' }, { id: 'graph', label: 'Task graph' }, { id: 'report', label: 'Report' }]} />
           <span className="at-sep-v" />
           <IconButton icon={IHistory} label="Checkpoints" onClick={() => A.set({ drawer: 'checkpoints' })} />
+          {adapter && live.on && <Tip label="Evidence, changes, Cloudflare publish, deploy and terminal for this mission"><Button size="sm" icon={IFileText} data-testid="open-full-record" onClick={() => A.go('record')}>Full record</Button></Tip>}
           {adapter ? (mission.status === 'running' && <Button size="sm" icon={IPause} onClick={() => void adapter!.stop().catch((e: Error) => A.toast({ tone: 'danger', title: 'Could not stop', body: e.message }))}>Stop mission</Button>)
             : <Button size="sm" icon={paused ? IPlay : IPause} kbd="⌘ ⇧ P" onClick={() => A.set({ paused: !paused })}>{paused ? 'Resume' : 'Pause'}</Button>}
         </div>

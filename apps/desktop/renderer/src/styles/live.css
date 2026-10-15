@@ -453,3 +453,5 @@
 .at-dc-scroll::-webkit-scrollbar-track { background: transparent; }
 .at-dc-scroll::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
 .at-hosted { display: flex; flex-direction: column; min-height: 0; overflow: hidden; } .at-hosted > .at-screen { flex: 1 1 auto; min-height: 0; }
+/* A mission's full record hosted in the dashboard: back link above the classic mission view. */
+.lv-record > .lv-mission { height: auto; }
