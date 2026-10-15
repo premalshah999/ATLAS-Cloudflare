@@ -254,6 +254,10 @@ export function wrapCommand(command: string, args: string[], cwd: string, spec: 
     return { command: info.path!, args: a, env: envOut, ...(bwrapStatusFd && opts.statusFd ? { statusFd: SANDBOX_STATUS_FD } : {}) };
   }
   if (info.kind === 'sandbox-exec') {
+    // /usr/bin/git, python3, make… are xcrun shims that write a cache to the per-user Darwin temp directory, which the
+    // sandbox denies. Put the Command Line Tools' real binaries first so commands run without the shim.
+    const clt = '/Library/Developer/CommandLineTools/usr/bin';
+    if (existsSync(clt) && !(env.PATH ?? '').split(path.delimiter).includes(clt)) env = { ...env, PATH: [clt, env.PATH].filter(Boolean).join(path.delimiter) };
     sweepScratch();
     const scratch = mkdtempSync(path.join(real(os.tmpdir()), `atlas-sbhome-${process.pid}-`));
     const profile = seatbeltProfile({

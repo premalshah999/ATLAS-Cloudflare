@@ -8,13 +8,11 @@ ATLAS — evidence-first mission control for concurrent software agents
 
 ## Project vision
 
-Agent collaboration needs a unit of work richer than a branch and a final chat message. ATLAS makes that unit a mission: a validated task graph, isolated workspaces, explicit permissions, checkpointed changes, structured review, independently executed checks, and an operator's decision.
+Agent collaboration needs a unit of work richer than a branch and a final chat message. ATLAS makes that unit a **mission**: a model-proposed, validated task graph; agents working concurrently in isolated Git worktrees inside an OS sandbox; explicit permissions; checkpointed changes; structured review and a security engineer; independently executed checks (tests, API, browser, visual, staging); and a person's decision. An agent's success claim never marks work verified.
 
-Independent agents work concurrently in separate Git worktrees. Dependencies start from their predecessors' checkpoints, declared file overlaps are serialized, and merge conflicts stop integration. Tests and browser/API checks run on the integrated revision. ATLAS records process output, approvals and evidence in an append-only timeline; an agent's success claim is never enough to mark a release verified.
+ATLAS is an automated software team with a mission-control interface. The dashboard is the full ATLAS design system running on live data: Mission Control (workforce graph of agents and dependencies, needs-you queue, timeline, live terminals, inspector), a task graph, each agent's thread and tool trace with a composer that **directs a running agent** in its live session, review with findings on the diff, browser QA with real screenshots, a deployment-cycle graph with a release report, Agent Studio (roles as enforced policy), and activity across missions. Verified missions are accepted, pushed and opened as GitHub pull requests, where CI runs; a failing CI can start a follow-up mission.
 
-Cloudflare Artifacts makes every mission's checkpoints shareable as a per-mission Git repository: the base, each agent's branch and the integrated result, published through a Worker and independently read back before ATLAS records the publication. Execution stays local and governed.
-
-A dashboard makes many concurrent agents supervisable: Home shows what needs a decision, what is running and what is ready for review; Activity collects events across missions; Agents shows each role's tools, permissions, model tier and limits; each mission has a one-page Report. ATLAS reaches every key-based model provider of the Pi runtime and checks keys live at each provider's own API (DeepSeek only via api.deepseek.com). The prototype supports a small configurable agent budget per mission, not hundred-thousand-agent scale.
+We used ATLAS on a real product, **Operon** (a complaint-operations platform: FastAPI + React), with DeepSeek models through the official API — real planning and real agent decisions, no scripted runtime. The orchestrator model planned each mission (for example 9 tasks across coder, reviewer and browser-QA roles with dependencies), coders wrote tests first, and the gate recorded honest failures as failures.
 
 ## How Cloudflare is used — current, truthful draft
 
