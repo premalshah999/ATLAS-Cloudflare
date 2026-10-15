@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { agents } from '../data/sample';
+import { agents, live, workspace, models } from '../data/source';
 import { cx, Icon, IconButton, RoleMark, Seg, Kbd, Tip, Select } from './primitives';
 import { IAttach, IAt, ISlash, ISend, IStop, IRepo, IBranch, IShield, ICpu, IFile, IFolder, IPause, IShield as IReview, IHelp, IBan } from '../lib/icons';
 
@@ -73,10 +73,10 @@ export function Composer({ placeholder = 'Direct this agent — it keeps its con
           <IconButton icon={ISlash} label="Commands" kbd="/" size="sm" onClick={() => { setText('/'); ta.current?.focus(); }} />
           <span className="at-sep-v" style={{ margin: '4px 4px' }} />
           <Seg value={mode} onChange={setMode} items={[{ id: 'plan', label: 'Plan' }, { id: 'execute', label: 'Execute' }]} />
-          <div style={{ width: 168 }}><Select value={model} onChange={setModel} icon={ICpu} options={[{ id: 'opus', label: 'Claude Opus 5.5' }, { id: 'sonnet', label: 'Claude Sonnet 5.5' }, { id: 'haiku', label: 'Claude Haiku 5.5' }]} /></div>
+          <div style={{ width: 168 }}><Select value={live.on ? (models[0]?.id ?? model) : model} onChange={setModel} icon={ICpu} options={live.on ? models.map((m) => ({ id: m.id, label: m.name })) : [{ id: 'opus', label: 'Claude Opus 5.5' }, { id: 'sonnet', label: 'Claude Sonnet 5.5' }, { id: 'haiku', label: 'Claude Haiku 5.5' }]} /></div>
           <span style={{ flex: 1 }} />
-          <Tip label="Writes: src/auth/** · Shell: allowlist · Network: off"><span className="at-composer-perm"><Icon as={IShield} size="sm" />scoped</span></Tip>
-          <span className="at-composer-ctx"><Icon as={IRepo} size="sm" />storefront<Icon as={IBranch} size="sm" />auth-refactor</span>
+          <Tip label={live.on ? 'Writes: the agent’s worktree only · Shell: safe list, sandboxed · Network: off unless approved' : 'Writes: src/auth/** · Shell: allowlist · Network: off'}><span className="at-composer-perm"><Icon as={IShield} size="sm" />scoped</span></Tip>
+          <span className="at-composer-ctx"><Icon as={IRepo} size="sm" />{live.on ? workspace.name : 'storefront'}<Icon as={IBranch} size="sm" />{live.on ? workspace.branch : 'auth-refactor'}</span>
           {running && !text ? <IconButton icon={IStop} label="Stop after current step" kbd="⌘ ." size="sm" danger />
             : <button type="button" className="at-composer-send" aria-label="Send" onClick={send} disabled={!text.trim()}><Icon as={ISend} size="sm" /></button>}
         </div>

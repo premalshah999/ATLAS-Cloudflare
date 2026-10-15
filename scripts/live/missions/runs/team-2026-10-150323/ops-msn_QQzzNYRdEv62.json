@@ -1,0 +1,123 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/13-ops.json",
+    "key": "ops",
+    "title": "Production observability: request IDs, readiness and timing",
+    "goal": "Make Operon operable in production. Every response must carry an X-Request-ID header: reuse a well-formed incoming X-Request-ID (letters, digits, dashes, max 64 chars) or generate a UUID4, and include it in the access log line together with method, path, status and duration in milliseconds. Add GET /api/ready that checks the SQLite database is reachable with a trivial query and returns 200 {\"ready\": true} or 503 {\"ready\": false, \"reason\": ...} without leaking internal paths. Add a Server-Timing header (app;dur=<ms>) to API responses. Add backend tests for request-id propagation and generation, rejection of malformed incoming ids, readiness success and failure (simulate an unreachable database), and the timing header.",
+    "constraints": "Backend only. Do not log request bodies, query strings with personal data, or headers other than X-Request-ID. All checks must pass."
+  },
+  "mission": {
+    "id": "msn_QQzzNYRdEv62",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Production observability: request IDs, readiness and timing",
+    "goal": "Make Operon operable in production. Every response must carry an X-Request-ID header: reuse a well-formed incoming X-Request-ID (letters, digits, dashes, max 64 chars) or generate a UUID4, and include it in the access log line together with method, path, status and duration in milliseconds. Add GET /api/ready that checks the SQLite database is reachable with a trivial query and returns 200 {\"ready\": true} or 503 {\"ready\": false, \"reason\": ...} without leaking internal paths. Add a Server-Timing header (app;dur=<ms>) to API responses. Add backend tests for request-id propagation and generation, rejection of malformed incoming ids, readiness success and failure (simulate an unreachable database), and the timing header.",
+    "constraints": "Backend only. Do not log request bodies, query strings with personal data, or headers other than X-Request-ID. All checks must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: implement failed (Budget exhausted (tool calls 61/60, tokens 70108/400000)), review failed, security failed",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T03:25:15.188Z",
+    "updatedAt": "2026-10-15T03:37:55.508Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_u4smFgE6dXHp",
+      "missionId": "msn_QQzzNYRdEv62",
+      "key": "implement",
+      "title": "Implement the objective",
+      "role": "coder",
+      "dependencies": [],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Make Operon operable in production. Every response must carry an X-Request-ID header: reuse a well-formed incoming X-Request-ID (letters, digits, dashes, max 64 chars) or generate a UUID4, and include",
+        "Respect constraints: Backend only. Do not log request bodies, query strings with personal data, or headers other than X-Request-ID. All checks must pass.",
+        "Project test command exits 0 on the integrated commit"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_QQzzNYRdEv62/implement-1",
+      "branch": "atlas/msn_QQzzNYRdEv62/implement-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_hMrrnkbzWfQR",
+      "missionId": "msn_QQzzNYRdEv62",
+      "key": "review",
+      "title": "Review the change against the acceptance criteria",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_u4smFgE6dXHp"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Every reported problem has file, line, severity and evidence",
+        "Confirmed findings reference a reproduction ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_uYEgteeVedDj",
+      "missionId": "msn_QQzzNYRdEv62",
+      "key": "security",
+      "title": "Security review of the change",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_u4smFgE6dXHp"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Each security problem is reported with file, line, severity, the attack it enables and the fix",
+        "Confirmed findings reference a demonstration ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 70108,
+    "toolCalls": 61,
+    "tasks": 3,
+    "agentsNow": 0,
+    "elapsedMs": 279772
+  }
+}

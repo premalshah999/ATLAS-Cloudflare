@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { IconType } from 'react-icons';
-import { agents, agentById, approvals as allApprovals, mission } from '../data/sample';
+import { agents, agentById, approvals as allApprovals, mission, missions, live, workspace, reviewFiles, checkpoints, activity } from '../data/source';
 import { actions, useApp, type ScreenId } from '../lib/store';
 import { cx, Icon, Kbd, Button, IconButton, RoleMark, Seg, Badge, usePresence, Dot } from './primitives';
 import {
@@ -34,25 +34,35 @@ export function CommandPalette() {
   const commands: Cmd[] = useMemo(() => {
     const ctx: Cmd[] = [];
     if (screen === 'mission' || screen === 'graph') {
+      if (live.on) {
+        for (const ap of A.get().approvals) ctx.push({ id: `c-ap-${ap.id}`, label: `Review pending approval · ${ap.action.slice(0, 60)}`, icon: IShield, group: 'Mission Control', kbd: '⌘ ↵', run: () => A.set({ palette: false, approvalDialog: ap.id }) });
+        for (const f of agents.filter((x) => x.status === 'failed')) ctx.push({ id: `c-fail-${f.id}`, label: `Open failure diagnostic · ${f.assignment}`, icon: IXCircle, group: 'Mission Control', hint: f.name, run: () => A.set({ palette: false, recovery: true, agent: f.id }) });
+      } else {
       ctx.push({ id: 'c-approve', label: 'Review pending approval · migration 0043', icon: IShield, group: 'Mission Control', kbd: '⌘ ↵', run: () => A.set({ palette: false, approvalDialog: 'AP-31' }) });
       ctx.push({ id: 'c-qa', label: 'Open QA failure diagnostic', icon: IXCircle, group: 'Mission Control', hint: 'logout clears session', run: () => A.set({ palette: false, recovery: true }) });
+      }
       ctx.push({ id: 'c-pause', label: paused ? 'Resume mission' : 'Pause mission after current steps', icon: paused ? IPlay : IPause, group: 'Mission Control', kbd: '⌘ ⇧ P', run: () => { A.set({ palette: false, paused: !paused }); } });
     }
     if (screen === 'review') ctx.push({ id: 'c-next', label: 'Next changed file', icon: IArrowDown, group: 'Review', kbd: 'J', run: () => A.set({ palette: false }) }, { id: 'c-acc', label: 'Accept all changes in file', icon: ICheck, group: 'Review', kbd: '⌘ ⇧ A', run: () => A.set({ palette: false }) });
     if (screen === 'terminal') ctx.push({ id: 'c-split', label: 'Split terminal pane', icon: ITerminal, group: 'Terminal', kbd: '⌘ D', run: () => A.set({ palette: false }) });
+    const liveCmds: Cmd[] = live.on ? [
+      ...missions.map((m) => ({ id: `m-${m.id}`, label: `${m.title}`, icon: IMissions, group: 'Missions', hint: `${m.id} · ${m.status}`, run: () => A.go('mission', { missionId: (window as unknown as { __atlasMissionIds?: Record<string, string> }).__atlasMissionIds?.[m.id] ?? null }) })),
+      ...agents.filter((a) => a.id !== 'orch').map((a) => ({ id: `a-${a.id}`, label: `${a.status === 'running' ? 'Direct' : 'Open'} ${a.name} · ${a.id}`, icon: IAgents, group: 'Agents', hint: a.status, run: () => A.go('agent', { agent: a.id }) })),
+    ] : [];
     return [
       ...ctx,
+      ...liveCmds,
       { id: 'new', label: 'Create new mission', icon: IPlus, group: 'Actions', kbd: '⌘ N', run: go('create') },
       { id: 'ws', label: 'Open workspace…', icon: IWorkspaces, group: 'Actions', kbd: '⌘ O', run: go('workspaces') },
-      { id: 'repo', label: 'Switch repository', icon: IRepo, group: 'Actions', hint: 'acme/storefront', run: go('workspaces') },
+      { id: 'repo', label: 'Switch repository', icon: IRepo, group: 'Actions', hint: live.on ? workspace.name : 'acme/storefront', run: go('workspaces') },
       { id: 'spawn', label: 'Spawn agent from template', icon: ISpark, group: 'Actions', run: go('studio') },
       { id: 'pauseall', label: 'Pause all agents', icon: IPause, group: 'Actions', kbd: '⌘ ⇧ .', run: () => { A.set({ palette: false, paused: true }); A.toast({ tone: 'warning', title: 'All agents pausing', body: 'Each agent stops after its current step. Nothing is discarded.' }); } },
       { id: 'term', label: 'Open terminal', icon: ITerminal, group: 'Actions', kbd: '⌃ `', run: go('terminal') },
-      { id: 'review', label: 'Review pending changes', icon: IFileDiff, group: 'Actions', hint: '6 files', run: go('review') },
+      { id: 'review', label: 'Review pending changes', icon: IFileDiff, group: 'Actions', hint: live.on ? `${reviewFiles.length} files` : '6 files', run: go('review') },
       { id: 'deps', label: 'Show deployments', icon: IDeploy, group: 'Actions', run: go('deploy') },
       { id: 'verify', label: 'Run verification on staging', icon: ICheckCircle, group: 'Actions', run: go('deploy') },
-      { id: 'cp', label: 'Open recent checkpoint · CP-9', icon: IHistory, group: 'Actions', run: () => A.set({ palette: false, drawer: 'checkpoints' }) },
-      { id: 'model', label: 'Switch model for selected agent', icon: ICpu, group: 'Actions', hint: 'Claude Sonnet 5.5', run: go('settings') },
+      { id: 'cp', label: `Open recent checkpoint · ${live.on ? checkpoints[0]?.id ?? 'none' : 'CP-9'}`, icon: IHistory, group: 'Actions', run: () => A.set({ palette: false, drawer: 'checkpoints' }) },
+      { id: 'model', label: live.on ? 'Change the model for a role tier' : 'Switch model for selected agent', icon: ICpu, group: 'Actions', hint: live.on ? '' : 'Claude Sonnet 5.5', run: go('settings') },
       { id: 'n-home', label: 'Home', icon: IHome, group: 'Go to', kbd: '⌘ 1', run: go('home') },
       { id: 'n-mc', label: 'Mission Control', icon: IMissions, group: 'Go to', kbd: '⌘ 2', run: go('mission') },
       { id: 'n-graph', label: 'Multi-agent graph', icon: IGraph, group: 'Go to', run: go('graph') },
@@ -91,7 +101,7 @@ export function CommandPalette() {
               if (e.key === 'Enter') { e.preventDefault(); results[idx]?.run(); }
               if (e.key === 'Escape') A.set({ palette: false });
             }} />
-          <span className="at-palette-scope"><Icon as={IFolder} size="sm" />storefront</span>
+          <span className="at-palette-scope"><Icon as={IFolder} size="sm" />{live.on ? workspace.name : 'storefront'}</span>
         </div>
         <div className="at-palette-list" ref={listRef}>
           {results.length === 0 && <div className="at-palette-empty">No command matches “{q}”. <span className="at-subtle">Press ↵ to ask Atlas instead.</span></div>}
@@ -200,7 +210,7 @@ export function ApprovalDialog() {
           <ul className="at-apd-list">{cur.resources.map((r) => <li key={r}>{r}</li>)}</ul>
           <div className="at-apd-k">Duration</div>
           <div className="at-row" style={{ gap: 10 }}>
-            <Seg value={dur} onChange={setDur} items={[{ id: 'once', label: 'Once' }, { id: '30m', label: '30 min' }, { id: 'mission', label: 'This mission' }]} />
+            <Seg value={live.on ? 'once' : dur} onChange={setDur} items={live.on ? [{ id: 'once', label: 'Once' }] : [{ id: 'once', label: 'Once' }, { id: '30m', label: '30 min' }, { id: 'mission', label: 'This mission' }]} />
             <span className="at-subtle" style={{ fontSize: 12 }}>{scopeText}</span>
           </div>
           <div className="at-apd-k">Why you’re asked</div>
@@ -210,7 +220,7 @@ export function ApprovalDialog() {
           <div style={{ padding: '0 16px 14px' }}>
             <div className="at-callout at-callout--warning">
               <Icon as={IWarn} />
-              <div><b>Restoring a checkpoint won’t undo this.</b> CP-10 will snapshot the worktree first. Database rows written by the migration stay until <span className="at-mono">0043_family_index.down.sql</span> is run.</div>
+              {live.on ? <div><b>This runs inside the agent’s sandboxed worktree.</b> It cannot touch your checkout; the result is reviewed and verified before anything is accepted.</div> : <div><b>Restoring a checkpoint won’t undo this.</b> CP-10 will snapshot the worktree first. Database rows written by the migration stay until <span className="at-mono">0043_family_index.down.sql</span> is run.</div>}
             </div>
           </div>
         )}
@@ -271,7 +281,7 @@ export function NotificationCenter() {
         <span className="at-ptitle" style={{ fontSize: 12.5, fontWeight: 600 }}>Notifications</span>
         <Button size="sm" variant="ghost">Mark all read</Button>
       </div>
-      <div className="at-label" style={{ padding: '6px 8px' }}>Needs you · {pending.length + 1}</div>
+      <div className="at-label" style={{ padding: '6px 8px' }}>Needs you · {pending.length + (live.on ? agents.filter((x) => x.status === 'failed').length : 1)}</div>
       {pending.map((ap) => {
         const a = agentById(ap.agent);
         return (
@@ -282,15 +292,22 @@ export function NotificationCenter() {
           </button>
         );
       })}
-      <button type="button" className="at-notif-item" onClick={() => actions().set({ notifications: false, recovery: true, screen: 'mission' })}>
+      {live.on ? agents.filter((x) => x.status === 'failed').map((f) => (
+        <button key={f.id} type="button" className="at-notif-item" onClick={() => actions().set({ notifications: false, recovery: true, agent: f.id, screen: 'mission' })}>
+          <Icon as={IXCircle} className="at-err" />
+          <span className="at-col" style={{ gap: 1 }}><span className="at-ink">{f.name} failed {f.id}</span><span className="at-subtle at-trunc" style={{ fontSize: 12 }}>{f.blocker ?? f.activity}</span></span>
+          <span className="at-mono at-subtle">{f.lastAction.time.slice(0, 5)}</span>
+        </button>
+      )) : <button type="button" className="at-notif-item" onClick={() => actions().set({ notifications: false, recovery: true, screen: 'mission' })}>
         <Icon as={IXCircle} className="at-err" />
         <span className="at-col" style={{ gap: 1 }}><span className="at-ink">QA Engineer failed T12</span><span className="at-subtle" style={{ fontSize: 12 }}>logout clears session · diagnostic ready</span></span>
         <span className="at-mono at-subtle">09:56</span>
-      </button>
+      </button>}
       <div className="at-menu-sep" />
       <div className="at-label" style={{ padding: '6px 8px' }}>Earlier</div>
-      <div className="at-notif-item at-notif-item--quiet"><Icon as={ICheckCircle} className="at-ok" /><span className="at-col"><span>Regression test passed</span><span className="at-subtle" style={{ fontSize: 12 }}>refresh-reuse.spec · QA Engineer</span></span><span className="at-mono at-subtle">09:46</span></div>
-      <div className="at-notif-item at-notif-item--quiet"><Icon as={IFileDiff} className="at-muted" /><span className="at-col"><span>MSN-0141 ready for your review</span><span className="at-subtle" style={{ fontSize: 12 }}>9 files · Code Reviewer approved</span></span><span className="at-mono at-subtle">09:04</span></div>
+      {live.on && activity.slice(0, 5).map((x, i) => <div key={i} className="at-notif-item at-notif-item--quiet"><Icon as={x.kind === 'error' ? IXCircle : ICheckCircle} className={x.kind === 'error' ? 'at-err' : 'at-ok'} /><span className="at-col"><span className="at-trunc">{x.text}</span><span className="at-subtle" style={{ fontSize: 12 }}>{x.who} · {x.mission}</span></span><span className="at-mono at-subtle">{x.time}</span></div>)}
+      {!live.on && <><div className="at-notif-item at-notif-item--quiet"><Icon as={ICheckCircle} className="at-ok" /><span className="at-col"><span>Regression test passed</span><span className="at-subtle" style={{ fontSize: 12 }}>refresh-reuse.spec · QA Engineer</span></span><span className="at-mono at-subtle">09:46</span></div>
+      <div className="at-notif-item at-notif-item--quiet"><Icon as={IFileDiff} className="at-muted" /><span className="at-col"><span>MSN-0141 ready for your review</span><span className="at-subtle" style={{ fontSize: 12 }}>9 files · Code Reviewer approved</span></span><span className="at-mono at-subtle">09:04</span></div></>}
     </div>
   );
 }

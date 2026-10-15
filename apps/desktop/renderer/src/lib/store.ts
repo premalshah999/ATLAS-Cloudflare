@@ -2,7 +2,7 @@ import { useSyncExternalStore, useEffect, useRef } from 'react';
 import type { AgentStatus, Approval, TimelineEvent } from '../data/types';
 /** Illustrative repository shown in the design preview title bar. */
 export interface RepoInfo { path: string; name: string; isGit: boolean; branch?: string; head?: string; dirty?: number; ahead?: number; behind?: number }
-import { approvals as sampleApprovals, timeline as sampleTimeline, liveEvents, liveTermLines } from '../data/sample';
+import { approvals as sampleApprovals, timeline as sampleTimeline, liveEvents, liveTermLines } from '../data/source';
 
 export type ScreenId =
   | 'welcome' | 'home' | 'workspaces' | 'create' | 'mission' | 'graph' | 'agent' | 'terminal' | 'review'
@@ -35,16 +35,41 @@ export interface AppState {
   simulate: boolean;
   /** A real repository opened through the desktop bridge; sample workspace when unset. */
   repo: RepoInfo | null;
+  /** Bumped whenever the runtime adapter replaces the screens' data (data/source.ts). */
+  dataVersion: number;
+  /** Live: the mission Mission Control shows. */
+  missionId: string | null;
 }
 
 const initial: AppState = {
   screen: 'mission', sidebar: false, inspector: true, agent: 'be', palette: false, approvalDialog: null,
   approvals: sampleApprovals, resolved: {}, scopes: {}, toasts: [], notifications: false, drawer: null, recovery: false,
   timeline: sampleTimeline, live: 0, paused: false, agentStatus: {}, term: {}, takeover: false, missionTab: 'control',
-  motion: 'full', simulate: true, repo: null,
+  motion: 'full', simulate: true, repo: null, dataVersion: 0, missionId: null,
 };
 
 type Listener = () => void;
+
+/**
+ * Real effects behind the design screens' actions. Unset in the design preview (sample behaviour); the live app
+ * installs it (live/designActions.ts) so approving, directing an agent, launching or deciding reaches the control plane.
+ */
+export interface DesignAdapter {
+  resolve(approvalId: string, verdict: 'approved' | 'denied'): Promise<void>;
+  direct(agentId: string, text: string): Promise<void>;
+  launch(goal: string, opts?: { constraints?: string; target?: string | null; title?: string }): Promise<void>;
+  decide(decision: 'accept' | 'reject'): Promise<void>;
+  stop(agentId?: string): Promise<void>;
+  reverify(): Promise<void>;
+  setTier(tier: 'default' | 'fast' | 'strong', model: string): Promise<void>;
+  exportAudit(): Promise<void>;
+  /** Leave the design screens for a full live page (settings, team, projects). */
+  openLive(screen: 'settings' | 'team' | 'projects'): void;
+}
+export let adapter: DesignAdapter | null = null;
+/** Live components the design screens host (the operator's real sandboxed terminal). */
+export const slots: { HumanTerminal?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element } = {};
+export const setAdapter = (a: DesignAdapter | null) => { adapter = a; };
 export function createStore(init: Partial<AppState> = {}) {
   const wide = typeof window === 'undefined' || window.innerWidth >= 1300;
   let state: AppState = { ...initial, inspector: wide, ...init };
@@ -69,6 +94,7 @@ export function createStore(init: Partial<AppState> = {}) {
     resolve: (id: string, verdict: 'approved' | 'denied', scope?: string) => {
       const ap = state.approvals.find((a) => a.id === id);
       api.set((s) => ({ resolved: { ...s.resolved, [id]: verdict }, scopes: { ...s.scopes, [id]: scope ?? ap?.duration ?? '' }, approvalDialog: null }));
+      if (adapter) { void adapter.resolve(id, verdict).catch((e: Error) => api.toast({ tone: 'danger', title: 'Approval not recorded', body: e.message })); return; }
       if (ap) api.toast({
         tone: verdict === 'approved' ? 'info' : 'warning',
         title: verdict === 'approved' ? `Approved · ${ap.title.toLowerCase()}` : `Denied · ${ap.title.toLowerCase()}`,

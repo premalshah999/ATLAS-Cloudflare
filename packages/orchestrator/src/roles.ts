@@ -34,7 +34,7 @@ export const ROLES: Record<AgentRole, RoleDefinition> = {
     budget: { maxToolCalls: 30, maxTokens: 200_000, wallClockMs: 10 * 60_000 },
   },
   coder: {
-    id: 'coder', version: 'coder@4', title: 'Coder', writes: true, modelPreference: 'default',
+    id: 'coder', version: 'coder@5', title: 'Coder', writes: true, modelPreference: 'default',
     tools: ['read_file', 'list_files', 'write_file', 'shell_exec', ...PROCESS_TOOLS, 'git_status', 'run_tests', 'view_diff', 'delegate'],
     instructions: `${COMMON}
 
@@ -42,7 +42,7 @@ You are the Coder. Make the smallest correct change that satisfies the objective
 Read before you write. Run the tests with run_tests after changing code. If part of the work is independent and well-scoped, you may hand it to a subagent with delegate; you receive its result as a merged change and a summary.
 ${PROCESSES}
 Finish with a short summary of what you changed and why.`,
-    budget: { maxToolCalls: 60, maxTokens: 400_000, wallClockMs: 20 * 60_000 },
+    budget: { maxToolCalls: 160, maxTokens: 1_200_000, wallClockMs: 30 * 60_000 },
   },
   reviewer: {
     id: 'reviewer', version: 'reviewer@3', title: 'Reviewer', writes: false, modelPreference: 'strong',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { actions, useApp } from '../lib/store';
-import { agents, agentById, tasks, terminals, sessionBefore, sessionAfter, templates, models } from '../data/sample';
+import { actions, adapter, useApp } from '../lib/store';
+import { agents, agentById, tasks, terminals, diffs, templates, models, live, threads, traces, roleDetails, type TraceRow } from '../data/source';
 import { cx, Icon, Button, IconButton, Badge, Status, PanelHead, RoleMark, Tabs, Seg, Toggle, Field, Input, Select, Check, Meter, Tip, SampleTag, Split, EmptyState } from '../ui/primitives';
 import { Composer } from '../ui/composer';
 import { DiffView, CodeBlock, DiffStat } from '../ui/code';
@@ -15,6 +15,7 @@ import {
 } from '../lib/icons';
 
 /* ---------- 5. Agent detail ---------- */
+const approvalsOpen = (id: string) => !!(window as unknown as { __atlasOpenApprovals?: Set<string> }).__atlasOpenApprovals?.has(id);
 function Block({ who, time, children, kind }: { who: string; time: string; children: React.ReactNode; kind?: 'human' | 'delegation' | 'agent' | 'system' }) {
   const a = who === 'you' ? null : agentById(who);
   return (
@@ -24,6 +25,21 @@ function Block({ who, time, children, kind }: { who: string; time: string; child
         <div className="at-blk-head"><span className={cx('at-blk-who', !a && 'at-human-c')}>{a ? a.name : 'You'}</span><span className="at-mono at-subtle">{time}</span></div>
         {children}
       </div>
+    </div>
+  );
+}
+
+function LiveToolTrace({ rows }: { rows: TraceRow[] }) {
+  const [open, setOpen] = useState(false);
+  const kinds: Record<string, number> = {};
+  rows.forEach((r) => { kinds[r.tool] = (kinds[r.tool] ?? 0) + 1; });
+  return (
+    <div className="at-trace">
+      <button type="button" className="at-trace-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <Icon as={IChevronRight} size="sm" className="at-trace-chev" /><Icon as={ITool} size="sm" className="at-subtle" />
+        <span>{rows.length} tool call{rows.length === 1 ? '' : 's'}</span><span className="at-subtle">· {Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(' · ')}</span>{rows.some((r) => !r.ok) && <Badge tone="warning">{rows.filter((r) => !r.ok).length} refused or failed</Badge>}
+      </button>
+      {open && <div className="at-trace-list">{rows.map((r, i) => <div key={i} className="at-trace-row"><span className="at-trace-kind">{r.tool}</span><span className="at-mono at-trunc" title={r.result}>{r.call}</span><span className="at-mono at-subtle">{r.ms}</span></div>)}</div>}
     </div>
   );
 }
@@ -66,12 +82,12 @@ export function AgentDetail() {
         </div>
         <div className="at-row" style={{ gap: 6 }}>
           <Select value={a.id} onChange={(v) => A.selectAgent(v)} width={200} options={agents.map((x) => ({ id: x.id, label: x.name, hint: x.mark }))} />
-          <Button icon={IPause} onClick={() => A.toast({ tone: 'warning', title: `${a.name} will pause after the current step`, body: 'Context, worktree and terminals are kept.' })}>Pause after step</Button>
+          <Button icon={IPause} disabled={live.on && a.status !== 'running'} onClick={() => { if (adapter) void adapter.direct(a.id, 'Pause: finish the step you are on, then stop and summarize what you did and what remains. Do not start new changes.').catch((e: Error) => A.toast({ tone: 'danger', title: 'Not delivered', body: e.message })); else A.toast({ tone: 'warning', title: `${a.name} will pause after the current step`, body: 'Context, worktree and terminals are kept.' }); }}>Pause after step</Button>
           <Button variant="human" icon={IHand} onClick={() => A.go('terminal')}>Take over</Button>
         </div>
       </div>
       <div className="at-agent-tabs">
-        <Tabs value={tab} onChange={setTab} items={[{ id: 'thread', label: 'Thread' }, { id: 'trace', label: 'Trace', count: 38 }, { id: 'terminals', label: 'Terminals', count: a.terminals.length }, { id: 'files', label: 'Files', count: a.files.length }]} />
+        <Tabs value={tab} onChange={setTab} items={[{ id: 'thread', label: 'Thread' }, { id: 'trace', label: 'Trace', count: live.on ? (traces[a.id]?.length ?? 0) : 38 }, { id: 'terminals', label: 'Terminals', count: a.terminals.length }, { id: 'files', label: 'Files', count: a.files.length }]} />
         <span style={{ flex: 1 }} />
         <span className="at-subtle" style={{ fontSize: 12 }}>Decision summaries and tool traces — not private model reasoning.</span>
       </div>
@@ -79,6 +95,16 @@ export function AgentDetail() {
         <div className="at-col at-grow">
           <div className="at-pbody at-thread">
             <div className="at-thread-inner">
+              {live.on ? (threads[a.id]?.length ? threads[a.id].map((it, i) => (
+                <Block key={i} who={it.who} time={it.time} kind={it.kind === 'human' ? 'human' : it.kind === 'delegation' ? 'delegation' : it.kind === 'system' ? 'system' : undefined}>
+                  {it.kind === 'delegation' && <div className="at-deleg"><Icon as={IArrowRight} size="sm" className="at-acc" /><span>{it.text}</span></div>}
+                  {it.kind === 'message' && <div className="at-agent-msg" style={{ whiteSpace: 'pre-wrap' }}>{it.text}</div>}
+                  {it.kind === 'human' && <div className="at-human-msg">{it.text}</div>}
+                  {it.kind === 'tools' && <LiveToolTrace rows={it.tools ?? []} />}
+                  {it.kind === 'approval' && (it.approvalId && approvalsOpen(it.approvalId) ? <ApprovalCard id={it.approvalId} /> : <div className="at-ack"><Icon as={IShield} size="sm" className="at-acc" />Asked to run <span className="at-mono">{it.text.slice(0, 160)}</span></div>)}
+                  {it.kind === 'system' && <div className="at-ack"><Icon as={ICheck} size="sm" className="at-acc" />{it.text}</div>}
+                </Block>
+              )) : <EmptyState center icon={IAgents} title="No activity yet" body={`${a.name} has not started. It begins when the tasks it waits on finish.`} />) : (<>
               <Block who="orch" time="09:42:13" kind="delegation">
                 <div className="at-deleg"><Icon as={IArrowRight} size="sm" className="at-acc" /><span>Delegated <b>T3, T4, T5, T6, T7</b> · token-family rotation, migration, middleware hardening, contract v2</span></div>
                 <div className="at-subtle" style={{ fontSize: 12, marginTop: 4 }}>Constraints: keep password login working · no network · ask before schema changes</div>
@@ -107,7 +133,7 @@ export function AgentDetail() {
                 <ToolTrace />
                 <div className="at-blk-diff">
                   <div className="at-blk-diffhead"><Icon as={IFileCode} size="sm" className="at-subtle" /><span className="at-mono">src/auth/session.ts</span><DiffStat add={18} del={4} /><span style={{ flex: 1 }} /><Button size="sm" variant="ghost" icon={IReviews} onClick={() => A.go('review')}>Open in review</Button></div>
-                  <DiffView before={sessionBefore.split('\n').slice(3, 16).join('\n')} after={sessionAfter.split('\n').slice(4, 21).join('\n')} mode="inline" />
+                  <DiffView before={diffs.sessionBefore.split('\n').slice(3, 16).join('\n')} after={diffs.sessionAfter.split('\n').slice(4, 21).join('\n')} mode="inline" />
                 </div>
                 <div className="at-tests">
                   <VerificationRow label="src/auth/tokens.test.ts" value="14 passed · 212ms" status="passed" />
@@ -116,7 +142,8 @@ export function AgentDetail() {
                 </div>
               </Block>
               <Block who={a.id === 'orch' ? 'be' : a.id} time="09:56:30"><ApprovalCard id="AP-31" /></Block>
-              {sent.map((t, i) => (
+              </>)}
+              {!live.on && sent.map((t, i) => (
                 <React.Fragment key={i}>
                   <Block who="you" time="now" kind="human"><div className="at-human-msg">{t}</div></Block>
                   <Block who={a.id} time="now"><div className="at-ack"><Icon as={ICheck} size="sm" className="at-acc" />Understood — applying after the current step. Context kept (118k tokens).</div></Block>
@@ -124,7 +151,9 @@ export function AgentDetail() {
               ))}
             </div>
           </div>
-          <Composer target={<><RoleMark mark={a.mark} size="sm" />{a.name}</>} quick={['Pause after the current test', 'Ask the security agent to review this change', 'Continue, but don’t modify database migrations', 'Show me why this approach was chosen']} onSend={(t) => setSent((s) => [...s, t])} />
+          <Composer target={<><RoleMark mark={a.mark} size="sm" />{a.name}</>} running={!live.on || a.status === 'running'} placeholder={live.on && a.status !== 'running' ? `${a.name} is not running. Directions reach running agents only.` : undefined}
+            quick={live.on ? ['Run the full test suite before you continue', 'Keep the change minimal: no unrelated files', 'Explain in two sentences why you chose this approach'] : ['Pause after the current test', 'Ask the security agent to review this change', 'Continue, but don’t modify database migrations', 'Show me why this approach was chosen']}
+            onSend={(t) => { if (adapter) void adapter.direct(a.id, t).catch((e: Error) => A.toast({ tone: 'danger', title: 'Direction not delivered', body: e.message })); else setSent((s) => [...s, t]); }} />
         </div>
       )}
       {tab === 'trace' && (
@@ -132,7 +161,9 @@ export function AgentDetail() {
           <table className="at-table">
             <thead><tr><th>Time</th><th>Tool</th><th>Call</th><th>Result</th><th style={{ textAlign: 'right' }}>Duration</th></tr></thead>
             <tbody>
-              {[['09:56:58', 'edit', 'src/auth/session.ts', '+18 −4', '—'], ['09:56:41', 'shell', 'pnpm vitest run src/auth', 'exit 0 · 33 passed', '4.1s'], ['09:56:30', 'approval', 'pnpm db:migrate --to 0043', 'waiting on you', '—'], ['09:55:47', 'search', '"replacedBy" in src/', '6 matches', '41ms'], ['09:55:44', 'read', 'src/auth/tokens.ts', '118 lines', '8ms'], ['09:55:44', 'read', 'src/auth/session.ts', '96 lines', '12ms']].map((r, i) => (
+              {live.on ? (traces[a.id] ?? []).map((r, i) => (
+                <tr key={i}><td className="at-mono at-subtle">{r.time}</td><td><Badge tone="outline"><span className="at-mono">{r.tool}</span></Badge></td><td className="at-mono at-trunc" style={{ maxWidth: 420 }}>{r.call}</td><td className={cx(r.ok ? 'at-muted' : 'at-warn')}>{r.result}</td><td className="at-mono at-subtle" style={{ textAlign: 'right' }}>{r.ms}</td></tr>
+              )) : [['09:56:58', 'edit', 'src/auth/session.ts', '+18 −4', '—'], ['09:56:41', 'shell', 'pnpm vitest run src/auth', 'exit 0 · 33 passed', '4.1s'], ['09:56:30', 'approval', 'pnpm db:migrate --to 0043', 'waiting on you', '—'], ['09:55:47', 'search', '"replacedBy" in src/', '6 matches', '41ms'], ['09:55:44', 'read', 'src/auth/tokens.ts', '118 lines', '8ms'], ['09:55:44', 'read', 'src/auth/session.ts', '96 lines', '12ms']].map((r, i) => (
                 <tr key={i}><td className="at-mono at-subtle">{r[0]}</td><td><Badge tone="outline"><span className="at-mono">{r[1]}</span></Badge></td><td className="at-mono">{r[2]}</td><td className={cx(r[3].startsWith('waiting') ? 'at-warn' : 'at-muted')}>{r[3]}</td><td className="at-mono at-subtle" style={{ textAlign: 'right' }}>{r[4]}</td></tr>
               ))}
             </tbody>
@@ -152,8 +183,9 @@ export function AgentDetail() {
 
 /* ---------- 6. Multi-agent graph ---------- */
 export function GraphScreen() {
-  const [sel, setSel] = useState<string | undefined>('T13');
+  const [sel, setSel] = useState<string | undefined>(live.on ? (tasks.find((x) => x.status === 'running' || x.status === 'failed') ?? tasks[0])?.id : 'T13');
   const [view, setView] = useState<'tasks' | 'agents'>('tasks');
+  const last = [...tasks].sort((a, b) => b.phase - a.phase)[0];
   const [critical, setCritical] = useState(false);
   const A = actions();
   const t = tasks.find((x) => x.id === sel);
@@ -163,7 +195,7 @@ export function GraphScreen() {
       <MissionHeader tab="graph" />
       <div className="at-graphbar">
         <Seg value={view} onChange={setView} items={[{ id: 'tasks', label: 'Tasks by agent' }, { id: 'agents', label: 'Agents' }]} />
-        <button type="button" className="at-chip" aria-pressed={critical} onClick={() => setCritical(!critical)}>Critical path to T14</button>
+        <button type="button" className="at-chip" aria-pressed={critical} onClick={() => setCritical(!critical)}>Critical path to {last?.id ?? '—'}</button>
         <span style={{ flex: 1 }} />
         <span className="at-graph-key"><span><i data-s="done" />done</span><span><i data-s="running" />running</span><span><i data-s="waiting" />waiting</span><span><i data-s="failed" />failed</span><span><i data-s="pending" />pending</span></span>
       </div>
@@ -186,8 +218,9 @@ export function GraphScreen() {
                     <dt>Duration</dt><dd>{t.duration ?? (t.status === 'running' ? 'running' : '—')}</dd>
                   </dl>
                 </div>
-                {t.id === 'T13' && <div className="at-callout at-callout--warning" style={{ margin: '0 16px 16px' }}><Icon as={IShield} /><div><b>Gated.</b> Starts only when T10 security review and T12 browser QA pass, and T9 lands. T12 is failing.</div></div>}
-                {t.id === 'T12' && <div style={{ padding: '0 16px 16px' }}><Button size="sm" onClick={() => A.go('mission', { recovery: true })}>Open diagnostic</Button></div>}
+                {!live.on && t.id === 'T13' && <div className="at-callout at-callout--warning" style={{ margin: '0 16px 16px' }}><Icon as={IShield} /><div><b>Gated.</b> Starts only when T10 security review and T12 browser QA pass, and T9 lands. T12 is failing.</div></div>}
+                {live.on && t.status === 'blocked' && <div className="at-callout at-callout--warning" style={{ margin: '0 16px 16px' }}><Icon as={IShield} /><div><b>Gated.</b> Starts when {t.deps.join(', ')} finish{t.deps.some((d) => tasks.find((x) => x.id === d)?.status === 'failed') ? ' — one of them failed' : ''}.</div></div>}
+                {(live.on ? t.status === 'failed' : t.id === 'T12') && <div style={{ padding: '0 16px 16px' }}><Button size="sm" onClick={() => A.go('mission', { recovery: true, agent: t.agent })}>Open diagnostic</Button></div>}
               </div>
             </>
           ) : <EmptyState icon={IGraph} title="Select a task" body="Click any task to see its owner, what it waits on and what it unblocks. Drag to pan; ⌘-scroll to zoom." />}
@@ -222,7 +255,87 @@ verify:
   - every assertion has evidence (screenshot or trace)
   - never mark a flow passed on a 2xx alone`;
 
-export function AgentStudio() {
+export function AgentStudio() { return live.on ? <LiveStudio /> : <SampleStudio />; }
+
+/** Live Agent Studio: the roles ATLAS runs are versioned policy in code, shown exactly as enforced. */
+function LiveStudio() {
+  const ids = Object.keys(roleDetails);
+  const [sel, setSel] = useState(ids[0] ?? '');
+  const [task, setTask] = useState('');
+  const A = actions();
+  const r = roleDetails[sel];
+  const used = agents.filter((a) => a.role === r?.title).length;
+  return (
+    <div className="at-screen at-studio">
+      <aside className="at-studio-list">
+        <div className="at-phead"><span className="at-label">Agent Studio</span></div>
+        <div className="at-pbody">
+          <div className="at-label" style={{ padding: '12px 12px 6px' }}>Roles in this mission</div>
+          {agents.filter((a) => a.id !== 'orch').map((a) => { const id = ids.find((x) => roleDetails[x].title === a.role) ?? ''; return <button key={a.id} type="button" className="at-list-row" aria-selected={sel === id} onClick={() => id && setSel(id)}><RoleMark mark={a.mark} size="sm" /><span className="at-trunc">{a.name}</span><span className="at-subtle at-mono" style={{ marginLeft: 'auto', fontSize: 11 }}>{a.id}</span></button>; })}
+          <div className="at-label" style={{ padding: '16px 12px 6px' }}>All roles</div>
+          {templates.map((t) => <button key={t.id} type="button" className="at-list-row" aria-selected={sel === t.id} onClick={() => setSel(t.id)}><RoleMark mark={t.mark} size="sm" /><span className="at-col" style={{ minWidth: 0 }}><span className="at-trunc">{t.name}</span><span className="at-subtle at-trunc" style={{ fontSize: 11.5 }}>{t.tools} tools</span></span></button>)}
+        </div>
+      </aside>
+      {r ? (
+        <div className="at-col at-grow">
+          <div className="at-studio-head">
+            <RoleMark mark={templates.find((t) => t.id === r.id)?.mark ?? 'AG'} size="lg" />
+            <div className="at-col" style={{ gap: 2, flex: 1 }}><span className="heading">{r.title}</span><span className="at-subtle" style={{ fontSize: 12 }}>{r.version} · versioned policy in code · in this mission: {used} agent{used === 1 ? '' : 's'}</span></div>
+            <Tip label="Roles are code-reviewed policy: change them through a mission on the ATLAS repository, not in the UI."><span><Button disabled icon={ICheck}>Policy · read-only</Button></span></Tip>
+          </div>
+          <div className="at-pbody at-studio-form">
+            <section className="at-sform">
+              <div className="at-sform-h"><span className="at-label">Identity</span></div>
+              <div className="at-sform-grid">
+                <Field label="Name"><Input value={r.title} readOnly /></Field>
+                <Field label="Role id"><Input value={r.id} readOnly /></Field>
+                <div style={{ gridColumn: '1 / -1' }}><Field label="Instructions" help="Shown to the agent at the top of every context." aside={<span className="at-mono at-subtle">{Math.round(r.instructions.length / 4)} tokens</span>}>
+                  <label className="at-input at-textarea"><textarea rows={8} value={r.instructions} readOnly /></label>
+                </Field></div>
+              </div>
+            </section>
+            <section className="at-sform">
+              <div className="at-sform-h"><span className="at-label">Model & context</span></div>
+              <div className="at-sform-grid">
+                <Field label="Tier"><Input value={r.tier} readOnly /></Field>
+                <Field label="Model" help="Set per tier in Settings → Models."><Input value={r.model} readOnly /></Field>
+              </div>
+            </section>
+            <section className="at-sform">
+              <div className="at-sform-h"><span className="at-label">Tools & capabilities</span></div>
+              <div className="at-toolgrid">{r.tools.map((k) => <label key={k} className="at-toolrow"><span className="at-mono">{k}</span><Toggle on label={k} /></label>)}</div>
+              <div className="at-row" style={{ gap: 6, marginTop: 12, flexWrap: 'wrap' }}>{r.capabilities.map((c) => <Badge key={c} tone="accent" icon={ISkill}>{c}</Badge>)}</div>
+            </section>
+            <section className="at-sform">
+              <div className="at-sform-h"><span className="at-label">Execution permissions</span></div>
+              <div className="at-perms">
+                {[['File writes', r.writes ? 'allow' : 'deny', r.writes ? 'its own worktree only' : 'read-only role'], ['Shell', r.tools.includes('shell_exec') ? 'allow' : 'deny', 'safe list, OS sandbox'], ['Risky commands', 'ask', 'your approval, once'], ['Network', r.capabilities.some((c) => c.startsWith('net')) ? 'ask' : 'deny', 'no outbound by default'], ['Deploy', r.capabilities.some((c) => c.startsWith('deploy')) ? 'ask' : 'deny', 'staging only, approved each time']].map(([k, v, d]) => (
+                  <div key={k} className="at-permrow"><span>{k}</span><span className="at-mono at-subtle at-trunc">{d}</span><Seg value={v} onChange={() => {}} items={[{ id: 'allow', label: 'Allow' }, { id: 'ask', label: 'Ask' }, { id: 'deny', label: 'Deny' }]} /></div>
+                ))}
+              </div>
+            </section>
+            <section className="at-sform">
+              <div className="at-sform-h"><span className="at-label">Limits</span></div>
+              <div className="at-sform-grid at-sform-grid--3">
+                <Field label="Tool calls"><Input value={String(r.budget.maxToolCalls)} readOnly /></Field><Field label="Token limit"><Input value={`${Math.round(r.budget.maxTokens / 1000)}k`} readOnly /></Field><Field label="Time limit"><Input value={`${Math.round(r.budget.wallClockMs / 60000)} min`} readOnly /></Field>
+              </div>
+            </section>
+          </div>
+        </div>
+      ) : <EmptyState center icon={IAgents} title="No roles" body="The control plane returned no roles." />}
+      <aside className="at-sandbox">
+        <PanelHead label="Try it" title={<span className="at-subtle" style={{ fontWeight: 400 }}>a real mission</span>} />
+        <div className="at-pbody" style={{ padding: 14 }}>
+          <Field label="Test task"><label className="at-input at-textarea"><textarea rows={4} value={task} onChange={(e) => setTask(e.target.value)} placeholder="A small, safe task for this repository" /></label></Field>
+          <div className="at-row" style={{ gap: 8, margin: '10px 0 16px' }}><Button variant="primary" icon={IPlay} disabled={!task.trim() || !adapter} onClick={() => void adapter?.launch(task.trim()).catch((e: Error) => A.toast({ tone: 'danger', title: 'Could not launch', body: e.message }))}>Run as mission</Button></div>
+          <p className="at-subtle" style={{ fontSize: 12 }}>Runs in isolated worktrees under the same policy, with a plan you approve first.</p>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function SampleStudio() {
   const [mode, setMode] = useState<'visual' | 'config'>('visual');
   const [sel, setSel] = useState('bqa');
   const [tools, setTools] = useState<Record<string, boolean>>({ browser: true, shell: true, test: true, screenshot: true, edit: false, deploy: false });

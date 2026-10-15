@@ -5,7 +5,7 @@
 //  - Sessions are saved per attempt under the ATLAS-owned agentDir, only so that an attempt lost to a daemon
 //    restart can continue its conversation. A session is deleted when its attempt ends; ATLAS's event log remains
 //    the durable record.
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { AgentSession, ModelRuntime, ResourceLoader, SessionManager, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
@@ -289,15 +289,25 @@ Rules: at most ${req.maxTasks} tasks; no cycles; only tools listed for each role
     ].filter(Boolean).join('\n\n');
     const pi = await sdk();
     const { createAgentSession, SessionManager, SettingsManager } = pi;
+    // An empty directory of its own: a packaged app's cwd is "/", and the session scans its cwd for project context.
+    const cwd = path.join(this.opts.agentDir, 'planner');
+    mkdirSync(cwd, { recursive: true });
     const { session } = await createAgentSession({
-      cwd: process.cwd(), agentDir: this.opts.agentDir, model, thinkingLevel: 'off', modelRuntime: rt, resourceLoader: resourceLoader(pi, system),
-      tools: [], customTools: [], sessionManager: SessionManager.inMemory(process.cwd()),
+      cwd, agentDir: this.opts.agentDir, model, thinkingLevel: 'off', modelRuntime: rt, resourceLoader: resourceLoader(pi, system),
+      tools: [], customTools: [], sessionManager: SessionManager.inMemory(cwd),
       settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: true, maxRetries: 2 }, enableInstallTelemetry: false, enableAnalytics: false }),
     });
     let inputTokens = 0, outputTokens = 0;
+    // Timing trace of the planning session (event types, stop reasons, errors; never content) for diagnosis.
+    const trace: string[] = [];
+    const t0 = Date.now();
+    let lastType = '';
     const unsub = session.subscribe((e: any) => {
       if (e.type === 'message_end' && e.message?.role === 'assistant' && e.message.usage) { inputTokens += e.message.usage.input ?? 0; outputTokens += e.message.usage.output ?? 0; }
+      if (e.type !== lastType || e.type !== 'message_update') trace.push(`${Date.now() - t0}ms ${e.type}${e.message?.stopReason ? ` stop=${e.message.stopReason}` : ''}${e.message?.errorMessage ? ` error=${String(e.message.errorMessage).slice(0, 200)}` : ''}${e.attempt ? ` attempt=${e.attempt}` : ''}${e.delayMs ? ` delay=${e.delayMs}` : ''}`);
+      lastType = e.type;
     });
+    const flushTrace = () => { try { writeFileSync(path.join(cwd, `plan-${req.missionId}.trace`), trace.join('\n') + `\n${Date.now() - t0}ms end aborted=${req.signal.aborted} in=${inputTokens} out=${outputTokens}\n`); } catch { /* best effort */ } };
     const onAbort = () => { void session.abort().catch(() => {}); };
     req.signal.addEventListener('abort', onAbort, { once: true });
     try {
@@ -312,6 +322,7 @@ Rules: at most ${req.maxTasks} tasks; no cycles; only tools listed for each role
       const { rationale, ...plan } = parsed as Record<string, unknown>;
       return { plan, rationale: typeof rationale === 'string' ? rationale : '', inputTokens, outputTokens };
     } finally {
+      flushTrace();
       req.signal.removeEventListener('abort', onAbort);
       unsub();
       session.dispose();

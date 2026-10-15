@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { IconType } from 'react-icons';
-import { actions, useApp, type ScreenId } from '../lib/store';
-import { agents, agentById, mission, missions, workspace, workspaces, checkpoints, tasks } from '../data/sample';
+import { actions, adapter, useApp, type ScreenId } from '../lib/store';
+import { agents, agentById, mission, missions, workspace, workspaces, checkpoints, tasks, live, deployments, models } from '../data/source';
 import { cx, Icon, IconButton, Tip, Kbd, RoleMark, Status, Badge, Menu, MenuItem, ContextMeter, Section, KV, Button, SampleTag, Activity, Dot } from '../ui/primitives';
 import { DiffStat } from '../ui/code';
 import { openRepository } from '../lib/workspace';
@@ -29,10 +29,11 @@ const tools: typeof nav = [
 export function TitleBar() {
   const paused = useApp((s) => s.paused);
   const resolved = useApp((s) => s.resolved);
-  const notifCount = 2 - Object.keys(resolved).length + 1;
+  const approvalsAll = useApp((s) => s.approvals);
+  const notifCount = live.on ? approvalsAll.filter((x) => !resolved[x.id]).length + agents.filter((x) => x.status === 'failed').length : 2 - Object.keys(resolved).length + 1;
   const repo = useApp((s) => s.repo);
   const A = actions();
-  const wsName = repo?.name ?? 'storefront';
+  const wsName = repo?.name ?? (live.on ? workspace.name : 'storefront');
   const branch = repo ? (repo.branch ?? 'no git') : workspace.branch;
   const branchTip = repo
     ? (repo.isGit ? `HEAD ${repo.head}${repo.ahead != null ? ` · ${repo.ahead} ahead, ${repo.behind} behind upstream` : ''} · ${repo.dirty ? `${repo.dirty} changed` : 'clean'}` : repo.path)
@@ -43,14 +44,15 @@ export function TitleBar() {
       <Menu width={300} trigger={(open, t) => (
         <button type="button" className="at-tb-ws" onClick={t} aria-expanded={open}>
           <span className="at-tb-wsmark">{wsName.charAt(0).toUpperCase()}</span>
-          {!repo && <span className="at-subtle at-tb-owner">acme /</span>}<span className="at-tb-wsname">{wsName}</span><Icon as={IChevronDown} size="sm" className="at-subtle" />
+          {!repo && !live.on && <span className="at-subtle at-tb-owner">acme /</span>}<span className="at-tb-wsname">{wsName}</span><Icon as={IChevronDown} size="sm" className="at-subtle" />
         </button>
       )}>
         {(close) => (
           <>
             <div className="at-label at-menu-label">Workspaces</div>
             {repo && <MenuItem icon={IFolderOpen} active hint="local" onClick={close}>{repo.name}</MenuItem>}
-            {workspaces.map((w) => <MenuItem key={w.id} icon={IFolder} active={!repo && w.id === 'storefront'} hint={w.updated} onClick={() => { close(); if (repo || w.id !== 'storefront') A.set({ repo: null }); if (w.id !== 'storefront') A.toast({ tone: 'info', title: `Switched to ${w.name}`, body: 'Panel layout and active context restored from your last session.' }); }}>{w.name}</MenuItem>)}
+            {live.on && workspaces.filter((w) => w.name !== repo?.name).map((w) => <MenuItem key={w.id} icon={IFolder} hint={`${w.missions} missions`} onClick={() => { close(); A.go('workspaces'); }}>{w.name}</MenuItem>)}
+            {(live.on ? [] : workspaces).map((w) => <MenuItem key={w.id} icon={IFolder} active={!repo && w.id === 'storefront'} hint={w.updated} onClick={() => { close(); if (repo || w.id !== 'storefront') A.set({ repo: null }); if (w.id !== 'storefront') A.toast({ tone: 'info', title: `Switched to ${w.name}`, body: 'Panel layout and active context restored from your last session.' }); }}>{w.name}</MenuItem>)}
             <div className="at-menu-sep" />
             <MenuItem icon={IPlus} kbd="⌘ O" onClick={() => { close(); openRepository(); }}>Open repository…</MenuItem>
           </>
@@ -70,17 +72,18 @@ export function TitleBar() {
       </button>
 
       <div className="at-tb-right">
-        <Tip label="storefront-staging · v214 · checks passing"><span className="at-tb-env"><Dot s="healthy" />staging</span></Tip>
-        <Tip label="Default model · Pi runtime 0.9 (sample adapter)"><span className="at-tb-model"><Icon as={ICpu} size="sm" />Sonnet 5.5</span></Tip>
+        <Tip label={live.on ? (deployments[0] ? `${deployments[0].env} · ${deployments[0].commit} · ${deployments[0].status}` : 'No staging deployment yet') : 'storefront-staging · v214 · checks passing'}><span className="at-tb-env"><Dot s={live.on && !deployments[0] ? 'idle' : 'healthy'} />{live.on ? (deployments[0]?.env ?? workspace.environment) : 'staging'}</span></Tip>
+        <Tip label={live.on ? `Mission model · ${workspace.runtime}` : 'Default model · Pi runtime 0.9 (sample adapter)'}><span className="at-tb-model"><Icon as={ICpu} size="sm" />{live.on ? (agents.find((x) => x.status === 'running')?.model ?? agents[1]?.model ?? models[0]?.name ?? '—').replace(/^[a-z]+\//, '') : 'Sonnet 5.5'}</span></Tip>
         <span className="at-sep-v" />
         <InspectorToggle />
         <span data-bell style={{ position: 'relative', display: 'inline-flex' }}>
           <IconButton icon={IBell} label="Notifications" onClick={() => A.set((s) => ({ notifications: !s.notifications }))} />
           {notifCount > 0 && <span className="at-tb-count">{notifCount}</span>}
         </span>
-        <IconButton icon={paused ? IPlay : IPause} label={paused ? 'Resume all agents' : 'Pause all agents'} kbd="⌘ ⇧ ." pressed={paused}
-          onClick={() => { A.set({ paused: !paused }); A.toast(paused ? { tone: 'info', title: 'Agents resumed', body: 'Each agent continues from its last step.' } : { tone: 'warning', title: 'Pausing all agents', body: 'Agents stop after their current step. Context and worktrees are kept.' }); }} />
-        <IconButton icon={IStop} label="Stop mission…" danger onClick={() => A.toast({ tone: 'danger', title: 'Stop requires confirmation', body: 'Use Mission → Stop to cancel and choose a checkpoint to keep.' })} />
+        {!live.on && <IconButton icon={paused ? IPlay : IPause} label={paused ? 'Resume all agents' : 'Pause all agents'} kbd="⌘ ⇧ ." pressed={paused}
+          onClick={() => { A.set({ paused: !paused }); A.toast(paused ? { tone: 'info', title: 'Agents resumed', body: 'Each agent continues from its last step.' } : { tone: 'warning', title: 'Pausing all agents', body: 'Agents stop after their current step. Context and worktrees are kept.' }); }} />}
+        {!live.on && <IconButton icon={IStop} label="Stop mission…" danger onClick={() => A.toast({ tone: 'danger', title: 'Stop requires confirmation', body: 'Use Mission → Stop to cancel and choose a checkpoint to keep.' })} />}
+        {live.on && mission.status === 'running' && <IconButton icon={IStop} label="Stop mission" danger onClick={() => void adapter?.stop().catch((e: Error) => A.toast({ tone: 'danger', title: 'Could not stop', body: e.message }))} />}
       </div>
     </header>
   );
@@ -105,7 +108,7 @@ export function Rail() {
       <button key={n.id} type="button" className="at-rail-item" aria-current={active ? 'page' : undefined} onClick={() => A.go(n.id)}>
         <Icon as={n.icon} size="lg" />
         <span className="at-rail-label">{n.label}</span>
-        {n.badge && <span className="at-rail-badge">{n.badge}</span>}
+        {(live.on ? (n.id === 'review' ? missions.filter((m) => m.status === 'review').length : 0) : n.badge) ? <span className="at-rail-badge">{live.on ? missions.filter((m) => m.status === 'review').length : n.badge}</span> : null}
         {expanded && n.kbd && <span className="at-rail-kbd"><Kbd k={n.kbd} /></span>}
       </button>
     );
@@ -156,8 +159,8 @@ export function StatusBar() {
   agents.forEach((a) => { if (a.status in counts) counts[a.status]++; });
   return (
     <footer className="at-statusbar">
-      <span className="at-sb-item"><Dot s="connected" />Pi runtime · sample adapter</span>
-      <SampleTag>Prototype · sample data</SampleTag>
+      <span className="at-sb-item"><Dot s="connected" />{live.on ? workspace.runtime : 'Pi runtime · sample adapter'}</span>
+      {!live.on && <SampleTag>Prototype · sample data</SampleTag>}
       <span className="at-sep-v" style={{ margin: '6px 2px' }} />
       <button type="button" className={cx('at-sb-item at-sb-btn', drawer === 'activity' && 'at-sb-btn--on')} onClick={() => A.set({ drawer: drawer === 'activity' ? null : 'activity' })}>
         {paused ? <Icon as={IPause} size="sm" className="at-warn" /> : <Activity />}
@@ -168,11 +171,11 @@ export function StatusBar() {
       </button>
       <span style={{ flex: 1 }} />
       <button type="button" className={cx('at-sb-item at-sb-btn', drawer === 'checkpoints' && 'at-sb-btn--on')} onClick={() => A.set({ drawer: drawer === 'checkpoints' ? null : 'checkpoints' })}>
-        <Icon as={IHistory} size="sm" />CP-9 · 2m ago
+        <Icon as={IHistory} size="sm" />{live.on ? (checkpoints[0] ? `${checkpoints[0].id} · ${checkpoints[0].time}` : 'no checkpoints') : 'CP-9 · 2m ago'}
       </button>
-      <span className="at-sb-item at-mono at-tnum">1.42M tok</span>
-      <span className="at-sb-item at-mono at-tnum">$3.18</span>
-      <span className="at-sb-item at-mono at-tnum">14:32</span>
+      <span className="at-sb-item at-mono at-tnum">{live.on ? `${mission.tokens} tok` : '1.42M tok'}</span>
+      <span className="at-sb-item at-mono at-tnum">{live.on ? mission.compute : '$3.18'}</span>
+      <span className="at-sb-item at-mono at-tnum">{live.on ? mission.elapsed : '14:32'}</span>
     </footer>
   );
 }
@@ -244,7 +247,7 @@ export function Inspector() {
         <Section label="Recent actions">
           <div className="at-recent">
             <div><span className="at-mono at-subtle">{a.lastAction.time}</span><span>{a.lastAction.text}</span></div>
-            {a.id === 'be' && <>
+            {!live.on && a.id === 'be' && <>
               <div><span className="at-mono at-subtle">09:56:41</span><span>Ran <span className="at-mono">pnpm vitest run src/auth</span> · 33 passed</span></div>
               <div><span className="at-mono at-subtle">09:56:30</span><span>Requested approval AP-31</span></div>
             </>}

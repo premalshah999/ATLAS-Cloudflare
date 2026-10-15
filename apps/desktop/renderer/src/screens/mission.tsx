@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { actions, useApp, useSimulation } from '../lib/store';
-import { mission, terminals, timeline as baseTimeline, agentById, tasks } from '../data/sample';
+import { actions, adapter, useApp, useSimulation } from '../lib/store';
+import { mission, terminals, timeline as baseTimeline, agentById, tasks, agents, pipeline, live } from '../data/source';
 import { cx, Icon, Button, IconButton, Badge, Status, PanelHead, Split, Tabs, Tip, Kbd, RoleMark, usePresence, Seg } from '../ui/primitives';
 import { AgentGraph } from '../ui/graph';
 import { Timeline, countByFilter, type TLFilter } from '../ui/timeline';
 import { TerminalView, TermTabs } from '../ui/terminal';
 import { ApprovalCard } from '../ui/overlays';
 import { VerificationRow } from '../ui/verify';
-import { CodeBlock } from '../ui/code';
+
 import {
-  IPause, IPlay, IHistory, IMaximize, IXCircle, IArrowRight, IRetry, IUndo, IHand, ICheck, IClose, IImage, IExternal, IFilter, IRows, IMessage, ITerminal,
+  IPause, IPlay, IHistory, IMaximize, IXCircle, IArrowRight, IRetry, IUndo, IHand, ICheck, IClose, IFilter, IRows, IMessage, ITerminal,
 } from '../lib/icons';
 
 export function MissionHeader({ tab }: { tab: 'control' | 'graph' | 'report' }) {
@@ -22,7 +22,8 @@ export function MissionHeader({ tab }: { tab: 'control' | 'graph' | 'report' }) 
         <div className="at-row" style={{ gap: 10 }}>
           <span className="at-mid">{mission.id}</span>
           <h1 className="display at-mtitle">{mission.title}</h1>
-          {paused ? <Badge tone="warning" icon={IPause}>Paused</Badge> : <Badge tone="accent"><span className="at-act" style={{ width: 8, height: 8 }}><i /><i /><i /></span>Running · {mission.elapsed}</Badge>}
+          {paused ? <Badge tone="warning" icon={IPause}>Paused</Badge> : mission.status === 'running' ? <Badge tone="accent"><span className="at-act" style={{ width: 8, height: 8 }}><i /><i /><i /></span>Running · {mission.elapsed}</Badge>
+            : <Badge tone={mission.status === 'failed' ? 'danger' : mission.status === 'review' ? 'warning' : mission.status === 'paused' ? 'warning' : 'success'}>{({ review: 'Ready for review', failed: 'Failed', done: 'Done', verified: 'Verified', paused: 'Awaiting plan approval', draft: 'Draft' } as Record<string, string>)[mission.status] ?? mission.status} · {mission.elapsed}</Badge>}
         </div>
         <div className="at-mobj">
           <span className="at-trunc">{mission.objective}</span>
@@ -31,59 +32,61 @@ export function MissionHeader({ tab }: { tab: 'control' | 'graph' | 'report' }) 
       <div className="at-mhead-r">
         <div className="at-mstats">
           <Tip label="Tasks verified or complete"><span><b className="at-tnum">{done}</b><span className="at-subtle">/{tasks.length}</span> tasks</span></Tip>
-          <span><b>6</b> agents</span>
-          <Tip label="Input + output tokens across all agents"><span><b className="at-tnum">1.42M</b> tokens</span></Tip>
-          <Tip label="Model spend so far · budget $12.00"><span><b className="at-tnum">$3.18</b> compute</span></Tip>
+          <span><b>{Math.max(0, agents.length - 1)}</b> agents</span>
+          <Tip label="Input + output tokens across all agents"><span><b className="at-tnum">{mission.tokens}</b> tokens</span></Tip>
+          <Tip label={live.on ? 'Tool calls executed through policy' : 'Model spend so far · budget $12.00'}><span><b className="at-tnum">{mission.compute}</b>{live.on ? '' : ' compute'}</span></Tip>
         </div>
         <div className="at-row" style={{ gap: 6 }}>
           <Tabs value={tab} onChange={(v) => A.go(v === 'control' ? 'mission' : v === 'graph' ? 'graph' : 'report')} className="at-mtabs"
             items={[{ id: 'control', label: 'Control' }, { id: 'graph', label: 'Task graph' }, { id: 'report', label: 'Report' }]} />
           <span className="at-sep-v" />
           <IconButton icon={IHistory} label="Checkpoints" onClick={() => A.set({ drawer: 'checkpoints' })} />
-          <Button size="sm" icon={paused ? IPlay : IPause} kbd="⌘ ⇧ P" onClick={() => A.set({ paused: !paused })}>{paused ? 'Resume' : 'Pause'}</Button>
+          {adapter ? (mission.status === 'running' && <Button size="sm" icon={IPause} onClick={() => void adapter!.stop().catch((e: Error) => A.toast({ tone: 'danger', title: 'Could not stop', body: e.message }))}>Stop mission</Button>)
+            : <Button size="sm" icon={paused ? IPlay : IPause} kbd="⌘ ⇧ P" onClick={() => A.set({ paused: !paused })}>{paused ? 'Resume' : 'Pause'}</Button>}
         </div>
       </div>
     </div>
   );
 }
+
+const STAGE: Record<string, 'passed' | 'failed' | 'warning' | 'pending' | 'running'> = { passed: 'passed', failed: 'failed', warning: 'warning', running: 'running', pending: 'pending', locked: 'pending' };
 
 function NeedsYou() {
   const resolved = useApp((s) => s.resolved);
-  const term = useApp((s) => s.term);
+  const approvals = useApp((s) => s.approvals);
   const A = actions();
-  const open = 2 - Object.keys(resolved).length + 1;
-  const unitDone = !!term['t-be'];
+  const failed = agents.filter((x) => x.status === 'failed');
+  const pending = approvals.filter((x) => !resolved[x.id]);
   return (
     <div className="at-panel" style={{ height: '100%' }}>
-      <PanelHead label="Needs you" count={open} />
+      <PanelHead label="Needs you" count={failed.length + pending.length} />
       <div className="at-pbody at-needs">
         <div className="at-col" style={{ gap: 8, padding: 12 }}>
-          <div className="at-error" style={{ animation: 'at-insert var(--dur-4) var(--ease-out) both' }}>
-            <Icon as={IXCircle} />
-            <h5>T12 failed · logout clears session</h5>
-            <p>QA Engineer: <span className="at-mono">__Host-session</span> survives logout. Diagnosis points to <span className="at-mono">Path=/api</span> (SEC-2).</p>
-            <div className="at-row" style={{ gap: 6 }}><Button size="sm" onClick={() => A.set({ recovery: true })}>Recover…</Button><Button size="sm" variant="ghost" onClick={() => A.selectAgent('qa')}>Inspect</Button></div>
-          </div>
-          <ApprovalCard id="AP-31" />
-          <ApprovalCard id="AP-32" compact />
+          {failed.map((f) => (
+            <div key={f.id} className="at-error" style={{ animation: 'at-insert var(--dur-4) var(--ease-out) both' }}>
+              <Icon as={IXCircle} />
+              <h5>{f.assignment} · failed</h5>
+              <p>{f.name}: {f.blocker ?? f.activity}</p>
+              <div className="at-row" style={{ gap: 6 }}><Button size="sm" onClick={() => A.set({ recovery: true, agent: f.id })}>Recover…</Button><Button size="sm" variant="ghost" onClick={() => A.selectAgent(f.id)}>Inspect</Button></div>
+            </div>
+          ))}
+          {approvals.map((ap, i) => <ApprovalCard key={ap.id} id={ap.id} compact={i > 0} />)}
+          {!failed.length && !approvals.length && <p className="at-subtle" style={{ fontSize: 12, margin: 0 }}>Nothing is waiting for you.</p>}
         </div>
         <div className="at-label" style={{ padding: '6px 12px 4px' }}>Verification</div>
         <div style={{ padding: '0 0 8px' }}>
-          <VerificationRow label="Unit · src/auth" value={unitDone ? '38 / 38' : 'running · 33 / 38'} status={unitDone ? 'passed' : 'running'} />
-          <VerificationRow label="Reuse regression" value="1.8s" status="passed" />
-          <VerificationRow label="semgrep owasp-top-ten" value="1 finding" status="warning" />
-          <VerificationRow label="Browser QA · auth" value="11 / 12" status="failed" />
-          <VerificationRow label="Staging deploy" value="gated" status="pending" />
+          {pipeline.filter((p) => p.id !== 'approval').map((p) => <VerificationRow key={p.id} label={p.name} value={p.summary} status={STAGE[p.status]} />)}
         </div>
       </div>
     </div>
   );
 }
 
-export function TerminalDock({ initial = 't-qa' }: { initial?: string }) {
-  const [active, setActive] = useState(initial);
+export function TerminalDock({ initial }: { initial?: string }) {
+  const [active, setActive] = useState(initial ?? (terminals.find((t) => t.id === 't-qa') ?? terminals[0])?.id ?? '');
   const term = useApp((s) => s.term);
-  const s = terminals.find((t) => t.id === active)!;
+  const s = terminals.find((t) => t.id === active) ?? terminals[0];
+  if (!s) return <div className="at-panel at-tdock" style={{ height: '100%' }}><PanelHead label="Terminals" /><div className="at-pbody at-subtle" style={{ padding: 16, fontSize: 12 }}>No commands have run yet. Agent and operator processes appear here live.</div></div>;
   return (
     <div className="at-panel at-tdock" style={{ height: '100%' }}>
       <TermTabs sessions={terminals} active={active} onSelect={setActive} />
@@ -111,7 +114,7 @@ function TimelinePanel() {
       <div className="at-pbody">
         {raw ? (
           <div className="at-rawlog">{events.map((e) => <div key={e.id}><span className="at-subtle">{e.time}</span> <span className="at-acc">{agentById(e.agent).mark.toLowerCase()}</span> <span className="at-muted">{e.kind.padEnd(10)}</span> {e.title}{e.meta ? <span className="at-subtle"> · {e.meta}</span> : null}</div>)}</div>
-        ) : <Timeline events={events} filter={f} newFrom={baseTimeline.length} />}
+        ) : <Timeline events={events} filter={f} newFrom={live.on ? events.length : baseTimeline.length} />}
       </div>
     </div>
   );
@@ -144,20 +147,32 @@ export function MissionControl() {
 }
 
 /* ---------- Failure recovery ---------- */
-const options = [
-  { id: 'route', title: 'Route the fix to Backend Engineer', body: 'Set Path=/ in setSessionCookie (SEC-2), then QA re-runs T12 only. Keeps all other progress.', meta: 'Recommended · ~2 min', icon: IArrowRight },
-  { id: 'retry', title: 'Retry the failing test', body: 'Re-run auth.spec.ts:62 three times. Already failed 3 / 3 — unlikely to be flaky.', meta: 'Low value', icon: IRetry },
-  { id: 'rollback', title: 'Roll back to CP-9', body: 'Restore the worktrees to 09:55:20, before the cookie change. Database rows are not reverted.', meta: '4 files', icon: IUndo },
-  { id: 'takeover', title: 'Take over in a terminal', body: 'Pause QA Engineer and open a human session in .atlas/wt/qa-auth with the trace loaded.', meta: 'Manual', icon: IHand },
-];
-
 export function RecoveryDialog() {
   const open = useApp((s) => s.recovery);
+  const agentId = useApp((s) => s.agent);
   const { mounted, closing } = usePresence(open, 160);
   const [pick, setPick] = useState('route');
   const A = actions();
   if (!mounted) return null;
   const close = () => A.set({ recovery: false });
+  const f = agentById(agentId);
+  const task = tasks.find((t) => t.agent === f.id);
+  const options = [
+    { id: 'route', title: 'Start a follow-up mission that fixes it', body: `A new mission gets this failure, its evidence and the mission's branch as context. ${live.on ? 'You approve its plan first.' : ''}`, meta: 'Recommended', icon: IArrowRight },
+    { id: 'retry', title: 'Re-run verification', body: 'Run the gate again on the integrated revision: tests, API, browser and review checks.', meta: 'If the failure looks environmental', icon: IRetry },
+    { id: 'rollback', title: 'Reject the change', body: 'Remove the mission’s isolated work. Your checkout was never touched.', meta: 'Discards this attempt', icon: IUndo },
+    { id: 'takeover', title: 'Take over in a terminal', body: `Open a sandboxed shell in ${f.worktree} to inspect and fix it yourself.`, meta: 'Manual', icon: IHand },
+  ];
+  const run = async () => {
+    close();
+    if (pick === 'takeover') { A.go('terminal'); return; }
+    if (!adapter) { A.toast({ tone: 'info', title: pick === 'route' ? 'Follow-up mission started' : pick === 'retry' ? 'Re-running verification' : 'Change rejected' }); return; }
+    try {
+      if (pick === 'route') await adapter.launch(`Fix the failure in "${mission.title}": ${f.assignment} failed — ${f.blocker ?? f.activity}. Investigate the root cause, fix it with a regression test, and keep every other check passing.`, { title: `Fix: ${(task?.title ?? f.assignment).slice(0, 60)}` });
+      else if (pick === 'retry') await adapter.reverify();
+      else await adapter.decide('reject');
+    } catch (e) { A.toast({ tone: 'danger', title: 'Recovery failed', body: (e as Error).message }); }
+  };
   return (
     <>
       <div className="at-scrim" data-closing={closing} onMouseDown={close} />
@@ -165,28 +180,18 @@ export function RecoveryDialog() {
         <div className="at-dialog-head">
           <span className="at-apd-icon" style={{ color: 'var(--danger)', background: 'var(--danger-wash)', boxShadow: 'inset 0 0 0 1px rgba(208, 138, 127,0.35)' }}><Icon as={IXCircle} /></span>
           <div className="at-col" style={{ gap: 2, flex: 1 }}>
-            <div id="rec-title" className="heading">T12 failed: logout clears session</div>
-            <div className="at-subtle" style={{ fontSize: 12 }}>QA Engineer · 09:56:12 · failed 3 of 3 runs · other 11 tests pass</div>
+            <div id="rec-title" className="heading">{task?.id ?? f.id} failed: {task?.title ?? f.assignment}</div>
+            <div className="at-subtle" style={{ fontSize: 12 }}>{f.name} · {f.lastAction.time} · {f.elapsed}</div>
           </div>
           <IconButton icon={IClose} label="Close" kbd="esc" onClick={close} />
         </div>
         <div className="at-rec-grid">
           <div className="at-col" style={{ gap: 12, minWidth: 0 }}>
             <div className="at-label">Evidence</div>
-            <div className="at-rec-evidence">
-              <div className="at-rec-shot" aria-label="Screenshot placeholder">
-                <div className="at-rec-shot-bar"><span /><span /><span /><em>localhost:3000/</em></div>
-                <div className="at-rec-shot-body"><div className="at-skel" style={{ width: '40%', height: 8 }} /><div className="at-skel" style={{ width: '70%', height: 8, marginTop: 8 }} /><div className="at-rec-cookie">__Host-session · path /api · still set</div></div>
-                <span className="at-rec-shot-cap"><Icon as={IImage} size="sm" />logout-after.png · sample</span>
-              </div>
-              <div className="at-col" style={{ gap: 6, minWidth: 0 }}>
-                <code className="at-approval-action" style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>expect(cookie).toBeUndefined(){'\n'}Received {'{'} name: "__Host-session", path: "/api" {'}'}</code>
-                <Button size="sm" variant="ghost" icon={IExternal}>Open Playwright trace</Button>
-              </div>
-            </div>
-            <div className="at-label">Probable cause · from SEC-2</div>
-            <CodeBlock compact title="src/middleware.ts" startLine={38} highlight={[42]} code={`export function setSessionCookie(res, token) {\n  res.cookies.set('__Host-session', token, {\n    httpOnly: true, secure: true, sameSite: 'lax',\n    path: '/api',\n  });`} />
-            <p className="at-rec-why">The logout handler runs at <span className="at-mono">/</span> and can’t clear a cookie scoped to <span className="at-mono">/api</span>. Security Engineer flagged the same line at 09:55:09. Browsers also reject <span className="at-mono">__Host-</span> cookies whose path isn’t <span className="at-mono">/</span>.</p>
+            <code className="at-approval-action" style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{f.blocker ?? f.activity}</code>
+            <div className="at-label">Last action</div>
+            <p className="at-rec-why">{f.lastAction.text}</p>
+            {f.artifacts.length > 0 && <><div className="at-label">Artifacts</div><div className="at-row" style={{ gap: 6, flexWrap: 'wrap' }}>{f.artifacts.map((x) => <Badge key={x.name} tone="outline">{x.name}</Badge>)}</div></>}
           </div>
           <div className="at-col" style={{ gap: 8, minWidth: 0 }}>
             <div className="at-label">Recover</div>
@@ -206,11 +211,7 @@ export function RecoveryDialog() {
           <span className="at-subtle" style={{ fontSize: 12 }}>Nothing runs until you choose. Other agents keep working.</span>
           <span style={{ flex: 1 }} />
           <Button variant="ghost" onClick={close}>Later</Button>
-          <Button variant={pick === 'takeover' ? 'human' : 'primary'} icon={pick === 'takeover' ? IHand : ICheck} kbd="⌘ ↵" onClick={() => {
-            close();
-            if (pick === 'takeover') A.go('terminal');
-            else A.toast({ tone: 'info', title: pick === 'route' ? 'Fix routed to Backend Engineer' : pick === 'retry' ? 'Retrying T12 · 3 runs' : 'Restoring CP-9', body: pick === 'route' ? 'SEC-2 attached as context. QA re-runs T12 when the change lands.' : undefined });
-          }}>{pick === 'route' ? 'Route fix' : pick === 'retry' ? 'Retry test' : pick === 'rollback' ? 'Restore CP-9…' : 'Take over'}</Button>
+          <Button variant={pick === 'takeover' ? 'human' : 'primary'} icon={pick === 'takeover' ? IHand : ICheck} kbd="⌘ ↵" onClick={() => void run()}>{pick === 'route' ? 'Start follow-up' : pick === 'retry' ? 'Re-run verification' : pick === 'rollback' ? 'Reject change' : 'Take over'}</Button>
         </div>
       </div>
     </>

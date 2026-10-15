@@ -16,6 +16,7 @@ import { TeamScreen } from './team';
 import { bridge } from './api';
 import { LivePalette, togglePalette } from './palette';
 import { useAttentionTitle } from './attention';
+import { useDesignLive } from './designActions';
 
 function Keys() {
   useEffect(() => {
@@ -47,7 +48,10 @@ export function LiveApp() {
   useEffect(() => { connect(); }, []);
   useAttentionTitle();
   const route = useLive((s) => s.route);
-  const [preview] = useState(() => createStore({ screen: 'mission' }));
+  const [preview] = useState(() => createStore({ screen: bridge ? 'home' : 'mission' }));
+  useDesignLive(preview, !!bridge && route.screen === 'preview');
+  // Automation only (window.atlas.e2e exists under ATLAS_E2E): lets tests and screenshot tooling drive the preview.
+  useEffect(() => { if ((window as unknown as { atlas?: { e2e?: unknown } }).atlas?.e2e) (window as unknown as { __atlasPreview: unknown }).__atlasPreview = preview; }, [preview]);
   if (!bridge) {
     return (
       <div className="at-root lv-nobridge">
@@ -61,7 +65,7 @@ export function LiveApp() {
   if (route.screen === 'preview') {
     return (
       <div className="lv-preview">
-        <PreviewBanner onExit={() => go({ screen: 'projects' })} />
+        <PreviewBanner live={!!bridge} onExit={() => go({ screen: 'projects' })} />
         <div className="lv-preview-body"><AtlasApp store={preview} frame={false} /></div>
       </div>
     );

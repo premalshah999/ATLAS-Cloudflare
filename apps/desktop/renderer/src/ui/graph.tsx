@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Agent, Task } from '../data/types';
-import { agents, tasks, agentById } from '../data/sample';
+import { agents, tasks, agentById } from '../data/source';
 import { cx, Icon, RoleMark, Activity, Dot, IconButton, Tip } from './primitives';
 import { IXCircle, IClock, ICheck, IZoomIn, IZoomOut, IFit, IWarn } from '../lib/icons';
 import { actions, useApp } from '../lib/store';
@@ -53,37 +53,57 @@ export function AgentNode({ a, selected, dim, onSelect, onOpen, style, compact }
 type EdgeState = 'done' | 'active' | 'waiting' | 'blocked' | 'failed' | 'pending';
 interface GEdge { id: string; from: string; to: string; d: string; label: string; lx: number; ly: number; state: EdgeState; kind: 'dep' | 'delegate' }
 
-const NW = 184, NH = 66;
-const pos: Record<string, { x: number; y: number }> = {
-  be: { x: 40, y: 92 }, fe: { x: 296, y: 92 }, sec: { x: 40, y: 200 }, qa: { x: 296, y: 200 }, ops: { x: 552, y: 146 },
-};
-const AG_W = 752, AG_H = 292;
+const NW = 184, NH = 66, COLW = 256, ROWH = 108, GX = 40, GY = 92;
 
-function edgesFor(): GEdge[] {
+/** Agent-level layout from the task dependency graph: an agent sits one column right of the agents it waits on. */
+function agentLayout() {
+  const workers = agents.filter((a) => a.id !== 'orch');
+  const deps = new Map<string, Set<string>>(workers.map((a) => [a.id, new Set<string>()]));
+  for (const t of tasks) for (const d of t.deps) {
+    const from = tasks.find((x) => x.id === d)?.agent;
+    if (from && from !== t.agent && deps.has(t.agent) && deps.has(from)) deps.get(t.agent)!.add(from);
+  }
+  const depth = new Map<string, number>();
+  const dep = (id: string, seen = new Set<string>()): number => {
+    if (depth.has(id)) return depth.get(id)!;
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const v = [...(deps.get(id) ?? [])].reduce((m, x) => Math.max(m, dep(x, seen) + 1), 0);
+    depth.set(id, v); return v;
+  };
+  const cols: string[][] = [];
+  for (const a of workers) (cols[dep(a.id)] ??= []).push(a.id);
+  const pos: Record<string, { x: number; y: number }> = {};
+  cols.forEach((c, i) => c?.forEach((id, j) => { pos[id] = { x: GX + i * COLW, y: GY + j * ROWH }; }));
+  const ncol = Math.max(1, cols.length), nrow = Math.max(1, ...cols.map((c) => c?.length ?? 0));
+  return { pos, deps, w: Math.max(752, GX * 2 + (ncol - 1) * COLW + NW), h: GY + (nrow - 1) * ROWH + NH + 34, workers };
+}
+
+const edgeState = (s?: string): EdgeState => s === 'done' ? 'done' : s === 'running' ? 'active' : s === 'failed' ? 'failed' : s === 'blocked' ? 'blocked' : s === 'waiting' ? 'waiting' : 'pending';
+
+function edgesFor(L: ReturnType<typeof agentLayout>): GEdge[] {
+  const out: GEdge[] = [];
   const b = 58;
-  return [
-    // delegation: drops from the orchestrator bar; lower-row agents are reached through the column gutter
-    { id: 'd-be', from: 'orch', to: 'be', kind: 'delegate', d: `M64 ${b} V92`, label: '', lx: 0, ly: 0, state: 'done' },
-    { id: 'd-fe', from: 'orch', to: 'fe', kind: 'delegate', d: `M320 ${b} V92`, label: '', lx: 0, ly: 0, state: 'done' },
-    { id: 'd-ops', from: 'orch', to: 'ops', kind: 'delegate', d: `M576 ${b} V146`, label: '', lx: 0, ly: 0, state: 'done' },
-    { id: 'd-sec', from: 'orch', to: 'sec', kind: 'delegate', d: `M24 ${b} V223 Q24 231 32 231 H40`, label: '', lx: 0, ly: 0, state: 'done' },
-    { id: 'd-qa', from: 'orch', to: 'qa', kind: 'delegate', d: `M280 ${b} V223 Q280 231 288 231 H296`, label: '', lx: 0, ly: 0, state: 'done' },
-    // work dependencies
-    { id: 'be-fe', from: 'be', to: 'fe', kind: 'dep', d: 'M224 112 H296', label: 'contract v2', lx: 260, ly: 100, state: 'waiting' },
-    { id: 'be-sec', from: 'be', to: 'sec', kind: 'dep', d: 'M132 158 V200', label: 'review', lx: 132, ly: 179, state: 'active' },
-    { id: 'be-qa', from: 'be', to: 'qa', kind: 'dep', d: 'M224 138 C 258 138 254 214 296 214', label: '', lx: 0, ly: 0, state: 'done' },
-    { id: 'fe-ops', from: 'fe', to: 'ops', kind: 'dep', d: 'M480 112 C 524 112 512 162 552 162', label: 'UI ready', lx: 516, ly: 120, state: 'pending' },
-    { id: 'sec-ops', from: 'sec', to: 'ops', kind: 'dep', d: 'M224 246 C 244 246 242 177 262 177 H 520 C 536 177 536 178 552 178', label: 'sign-off', lx: 400, ly: 177, state: 'blocked' },
-    { id: 'qa-ops', from: 'qa', to: 'ops', kind: 'dep', d: 'M480 238 C 524 238 512 194 552 194', label: 'sign-off', lx: 516, ly: 232, state: 'failed' },
-  ];
+  for (const a of L.workers) {
+    const p = L.pos[a.id]; if (!p) continue;
+    if (!(L.deps.get(a.id)?.size)) out.push({ id: `d-${a.id}`, from: 'orch', to: a.id, kind: 'delegate', d: `M${p.x + 24} ${b} V${p.y}`, label: '', lx: 0, ly: 0, state: 'done' });
+    for (const from of L.deps.get(a.id) ?? []) {
+      const q = L.pos[from]; if (!q) continue;
+      const x1 = q.x + NW, y1 = q.y + NH / 2, x2 = p.x, y2 = p.y + NH / 2, mx = (x1 + x2) / 2;
+      out.push({ id: `${from}-${a.id}`, from, to: a.id, kind: 'dep', d: Math.abs(y1 - y2) < 2 ? `M${x1} ${y1} H${x2}` : `M${x1} ${y1} C ${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`, label: '', lx: 0, ly: 0, state: edgeState(agentById(from).status) });
+    }
+  }
+  return out;
 }
 
 export function AgentGraph({ onOpenAgent }: { onOpenAgent?: (id: string) => void }) {
   const sel = useApp((s) => s.agent);
   const paused = useApp((s) => s.paused);
   const [hover, setHover] = useState<string | null>(null);
+  const L = agentLayout();
+  const AG_W = L.w, AG_H = L.h, pos = L.pos;
   const { ref, k } = useFit(AG_W, AG_H, 1.12);
-  const edges = useMemo(edgesFor, []);
+  const edges = edgesFor(L);
   const focus = hover ?? null;
   const related = (e: GEdge) => !focus || e.from === focus || e.to === focus;
   const orch = agentById('orch');
@@ -103,14 +123,14 @@ export function AgentGraph({ onOpenAgent }: { onOpenAgent?: (id: string) => void
         </svg>
         <button type="button" className={cx('at-orch', sel === 'orch' && 'at-node--sel')} style={{ left: 16, top: 14, width: AG_W - 32 }}
           onClick={() => actions().selectAgent('orch')} onDoubleClick={() => onOpenAgent?.('orch')} onMouseEnter={() => setHover('orch')} onMouseLeave={() => setHover(null)}>
-          <RoleMark mark="OR" s="running" />
+          <RoleMark mark="OR" s={orch.status} />
           <span className="at-node-name">{orch.name}</span>
           <span className="at-orch-act at-trunc">{paused ? 'Mission paused · agents finish their current step' : orch.activity}</span>
           <span style={{ flex: 1 }} />
-          <span className="at-mono at-subtle">delegated 5 · plan v3</span>
+          <span className="at-mono at-subtle">delegated {L.workers.length} · {tasks.length} tasks</span>
           <Activity paused={paused} />
         </button>
-        {(['be', 'fe', 'sec', 'qa', 'ops'] as const).map((id) => (
+        {L.workers.map((w) => w.id).filter((id) => pos[id]).map((id) => (
           <div key={id} onMouseEnter={() => setHover(id)} onMouseLeave={() => setHover(null)} style={{ position: 'absolute', left: pos[id].x, top: pos[id].y, width: NW, height: NH }}>
             <AgentNode a={agentById(id)} selected={sel === id} dim={!!focus && focus !== id && !edges.some((e) => e.kind === 'dep' && ((e.from === focus && e.to === id) || (e.to === focus && e.from === id)))}
               onSelect={() => actions().selectAgent(id)} onOpen={() => onOpenAgent?.(id)} style={{ width: NW, height: NH }} />
@@ -132,26 +152,37 @@ export function AgentGraph({ onOpenAgent }: { onOpenAgent?: (id: string) => void
 }
 
 /* ---------- Task dependency graph (full screen) ---------- */
-const lanes = [
-  { id: 'orch', cols: 1 }, { id: 'sec', cols: 1 }, { id: 'be', cols: 2 }, { id: 'qa', cols: 1 }, { id: 'fe', cols: 1 }, { id: 'ops', cols: 1 },
-];
-const slots: Record<string, number> = { T7: 1 };
-const phaseOf: Record<string, number> = { T1: 0, T2: 1, T3: 1, T4: 2, T7: 2, T11: 2, T5: 3, T6: 4, T10: 4, T12: 4, T8: 5, T9: 6, T13: 7, T14: 8 };
 const SC = 188, TW = 168, TH = 54, ROW = 74, TOP = 60, LEFT = 20;
-const laneX: Record<string, number> = {};
-{ let c = 0; for (const l of lanes) { laneX[l.id] = c; c += l.cols; } }
-const TG_W = LEFT * 2 + 7 * SC - (SC - TW), TG_H = TOP + 9 * ROW - (ROW - TH) + 16;
 
-export const taskPos = (t: Task) => ({ x: LEFT + (laneX[t.agent] + (slots[t.id] ?? 0)) * SC, y: TOP + phaseOf[t.id] * ROW });
+/** Lanes per agent (in agent order), one slot per task sharing a lane and phase. */
+function taskLayout() {
+  const order = agents.map((a) => a.id).filter((id) => tasks.some((t) => t.agent === id));
+  const slots: Record<string, number> = {}; const cols: Record<string, number> = {};
+  for (const id of order) {
+    const byPhase: Record<number, number> = {};
+    for (const t of tasks.filter((x) => x.agent === id)) { const n = byPhase[t.phase] ?? 0; slots[t.id] = n; byPhase[t.phase] = n + 1; }
+    cols[id] = Math.max(1, ...Object.values(byPhase));
+  }
+  const laneX: Record<string, number> = {}; let c = 0;
+  for (const id of order) { laneX[id] = c; c += cols[id]; }
+  const phases = Math.max(1, ...tasks.map((t) => t.phase + 1));
+  return { lanes: order.map((id) => ({ id, cols: cols[id] })), laneX, slots, w: LEFT * 2 + Math.max(1, c) * SC - (SC - TW), h: TOP + phases * ROW - (ROW - TH) + 16, phases };
+}
+let TL = taskLayout();
+export const taskPos = (t: Task) => ({ x: LEFT + ((TL.laneX[t.agent] ?? 0) + (TL.slots[t.id] ?? 0)) * SC, y: TOP + t.phase * ROW });
 
 function chain(id: string, dir: 'up' | 'down', acc = new Set<string>()) {
-  const t = tasks.find((x) => x.id === id)!;
+  const t = tasks.find((x) => x.id === id);
+  if (!t) return acc;
   const next = dir === 'up' ? t.deps : tasks.filter((x) => x.deps.includes(id)).map((x) => x.id);
   for (const n of next) if (!acc.has(n)) { acc.add(n); chain(n, dir, acc); }
   return acc;
 }
 
 export function TaskGraph({ selected, onSelect, critical }: { selected?: string; onSelect: (id?: string) => void; critical?: boolean }) {
+  TL = taskLayout();
+  const TG_W = TL.w, TG_H = TL.h, lanes = TL.lanes, laneX = TL.laneX;
+  const last = [...tasks].sort((a, b) => b.phase - a.phase)[0]?.id ?? '';
   const wrap = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const fit = () => {
@@ -162,7 +193,7 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
   useLayoutEffect(fit, []);
   useEffect(() => { const ro = new ResizeObserver(fit); if (wrap.current) ro.observe(wrap.current); return () => ro.disconnect(); }, []);
   const hi = useMemo(() => {
-    if (critical) { const s = chain('T14', 'up'); s.add('T14'); return s; }
+    if (critical) { const s = chain(last, 'up'); if (last) s.add(last); return s; }
     if (!selected) return null;
     const s = new Set<string>([selected]); chain(selected, 'up', s); chain(selected, 'down', s); return s;
   }, [selected, critical]);
@@ -171,7 +202,8 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
     const incoming: Record<string, number> = {};
     for (const t of tasks) {
       t.deps.forEach((dep) => {
-        const s = tasks.find((x) => x.id === dep)!;
+        const s = tasks.find((x) => x.id === dep);
+        if (!s) return;
         const a = taskPos(s), b = taskPos(t);
         const n = (incoming[t.id] = (incoming[t.id] ?? -1) + 1);
         const total = t.deps.length;
@@ -188,7 +220,8 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
       });
     }
     return out;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks.map((t) => `${t.id}:${t.status}:${t.phase}`).join(',')]);
   const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   return (
     <div className="at-tgraph" ref={wrap}
@@ -214,7 +247,7 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
             </div>
           );
         })}
-        {Array.from({ length: 9 }, (_, p) => <span key={p} className="at-phase-tick at-mono" style={{ top: TOP + p * ROW + TH / 2 - 7 }}>{p + 1}</span>)}
+        {Array.from({ length: TL.phases }, (_, p) => <span key={p} className="at-phase-tick at-mono" style={{ top: TOP + p * ROW + TH / 2 - 7 }}>{p + 1}</span>)}
         <svg className="at-graph-svg" width={TG_W} height={TG_H} aria-hidden>
           <defs><marker id="at-arrow2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="context-stroke" strokeWidth="1.4" /></marker></defs>
           {edges.map((e) => (

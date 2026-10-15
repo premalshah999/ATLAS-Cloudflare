@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { EventKind, TimelineEvent, Approval } from '../data/types';
-import { agentById } from '../data/sample';
+import { agentById } from '../data/source';
 import { cx, Icon, RoleMark, Button } from './primitives';
 import { ICheck, IDecision, IFileCode, IXCircle, IShield, IArrowRight, ITube, IChevronRight, ICircle } from '../lib/icons';
 import { actions, useApp } from '../lib/store';

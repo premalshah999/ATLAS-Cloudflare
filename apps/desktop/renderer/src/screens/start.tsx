@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { actions } from '../lib/store';
+import { actions, adapter, useApp } from '../lib/store';
 import { openRepository } from '../lib/workspace';
-import { missions, workspaces, workspace, agents, agentById, activity, deployments, checkpoints } from '../data/sample';
+import { missions, workspaces, workspace, agents, agentById, activity, deployments, checkpoints, templates, models, live } from '../data/source';
 import { cx, Icon, Button, IconButton, Badge, Status, PanelHead, Kbd, RoleMark, Input, Field, Select, Seg, Meter, Tip, SampleTag, Check, Dot, EmptyState } from '../ui/primitives';
 import { Composer } from '../ui/composer';
 import { ApprovalCard } from '../ui/overlays';
 import {
   IFolder, IPlus, ILink, ICheck, IKey, IShield, IPlay, IArrowRight, IRepo, IBranch, ICommit, IReviews, IDeploy, IHistory, IMissions, IXCircle,
-  ISpark, IChevronRight, ISearch, IClose, IServer, ICpu, ILock, IMore,
+  ISpark, IChevronRight, ISearch, IClose, IServer, ICpu, IMore,
 } from '../lib/icons';
 
 /* ---------- 1. Welcome / first launch ---------- */
@@ -109,6 +109,23 @@ export function Welcome() {
 }
 
 /* ---------- 2. Workspace home ---------- */
+/** Live: rows show the short id (MSN-XXXXXX); map back to the control-plane id. */
+const missionIdOf = (short: string) => (window as unknown as { __atlasMissionIds?: Record<string, string> }).__atlasMissionIds?.[short] ?? null;
+function HomeNeeds() {
+  const A = actions();
+  const approvals = useApp((st) => st.approvals);
+  const failed = agents.filter((a) => a.status === 'failed');
+  return (
+    <section>
+      <div className="at-home-sh"><span className="at-label">Needs you</span><span className="at-mono at-subtle">{approvals.length + failed.length}</span></div>
+      <div className="at-col" style={{ gap: 8 }}>
+        {failed.slice(0, 2).map((f) => <div key={f.id} className="at-error"><Icon as={IXCircle} /><h5>{f.assignment} failed</h5><p>{f.blocker ?? f.activity}</p><div className="at-row"><Button size="sm" onClick={() => A.go('mission', { recovery: true, agent: f.id })}>Recover…</Button></div></div>)}
+        {approvals.slice(0, 2).map((ap) => <ApprovalCard key={ap.id} id={ap.id} compact />)}
+        {!approvals.length && !failed.length && <p className="at-subtle" style={{ fontSize: 12, margin: 0 }}>Nothing is waiting for you.</p>}
+      </div>
+    </section>
+  );
+}
 const mStatus = (s: string) => (s === 'running' ? 'running' : s === 'verified' ? 'verified' : s === 'review' ? 'review' : s === 'failed' ? 'failed' : 'done');
 export function Home() {
   const A = actions();
@@ -116,17 +133,18 @@ export function Home() {
     <div className="at-screen at-home">
       <div className="at-home-head">
         <div className="at-col" style={{ gap: 4, minWidth: 0 }}>
-          <div className="at-row" style={{ gap: 10 }}><span className="display" style={{ fontSize: 20 }}>storefront</span><span className="at-subtle">acme</span></div>
+          <div className="at-row" style={{ gap: 10 }}><span className="display" style={{ fontSize: 20 }}>{workspace.name}</span><span className="at-subtle">{workspace.owner}</span></div>
           <div className="at-row at-home-meta">
             <span><Icon as={IFolder} size="sm" /><span className="at-mono">{workspace.path}</span></span>
             <span><Icon as={IBranch} size="sm" /><span className="at-mono">{workspace.branch}</span></span>
-            <span><Icon as={ICommit} size="sm" /><span className="at-mono">{workspace.head}</span> auth: rotate refresh tokens per use</span>
-            <span className="at-ok">clean</span>
+            <span><Icon as={ICommit} size="sm" /><span className="at-mono">{workspace.head}</span>{live.on ? '' : ' auth: rotate refresh tokens per use'}</span>
+            <span className="at-ok">{live.on ? workspace.runtime : 'clean'}</span>
           </div>
         </div>
       </div>
       <div className="at-home-composer">
-        <Composer large running={false} mode="plan" placeholder="Describe a goal. Atlas plans it, staffs it, and shows you before anything runs." quick={['Fix the flaky checkout e2e test', 'Upgrade dependencies with security advisories', 'Add passkey sign-in and deploy to staging']} onSend={() => A.go('create')} />
+        <Composer large running={false} mode="plan" placeholder="Describe a goal. Atlas plans it, staffs it, and shows you before anything runs." quick={live.on ? ['Find and fix the most important bug, with a regression test', 'Upgrade dependencies with security advisories', 'Add request logging and a readiness endpoint'] : ['Fix the flaky checkout e2e test', 'Upgrade dependencies with security advisories', 'Add passkey sign-in and deploy to staging']}
+          onSend={(text?: string) => { if (adapter && text?.trim()) void adapter.launch(text.trim()).catch((e: Error) => A.toast({ tone: 'danger', title: 'Could not launch', body: e.message })); else A.go('create'); }} />
       </div>
       <div className="at-home-grid">
         <div className="at-col" style={{ gap: 24, minWidth: 0 }}>
@@ -136,8 +154,8 @@ export function Home() {
               <thead><tr><th style={{ width: 110 }}>Status</th><th>Mission</th><th style={{ width: 120 }}>Progress</th><th style={{ width: 70 }}>Agents</th><th style={{ width: 90, textAlign: 'right' }}>Updated</th></tr></thead>
               <tbody>
                 {missions.map((m) => (
-                  <tr key={m.id} onClick={() => A.go(m.status === 'verified' ? 'report' : m.status === 'review' ? 'review' : 'mission')} style={{ cursor: 'default' }}>
-                    <td><Status s={mStatus(m.status)} label={m.status === 'running' ? 'Running' : m.status === 'review' ? 'Needs review' : m.status === 'verified' ? 'Verified' : m.status === 'failed' ? 'Failed' : 'Done'} /></td>
+                  <tr key={m.id} onClick={() => A.go(m.status === 'verified' ? 'report' : m.status === 'review' ? 'review' : 'mission', live.on ? { missionId: missionIdOf(m.id) } : {})} style={{ cursor: 'default' }}>
+                    <td><Status s={mStatus(m.status)} label={m.status === 'running' ? 'Running' : m.status === 'review' ? 'Needs review' : m.status === 'verified' ? 'Verified' : m.status === 'failed' ? 'Failed' : m.status === 'paused' ? 'Plan ready' : 'Done'} /></td>
                     <td><span className="at-row" style={{ gap: 8 }}><span className="at-mono at-subtle">{m.id}</span><span className="at-trunc" style={{ fontWeight: 500 }}>{m.title}</span></span></td>
                     <td><span className="at-row" style={{ gap: 8 }}><Meter value={m.tasksDone} max={m.tasksTotal} tone={m.status === 'running' ? 'accent' : undefined} style={{ flex: 1 }} /><span className="at-mono at-subtle at-tnum">{m.tasksDone}/{m.tasksTotal}</span></span></td>
                     <td className="at-mono at-muted">{m.agents}</td>
@@ -163,26 +181,23 @@ export function Home() {
           </section>
         </div>
         <div className="at-col" style={{ gap: 24, minWidth: 0 }}>
-          <section>
-            <div className="at-home-sh"><span className="at-label">Needs you</span><span className="at-mono at-subtle">3</span></div>
-            <div className="at-col" style={{ gap: 8 }}>
-              <div className="at-error"><Icon as={IXCircle} /><h5>MSN-0142 · T12 failed</h5><p>logout clears session — diagnostic ready</p><div className="at-row"><Button size="sm" onClick={() => A.go('mission', { recovery: true })}>Recover…</Button></div></div>
-              <ApprovalCard id="AP-31" compact />
-            </div>
-          </section>
+          <HomeNeeds />
           <section>
             <div className="at-home-sh"><span className="at-label">Ready for review</span></div>
-            <button type="button" className="at-home-card" onClick={() => A.go('review')}>
-              <Icon as={IReviews} className="at-subtle" />
-              <span className="at-col" style={{ gap: 2, flex: 1, minWidth: 0 }}><span style={{ fontWeight: 500 }}>MSN-0141 · Upgrade Next.js 14 → 15.3</span><span className="at-subtle" style={{ fontSize: 12 }}>9 files · Code Reviewer approved with 2 comments · CI green</span></span>
-              <Icon as={IChevronRight} size="sm" className="at-subtle" />
-            </button>
+            {missions.filter((m) => m.status === 'review').slice(0, 3).map((m) => (
+              <button key={m.id} type="button" className="at-home-card" onClick={() => A.go('review', live.on ? { missionId: missionIdOf(m.id) } : {})}>
+                <Icon as={IReviews} className="at-subtle" />
+                <span className="at-col" style={{ gap: 2, flex: 1, minWidth: 0 }}><span style={{ fontWeight: 500 }}>{m.id} · {m.title}</span><span className="at-subtle" style={{ fontSize: 12 }}>{m.tasksDone}/{m.tasksTotal} tasks · {m.updated}</span></span>
+                <Icon as={IChevronRight} size="sm" className="at-subtle" />
+              </button>
+            ))}
+            {!missions.some((m) => m.status === 'review') && <p className="at-subtle" style={{ fontSize: 12 }}>Nothing is waiting for review.</p>}
           </section>
           <section>
             <div className="at-home-sh"><span className="at-label">Environments</span></div>
             <div className="at-envs">
-              <div><Dot s="healthy" /><span>staging</span><span className="at-mono at-subtle">v214 · 3d0b9f4</span><Badge tone="warning">1 warning</Badge></div>
-              <div><Dot s="healthy" /><span>production</span><span className="at-mono at-subtle">v211 · 88a0c4d</span><Badge tone="outline">live</Badge></div>
+              {deployments.slice(0, 3).map((d) => <div key={d.id}><Dot s={d.status.includes('fail') || d.status.includes('roll') ? 'failed' : 'healthy'} /><span>{d.env}</span><span className="at-mono at-subtle">{d.commit} · {d.mission}</span><Badge tone={d.status.includes('warning') ? 'warning' : 'outline'}>{d.status}</Badge></div>)}
+              {!deployments.length && <div><Dot s="idle" /><span className="at-subtle">No deployments yet</span></div>}
             </div>
           </section>
           <section>
@@ -198,17 +213,18 @@ export function Home() {
 /* ---------- Workspaces ---------- */
 export function Workspaces() {
   const A = actions();
+  const [q, setQ] = useState('');
   return (
     <div className="at-screen">
-      <div className="at-pagehead"><span className="heading">Workspaces</span><span style={{ flex: 1 }} /><Input icon={ISearch} placeholder="Filter" style={{ width: 220 }} /><Button variant="primary" icon={IFolder} kbd="⌘ O" onClick={() => openRepository()}>Open repository</Button></div>
+      <div className="at-pagehead"><span className="heading">Workspaces</span><span style={{ flex: 1 }} /><Input icon={ISearch} placeholder="Filter" style={{ width: 220 }} value={q} onChange={(e) => setQ(e.target.value)} /><Button variant="primary" icon={IFolder} kbd="⌘ O" onClick={() => openRepository()}>Open repository</Button></div>
       <div className="at-pbody" style={{ padding: '0 20px' }}>
         <table className="at-table">
           <thead><tr><th>Repository</th><th>Path</th><th>Branch</th><th>Active missions</th><th style={{ textAlign: 'right' }}>Last opened</th></tr></thead>
-          <tbody>{workspaces.map((w) => (
-            <tr key={w.id} aria-selected={w.id === 'storefront'} onClick={() => A.go('home')}>
+          <tbody>{workspaces.filter((w) => !q || `${w.name} ${w.path}`.toLowerCase().includes(q.toLowerCase())).map((w) => (
+            <tr key={w.id} aria-selected={w.name === workspace.name} onClick={() => A.go('home')}>
               <td><span className="at-row"><Icon as={IRepo} className="at-subtle" /><span style={{ fontWeight: 500 }}>{w.name}</span></span></td>
               <td className="at-mono at-muted">{w.path}</td><td className="at-mono at-muted">{w.branch}</td>
-              <td>{w.missions ? <Badge tone="accent">{w.missions} running</Badge> : <span className="at-subtle">—</span>}</td>
+              <td>{w.missions ? <Badge tone="accent">{w.missions} mission{w.missions === 1 ? '' : 's'}</Badge> : <span className="at-subtle">—</span>}</td>
               <td className="at-subtle" style={{ textAlign: 'right' }}>{w.updated}</td>
             </tr>
           ))}</tbody>
@@ -231,39 +247,59 @@ const plan = [
 export function MissionCreate() {
   const A = actions();
   const [included, setIncluded] = useState<Record<string, boolean>>(Object.fromEntries(plan.map((p) => [p.id, true])));
-  const [env, setEnv] = useState('staging');
-  const [constraints, setConstraints] = useState(['Keep password login working', 'No changes to db/migrations without approval', 'Public API stays backward compatible']);
+  const [env, setEnv] = useState(live.on ? 'none' : 'staging');
+  const [goal, setGoal] = useState(live.on ? '' : 'Add passkey (WebAuthn) sign-in alongside password login, test it with a virtual authenticator, deploy to staging, and verify the flows there.');
+  const [rule, setRule] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [constraints, setConstraints] = useState(live.on ? ['Keep every existing test passing', 'Do not change unrelated files'] : ['Keep password login working', 'No changes to db/migrations without approval', 'Public API stays backward compatible']);
+  const launch = async () => {
+    if (!adapter) { A.go('mission'); A.toast({ tone: 'info', title: 'MSN-0143 launched', body: '6 agents staffed · checkpoint CP-1 created' }); return; }
+    if (!goal.trim()) { A.toast({ tone: 'warning', title: 'Describe the goal first' }); return; }
+    setBusy(true);
+    try { await adapter.launch(goal.trim(), { constraints: constraints.join('\n'), target: env === 'none' ? null : env }); }
+    catch (e) { A.toast({ tone: 'danger', title: 'Could not launch', body: (e as Error).message }); }
+    finally { setBusy(false); }
+  };
+  const team = live.on ? templates : null;
   return (
     <div className="at-screen at-create">
       <div className="at-create-l">
-        <div className="at-row" style={{ gap: 8, marginBottom: 14 }}><span className="at-mid">MSN-0143 · draft</span><span className="at-subtle" style={{ fontSize: 12 }}>acme/storefront · from feat/auth-refactor</span></div>
+        <div className="at-row" style={{ gap: 8, marginBottom: 14 }}><span className="at-mid">{live.on ? 'New mission · draft' : 'MSN-0143 · draft'}</span><span className="at-subtle" style={{ fontSize: 12 }}>{workspace.name} · from {workspace.branch}</span></div>
         <div className="at-create-goal">
           <div className="at-label" style={{ marginBottom: 8 }}>Goal</div>
-          <div className="at-goal-text">Add passkey (WebAuthn) sign-in alongside password login, test it with a virtual authenticator, deploy to staging, and verify the flows there.</div>
+          {live.on ? <textarea className="at-goal-text at-goal-input" data-testid="design-goal" rows={4} value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Describe the outcome. The orchestrator model plans it; you approve the plan before anything runs." />
+            : <div className="at-goal-text">{goal}</div>}
         </div>
         <div className="at-create-form">
           <Field label="Constraints" help="Agents treat these as hard rules and cite them when declining.">
             <div className="at-row" style={{ flexWrap: 'wrap', gap: 6 }}>
               {constraints.map((c) => <span key={c} className="at-chip" style={{ color: 'var(--ink)' }}>{c}<button type="button" aria-label="Remove" onClick={() => setConstraints(constraints.filter((x) => x !== c))} style={{ display: 'inline-flex', color: 'var(--ink-subtle)' }}><Icon as={IClose} size="sm" /></button></span>)}
-              <button type="button" className="at-chip"><Icon as={IPlus} size="sm" />Add rule</button>
+              {live.on ? <span className="at-row" style={{ gap: 4 }}><Input placeholder="Add a rule" value={rule} onChange={(e) => setRule(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && rule.trim()) { setConstraints([...constraints, rule.trim()]); setRule(''); } }} style={{ width: 200 }} /></span>
+                : <button type="button" className="at-chip"><Icon as={IPlus} size="sm" />Add rule</button>}
             </div>
           </Field>
           <div className="at-create-row">
-            <Field label="Deploy target"><Select value={env} onChange={setEnv} options={[{ id: 'none', label: 'Don’t deploy' }, { id: 'staging', label: 'staging · fly.io' }, { id: 'preview', label: 'Preview per branch' }]} /></Field>
-            <Field label="Budget" help="Atlas pauses and asks when reached."><Select value="b2" onChange={() => {}} options={[{ id: 'b1', label: '$5 · 45 min' }, { id: 'b2', label: '$12 · 90 min' }, { id: 'b3', label: '$30 · 3 h' }]} /></Field>
-            <Field label="Mode"><Seg value="plan" onChange={() => {}} items={[{ id: 'plan', label: 'Plan, then ask' }, { id: 'run', label: 'Run' }]} /></Field>
+            <Field label="Deploy target"><Select value={env} onChange={setEnv} options={live.on ? [{ id: 'none', label: 'Don’t deploy' }, ...deployTargets().map((t) => ({ id: t, label: t }))] : [{ id: 'none', label: 'Don’t deploy' }, { id: 'staging', label: 'staging · fly.io' }, { id: 'preview', label: 'Preview per branch' }]} /></Field>
+            <Field label="Budget" help="Atlas stops and asks when reached."><Select value="b2" onChange={() => {}} options={live.on ? [{ id: 'b2', label: 'Default · 12 tasks · 2M tokens' }] : [{ id: 'b1', label: '$5 · 45 min' }, { id: 'b2', label: '$12 · 90 min' }, { id: 'b3', label: '$30 · 3 h' }]} /></Field>
+            <Field label="Mode"><Seg value="plan" onChange={() => {}} items={[{ id: 'plan', label: 'Plan, then ask' }]} /></Field>
           </div>
         </div>
         <div className="at-create-perms">
           <div className="at-label" style={{ marginBottom: 8 }}>This mission will ask for</div>
-          {[['Database schema change', 'db/migrations/0044_passkeys.sql', 'ask'], ['Deploy', 'storefront-staging (fly.io)', 'ask'], ['Network', 'staging.acme.dev from QA browser', 'ask'], ['Filesystem write', 'src/auth/**, app/(auth)/**, e2e/**', 'allow']].map(([s, d, l]) => (
-            <div key={s} className="at-perm" data-l={l} style={{ gridTemplateColumns: '40px 170px 1fr' }}><span className="at-perm-level">{l}</span><span className="at-perm-scope">{s}</span><span className="at-perm-detail at-mono at-trunc">{d}</span></div>
+          {(live.on ? [['Risky commands', 'shells, package installs, anything off the safe list', 'ask'], ['Deploy', env === 'none' ? 'not requested' : env, env === 'none' ? 'deny' : 'ask'], ['Network', 'only commands you approve', 'ask'], ['Filesystem write', 'each agent’s own worktree', 'allow']] : [['Database schema change', 'db/migrations/0044_passkeys.sql', 'ask'], ['Deploy', 'storefront-staging (fly.io)', 'ask'], ['Network', 'staging.acme.dev from QA browser', 'ask'], ['Filesystem write', 'src/auth/**, app/(auth)/**, e2e/**', 'allow']]).map(([sc, d, l]) => (
+            <div key={sc} className="at-perm" data-l={l} style={{ gridTemplateColumns: '40px 170px 1fr' }}><span className="at-perm-level">{l}</span><span className="at-perm-scope">{sc}</span><span className="at-perm-detail at-mono at-trunc">{d}</span></div>
           ))}
         </div>
       </div>
       <div className="at-create-r">
-        <PanelHead label="Proposed plan" title={<span className="at-subtle" style={{ fontWeight: 400 }}>v1 · drafted by Atlas Orchestrator in 18s</span>}><Button size="sm" variant="ghost" icon={ISpark}>Refine</Button></PanelHead>
+        <PanelHead label={live.on ? 'Team' : 'Proposed plan'} title={<span className="at-subtle" style={{ fontWeight: 400 }}>{live.on ? 'the orchestrator staffs these roles; you approve its plan first' : 'v1 · drafted by Atlas Orchestrator in 18s'}</span>}>{!live.on && <Button size="sm" variant="ghost" icon={ISpark}>Refine</Button>}</PanelHead>
         <div className="at-pbody">
+          {team ? (
+            <div style={{ padding: '8px 16px' }}>
+              {team.map((t) => <div key={t.id} className="at-team-row"><RoleMark mark={t.mark} size="sm" /><span>{t.name}</span><span className="at-subtle at-trunc" style={{ marginLeft: 'auto', fontSize: 12, maxWidth: 220 }}>{models.find((m) => m.role.includes(t.name))?.name ?? `${t.tools} tools`}</span></div>)}
+              <div className="at-callout" style={{ margin: '16px 0' }}><Icon as={ICpu} /><div>Launching creates the mission and asks the orchestrator model for a plan: tasks, dependencies, acceptance criteria and the tools each needs. Nothing runs until you approve it.</div></div>
+            </div>
+          ) : (<>
           <div className="at-plan">
             {plan.map((p, i) => {
               const a = agentById(p.agent);
@@ -289,16 +325,17 @@ export function MissionCreate() {
             {['orch', 'be', 'fe', 'sec', 'qa', 'ops'].map((id) => { const a = agentById(id); return <div key={id} className="at-team-row"><RoleMark mark={a.mark} size="sm" /><span>{a.name}</span><span className="at-subtle" style={{ marginLeft: 'auto', fontSize: 12 }}>{a.model}</span></div>; })}
           </div>
           <div className="at-callout" style={{ margin: 16 }}><Icon as={ICpu} /><div>Estimated <b>~31 min</b> and <b>$6–9</b> at current prices. Estimates, not limits — the budget above is the limit.</div></div>
+          </>)}
         </div>
         <div className="at-create-foot">
           <Button variant="ghost" onClick={() => A.go('home')}>Discard</Button>
           <span style={{ flex: 1 }} />
-          <Button icon={ILock}>Save as draft</Button>
-          <Button variant="primary" icon={IPlay} kbd="⌘ ↵" onClick={() => { A.go('mission'); A.toast({ tone: 'info', title: 'MSN-0143 launched', body: '6 agents staffed · checkpoint CP-1 created' }); }}>Launch mission</Button>
+          <Button variant="primary" icon={IPlay} kbd="⌘ ↵" disabled={busy} data-testid="design-launch" onClick={() => void launch()}>{busy ? 'Launching…' : 'Launch mission'}</Button>
         </div>
       </div>
     </div>
   );
 }
+const deployTargets = () => (window as unknown as { __atlasTargets?: string[] }).__atlasTargets ?? [];
 
 export { IArrowRight, IMore, Tip, SampleTag, EmptyState, IconButton, agents, deployments, IDeploy };

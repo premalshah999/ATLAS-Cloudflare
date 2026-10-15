@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { actions, useApp } from '../lib/store';
-import { terminals, agentById, reviewFiles, findings, sessionBefore, sessionAfter, middlewareBefore, middlewareAfter, browserActions, tasks } from '../data/sample';
+import { actions, adapter, slots, useApp } from '../lib/store';
+import { terminals, agentById, reviewFiles, findings, diffs, browserActions, tasks, live, reviewContents, agents, mission, checkpoints, pipeline } from '../data/source';
 import { cx, Icon, Button, IconButton, Badge, PanelHead, RoleMark, Seg, Split, Tip, SampleTag, EmptyState, Kbd, Input, Dot } from '../ui/primitives';
 import { TerminalView, TermTabs, ExitChip } from '../ui/terminal';
 import { DiffView, DiffStat, type ReviewComment } from '../ui/code';
@@ -12,16 +12,18 @@ import {
 
 /* ---------- 7. Terminal workspace ---------- */
 export function TerminalWorkspace() {
-  const [left, setLeft] = useState('t-qa');
-  const [right, setRight] = useState<string | null>('t-me');
+  const Human = live.on ? slots.HumanTerminal : undefined;
+  const [left, setLeft] = useState(live.on ? (terminals.find((t) => t.status === 'running') ?? terminals[0])?.id ?? '' : 't-qa');
+  const [right, setRight] = useState<string | null>(live.on ? 'human' : 't-me');
   const [focus, setFocus] = useState<'l' | 'r'>('r');
   const term = useApp((s) => s.term);
   const A = actions();
-  const L = terminals.find((t) => t.id === left)!;
-  const R = right ? terminals.find((t) => t.id === right)! : null;
+  const L = terminals.find((t) => t.id === left) ?? terminals[0];
+  const R = right && right !== 'human' ? terminals.find((t) => t.id === right) ?? null : null;
+  if (live.on && !L && !Human) return <div className="at-screen"><EmptyState center icon={ITerminal} title="No terminal sessions" body="Agent commands and your own shells appear here once a mission runs." /></div>;
   const open = (id: string) => { if (focus === 'r' && right) setRight(id); else setLeft(id); };
   const Session = ({ id }: { id: string }) => {
-    const s = terminals.find((t) => t.id === id)!; const a = s.agent ? agentById(s.agent) : null;
+    const s = terminals.find((t) => t.id === id); if (!s) return null; const a = s.agent ? agentById(s.agent) : null;
     const isOpen = id === left || id === right;
     return (
       <button type="button" className="at-list-row at-sess" aria-selected={isOpen} onClick={() => open(id)}>
@@ -40,21 +42,23 @@ export function TerminalWorkspace() {
           {terminals.filter((t) => t.owner === 'agent').map((t) => <Session key={t.id} id={t.id} />)}
           <div className="at-label" style={{ padding: '16px 12px 4px' }}>Yours</div>
           {terminals.filter((t) => t.owner === 'human').map((t) => <Session key={t.id} id={t.id} />)}
+          {Human && <button type="button" className="at-list-row at-sess" aria-selected={right === 'human'} onClick={() => { setRight('human'); setFocus('r'); }}><RoleMark mark="YOU" size="sm" human /><span className="at-col" style={{ minWidth: 0, flex: 1, gap: 1 }}><span className="at-trunc">sandboxed shell</span><span className="at-mono at-subtle at-trunc" style={{ fontSize: 10.5 }}>mission worktree · recorded</span></span></button>}
           <div className="at-label" style={{ padding: '16px 12px 4px' }}>Recordings</div>
-          {['playwright · auth · 09:55', 'semgrep · 09:55', 'vitest · auth · 09:52'].map((r) => <button key={r} type="button" className="at-list-row"><Icon as={IRecord} size="sm" className="at-subtle" /><span className="at-trunc at-muted">{r}</span><Icon as={IPlay} size="sm" className="at-subtle" style={{ marginLeft: 'auto' }} /></button>)}
+          {live.on ? terminals.filter((t) => t.status !== 'running').slice(0, 8).map((t) => <button key={t.id} type="button" className="at-list-row" onClick={() => setLeft(t.id)}><Icon as={IRecord} size="sm" className="at-subtle" /><span className="at-trunc at-muted">{t.title} · exit {t.exit ?? '—'}</span><Icon as={IPlay} size="sm" className="at-subtle" style={{ marginLeft: 'auto' }} /></button>)
+            : ['playwright · auth · 09:55', 'semgrep · 09:55', 'vitest · auth · 09:52'].map((r) => <button key={r} type="button" className="at-list-row"><Icon as={IRecord} size="sm" className="at-subtle" /><span className="at-trunc at-muted">{r}</span><Icon as={IPlay} size="sm" className="at-subtle" style={{ marginLeft: 'auto' }} /></button>)}
         </div>
       </aside>
       <div className="at-col at-grow">
         <div className="at-terms-bar">
-          <TermTabs sessions={terminals} active={focus === 'r' && right ? right : left} onSelect={open} />
+          <TermTabs sessions={terminals} active={focus === 'r' && right && right !== 'human' ? right : left} onSelect={open} />
         </div>
         <div className="at-grow" style={{ display: 'flex' }}>
-          <Split dir="h" id="terms" initial={0.5} min={280} collapsedSecond={!R}>
-            <div className="at-col" style={{ height: '100%' }}>
-              {L.owner === 'agent' && <div className="at-owner-strip"><RoleMark mark={agentById(L.agent!).mark} size="sm" /><span>Driven by <b>{agentById(L.agent!).name}</b> · you’re observing</span><span style={{ flex: 1 }} /><Button size="sm" variant="human" icon={IHand} onClick={() => A.toast({ tone: 'human', title: 'You took over this session', body: `${agentById(L.agent!).name} paused and will not send input until you hand back.` })}>Take over</Button></div>}
-              <div className="at-grow" style={{ display: 'flex', flexDirection: 'column' }}><TerminalView s={L} extra={term[L.id]} focused={focus === 'l'} onFocus={() => setFocus('l')} onSplit={!R ? () => setRight('t-me') : undefined} /></div>
-            </div>
-            {R ? (
+          <Split dir="h" id="terms" initial={0.5} min={280} collapsedSecond={!R && right !== 'human'}>
+            {!L ? <div className="at-col at-subtle" style={{ padding: 16, fontSize: 12 }}>No agent commands yet.</div> : <div className="at-col" style={{ height: '100%' }}>
+              {L.owner === 'agent' && <div className="at-owner-strip"><RoleMark mark={agentById(L.agent!).mark} size="sm" /><span>Driven by <b>{agentById(L.agent!).name}</b> · you’re observing</span><span style={{ flex: 1 }} /><Button size="sm" variant="human" icon={IHand} onClick={() => { if (live.on) { setRight('human'); setFocus('r'); if (adapter && L.agent) void adapter.stop(L.agent).catch(() => {}); } else A.toast({ tone: 'human', title: 'You took over this session', body: `${agentById(L.agent!).name} paused and will not send input until you hand back.` }); }}>Take over</Button></div>}
+              <div className="at-grow" style={{ display: 'flex', flexDirection: 'column' }}><TerminalView s={L} extra={term[L.id]} focused={focus === 'l'} onFocus={() => setFocus('l')} onSplit={!R ? () => setRight(live.on ? 'human' : 't-me') : undefined} /></div>
+            </div>}
+            {right === 'human' && Human ? <div className="at-col" style={{ height: '100%' }}><div className="at-owner-strip"><RoleMark mark="YOU" size="sm" human /><span>Your shell · sandboxed in the mission worktree · every command recorded</span></div><div className="at-grow" style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}><Human /></div></div> : R ? (
               <div className="at-col" style={{ height: '100%' }}>
                 {R.owner === 'agent' && <div className="at-owner-strip"><RoleMark mark={agentById(R.agent!).mark} size="sm" /><span>Driven by <b>{agentById(R.agent!).name}</b> · you’re observing</span></div>}
                 <div className="at-grow" style={{ display: 'flex', flexDirection: 'column' }}><TerminalView s={R} extra={term[R.id]} focused={focus === 'r'} onFocus={() => setFocus('r')} onClose={() => { setRight(null); setFocus('l'); }} /></div>
@@ -93,11 +97,11 @@ CREATE INDEX idx_refresh_family ON refresh_tokens (family_id)
   WHERE replaced_by IS NULL;`;
 
 const contents: Record<string, { before: string; after: string; lang?: string; comments: ReviewComment[] }> = {
-  'src/auth/session.ts': { before: sessionBefore, after: sessionAfter, comments: [
+  'src/auth/session.ts': { before: diffs.sessionBefore, after: diffs.sessionAfter, comments: [
     { line: 7, author: 'Security Engineer', mark: 'SE', id: 'SEC-1', severity: 'high', resolved: true, body: <>Race fixed: <code>findForUpdate</code> holds a row lock inside the transaction. Verified by <code>concurrent-refresh.spec</code> · 50/50 runs.</> },
     { line: 12, author: 'You', mark: 'YOU', human: true, body: <>Log <code>refresh_reuse_detected</code> with the family id — we’ll want this in the security dashboard.</> },
   ] },
-  'src/middleware.ts': { before: middlewareBefore, after: middlewareAfter, comments: [
+  'src/middleware.ts': { before: diffs.middlewareBefore, after: diffs.middlewareAfter, comments: [
     { line: 6, author: 'Security Engineer', mark: 'SE', id: 'SEC-2', severity: 'medium', body: <><code>__Host-</code> cookies must use <code>Path=/</code>. Logout at <code>/</code> can’t clear this — matches QA failure <code>auth.spec.ts:71</code>.</> },
   ] },
   'src/auth/tokens.ts': { before: tokensBefore, after: tokensAfter, comments: [{ line: 1, author: 'Security Engineer', mark: 'SE', id: 'RV-3', severity: 'low', body: <>Move the TTL into <code>config/auth.ts</code>.</> }] },
@@ -105,13 +109,22 @@ const contents: Record<string, { before: string; after: string; lang?: string; c
 };
 
 export function Review() {
-  const [file, setFile] = useState('src/auth/session.ts');
+  if (live.on && !reviewFiles.length) return <div className="at-screen"><EmptyState center icon={IFileCode} title="No changes to review yet" body={`${mission.title}: agents have not produced a checkpointed patch. Changes appear here when a writer finishes.`} /></div>;
+  return <ReviewBody />;
+}
+
+function ReviewBody() {
+  const [file, setFile] = useState(live.on ? reviewFiles[0]?.path ?? '' : 'src/auth/session.ts');
   const [mode, setMode] = useState<'split' | 'inline'>('split');
   const [verdict, setVerdict] = useState<Record<string, 'accepted' | 'rejected'>>({});
   const [hoverLine, setHoverLine] = useState<number | undefined>();
   const [hoverFile, setHoverFile] = useState<string | null>(null);
-  const f = reviewFiles.find((x) => x.path === file)!;
-  const c = contents[file] ?? { before: '// Generated test file — 88 lines', after: '// Generated test file — 88 lines', comments: [] };
+  const f = reviewFiles.find((x) => x.path === file) ?? reviewFiles[0];
+  const lc = live.on ? reviewContents[file] : undefined;
+  const c = lc ? { ...lc, comments: lc.comments.map((x) => ({ ...x, severity: (['high', 'medium', 'low'].includes(String(x.severity)) ? x.severity : undefined) as 'high' | 'medium' | 'low' | undefined, body: <>{x.body}</> })) } : contents[file] ?? { before: '// Generated test file — 88 lines', after: '// Generated test file — 88 lines', comments: [] };
+  const A2 = actions();
+  const high = findings.filter((x) => x.severity === 'high'), open = findings.filter((x) => x.status === 'open');
+  const testStage = pipeline.find((p) => p.id === 'tests'), qaStage = pipeline.find((p) => p.id === 'qa');
   const a = agentById(f.agent);
   const t = tasks.find((x) => x.id === f.task);
   const groups: Record<string, typeof reviewFiles> = {};
@@ -126,12 +139,13 @@ export function Review() {
         <Icon as={IArrowRight} size="sm" className="at-ts-arrow" />
         <div className="at-ts-step"><span className="at-label">Change</span><span className="at-ts-v">{reviewFiles.length} files <DiffStat add={total[0]} del={total[1]} blocks={false} /></span></div>
         <Icon as={IArrowRight} size="sm" className="at-ts-arrow" />
-        <div className="at-ts-step"><span className="at-label">Findings</span><span className="at-ts-v"><Badge tone="danger">1 high · fixed</Badge><Badge tone="warning">1 open</Badge></span></div>
+        <div className="at-ts-step"><span className="at-label">Findings</span><span className="at-ts-v">{live.on ? (<>{high.length > 0 && <Badge tone="danger">{high.length} high{high.every((x) => x.status === 'fixed') ? ' · fixed' : ''}</Badge>}<Badge tone={open.length ? 'warning' : 'success'}>{open.length} open</Badge></>) : <><Badge tone="danger">1 high · fixed</Badge><Badge tone="warning">1 open</Badge></>}</span></div>
         <Icon as={IArrowRight} size="sm" className="at-ts-arrow" />
-        <div className="at-ts-step"><span className="at-label">Evidence</span><span className="at-ts-v"><span className="at-ok">38 unit ✓</span><span className="at-err">QA 11/12</span></span></div>
+        <div className="at-ts-step"><span className="at-label">Evidence</span><span className="at-ts-v">{live.on ? <><span className={testStage?.status === 'failed' ? 'at-err' : 'at-ok'}>tests {testStage?.summary ?? '—'}</span><span className={qaStage?.status === 'failed' ? 'at-err' : 'at-ok'}>QA {qaStage?.summary ?? '—'}</span></> : <><span className="at-ok">38 unit ✓</span><span className="at-err">QA 11/12</span></>}</span></div>
         <span style={{ flex: 1 }} />
-        <Button variant="ghost" icon={ICommit}>3 commits</Button>
-        <Button variant="primary" icon={ICheck} disabled={Object.keys(verdict).length < 2}>Approve & merge</Button>
+        <Button variant="ghost" icon={ICommit} onClick={() => A2.set({ drawer: 'checkpoints' })}>{live.on ? checkpoints.length : 3} commits</Button>
+        <Button variant="primary" icon={ICheck} data-testid="design-approve" disabled={live.on ? !adapter || mission.status !== 'review' : Object.keys(verdict).length < 2}
+          onClick={() => { if (adapter) void adapter.decide('accept').catch((e: Error) => A2.toast({ tone: 'danger', title: 'Not accepted', body: e.message })); }}>{live.on ? 'Approve' : 'Approve & merge'}</Button>
       </div>
       <div className="at-row at-grow" style={{ alignItems: 'stretch', gap: 0 }}>
         <aside className="at-filetree">
@@ -188,7 +202,10 @@ export function Review() {
               </button>
             ))}
             <div className="at-label" style={{ padding: '14px 14px 6px' }}>Evidence for this file</div>
-            {file === 'src/middleware.ts' ? (<>
+            {live.on ? (<>
+              {findings.filter((x) => x.file === file).map((x) => <VerificationRow key={x.id} label={`${x.id} · ${x.title}`} value={x.status} status={x.status === 'open' ? 'warning' : 'passed'} />)}
+              {(testStage?.evidence ?? []).slice(0, 4).map((e) => <VerificationRow key={e.label} label={e.label} value={e.value} status={e.status} />)}
+            </>) : file === 'src/middleware.ts' ? (<>
               <VerificationRow label="middleware.test.ts" value="7 passed" status="passed" />
               <VerificationRow label="auth.spec · logout clears session" value="failed" status="failed" />
             </>) : (<>
@@ -197,7 +214,7 @@ export function Review() {
               <VerificationRow label="auth.spec · refresh rotates" value="passed" status="passed" />
             </>)}
             <div className="at-label" style={{ padding: '14px 14px 6px' }}>History</div>
-            {[['a41f9c2', 'auth: rotate refresh tokens per use', 'BE'], ['9be03d1', 'auth: token family schema (0042)', 'BE'], ['77c1a0e', 'middleware: __Host- prefix, SameSite=Lax', 'BE']].map(([h, m, k]) => (
+            {(live.on ? checkpoints.map((cp) => [cp.note.split(' ')[0], `${cp.label} · ${cp.files} files`, agents.find((x) => cp.by.startsWith(x.name))?.mark ?? 'AT']) : [['a41f9c2', 'auth: rotate refresh tokens per use', 'BE'], ['9be03d1', 'auth: token family schema (0042)', 'BE'], ['77c1a0e', 'middleware: __Host- prefix, SameSite=Lax', 'BE']]).map(([h, m, k]) => (
               <div key={h} className="at-commit"><span className="at-mono at-acc">{h}</span><span className="at-trunc">{m}</span><RoleMark mark={k} size="sm" /></div>
             ))}
           </div>
@@ -219,7 +236,11 @@ export function Computer() {
   const takeover = useApp((s) => s.takeover);
   const paused = useApp((s) => s.paused);
   const [env, setEnv] = useState('auto');
-  const [step, setStep] = useState(5);
+  const [step, setStep] = useState(live.on ? Math.max(0, browserActions.length - 1) : 5);
+  const Shot = live.on ? slots.Shot : undefined;
+  const cur = browserActions[Math.min(step, browserActions.length - 1)];
+  const shotId = live.on ? [...browserActions.slice(0, step + 1)].reverse().find((b) => b.shot)?.shot : undefined;
+  if (live.on && env === 'auto' && !browserActions.length) return <div className="at-screen at-computer"><div className="at-pagehead"><span className="heading">Browser & desktop</span><Seg value={env} onChange={setEnv} items={envs.map((e) => ({ id: e.id, label: e.label }))} /></div><EmptyState center icon={IGlobe} title="No browser run in this mission yet" body="When verification or the Browser QA agent drives the app, every step and screenshot appears here." /></div>;
   const A = actions();
   const agentPaused = takeover || paused;
   return (
@@ -228,7 +249,7 @@ export function Computer() {
         <span className="heading">Browser & desktop</span>
         <Seg value={env} onChange={setEnv} items={envs.map((e) => ({ id: e.id, label: e.label }))} />
         <span style={{ flex: 1 }} />
-        {env === 'auto' && <>
+        {env === 'auto' && !live.on && <>
           <Button icon={agentPaused ? IPlay : IPause} disabled={takeover} onClick={() => A.set({ paused: !paused })}>{paused ? 'Resume agent' : 'Pause agent'}</Button>
           {takeover
             ? <Button variant="primary" icon={IArrowRight} onClick={() => { A.set({ takeover: false }); A.toast({ tone: 'info', title: 'Control returned to QA Engineer', body: 'It re-reads the page before acting. Your 2 actions were added to its context.' }); }}>Hand back to QA Engineer</Button>
@@ -240,10 +261,16 @@ export function Computer() {
           <div className="at-col at-grow at-vp-wrap">
             <div className={cx('at-envbar', takeover && 'at-envbar--human')}>
               {takeover ? <><Icon as={IHand} size="sm" /><b>You have control</b><span>QA Engineer is paused and won’t send input until you hand back.</span></>
-                : <><span className="at-envbar-kind">ISOLATED AUTOMATION BROWSER</span><span>Chromium 141 · ephemeral profile atlas-qa · localhost:3000 only</span></>}
+                : <><span className="at-envbar-kind">ISOLATED AUTOMATION BROWSER</span><span>{live.on ? 'Playwright Chromium · ephemeral profile · the app started from the mission worktree' : 'Chromium 141 · ephemeral profile atlas-qa · localhost:3000 only'}</span></>}
               <span style={{ flex: 1 }} />
-              <SampleTag>Sample replay · not a live session</SampleTag>
+              {live.on ? <span className="at-mono at-subtle" style={{ fontSize: 11 }}>recorded run · {browserActions.length} steps</span> : <SampleTag>Sample replay · not a live session</SampleTag>}
             </div>
+            {live.on ? (
+              <div className="at-viewport">
+                <div className="at-bchrome"><span className="at-bdots"><i /><i /><i /></span><span className="at-burl"><Icon as={ILock} size="sm" />{cur?.text.split(' — ')[0]}</span></div>
+                <div className="at-page at-page--shot">{shotId && Shot ? <Shot artifactId={shotId} alt={cur?.text ?? 'screenshot'} /> : <div className="at-subtle" style={{ padding: 24, fontSize: 12 }}>No screenshot for this step.</div>}</div>
+              </div>
+            ) : (
             <div className={cx('at-viewport', takeover && 'at-viewport--human')}>
               <div className="at-bchrome">
                 <span className="at-bdots"><i /><i /><i /></span>
@@ -264,20 +291,20 @@ export function Computer() {
                   </div>
                 )}
               </div>
-            </div>
+            </div>)}
             <div className="at-replay">
               <IconButton icon={IRewind} label="Previous action" size="sm" onClick={() => setStep(Math.max(0, step - 1))} />
               <IconButton icon={IStep} label="Next action" size="sm" onClick={() => setStep(Math.min(browserActions.length - 1, step + 1))} />
               <div className="at-scrub">
-                {browserActions.map((b, i) => <button key={i} type="button" className="at-scrub-tick" data-s={b.status} data-cur={i === step} style={{ left: `${(i / (browserActions.length - 1)) * 100}%` }} onClick={() => setStep(i)} aria-label={b.text} />)}
-                <span className="at-scrub-fill" style={{ width: `${(step / (browserActions.length - 1)) * 100}%` }} />
+                {browserActions.map((b, i) => <button key={i} type="button" className="at-scrub-tick" data-s={b.status} data-cur={i === step} style={{ left: `${(i / Math.max(1, browserActions.length - 1)) * 100}%` }} onClick={() => setStep(i)} aria-label={b.text} />)}
+                <span className="at-scrub-fill" style={{ width: `${(step / Math.max(1, browserActions.length - 1)) * 100}%` }} />
               </div>
-              <span className="at-mono at-subtle at-tnum">{browserActions[step].time}</span>
+              <span className="at-mono at-subtle at-tnum">{cur?.time}</span>
               <span className="at-rec"><Icon as={IRecord} size="sm" />REC</span>
             </div>
           </div>
           <aside className="at-computer-side">
-            <PanelHead label="Actions" count={browserActions.length}><RoleMark mark="QA" s="failed" size="sm" /></PanelHead>
+            <PanelHead label="Actions" count={browserActions.length}><RoleMark mark="QA" s={browserActions.some((b) => b.status === 'failed') ? 'failed' : 'done'} size="sm" /></PanelHead>
             <div className="at-pbody">
               {browserActions.map((b, i) => (
                 <button key={i} type="button" className="at-bact" aria-selected={i === step} data-s={b.status} onClick={() => setStep(i)}>
@@ -290,11 +317,12 @@ export function Computer() {
               <div className="at-label" style={{ padding: '14px 12px 6px' }}>Boundaries</div>
               <div style={{ padding: '0 12px 12px' }} className="at-col">
                 <div className="at-perms">
-                  {[['allow', 'Hosts', 'localhost:3000'], ['ask', 'Hosts', '*.staging.acme.dev'], ['deny', 'Downloads', 'blocked'], ['deny', 'Clipboard', 'isolated from yours'], ['deny', 'Your profile', 'no cookies shared']].map(([l, s, d], i) => <div key={i} className="at-perm" data-l={l}><span className="at-perm-level">{l}</span><span className="at-perm-scope">{s}</span><span className="at-perm-detail at-trunc">{d}</span></div>)}
+                  {(live.on ? [['allow', 'Hosts', 'the app on 127.0.0.1'], ['deny', 'Other hosts', 'not reachable'], ['deny', 'Downloads', 'blocked'], ['deny', 'Your profile', 'ephemeral, no cookies shared']] : [['allow', 'Hosts', 'localhost:3000'], ['ask', 'Hosts', '*.staging.acme.dev'], ['deny', 'Downloads', 'blocked'], ['deny', 'Clipboard', 'isolated from yours'], ['deny', 'Your profile', 'no cookies shared']]).map(([l, s, d], i) => <div key={i} className="at-perm" data-l={l}><span className="at-perm-level">{l}</span><span className="at-perm-scope">{s}</span><span className="at-perm-detail at-trunc">{d}</span></div>)}
                 </div>
               </div>
               <div className="at-label" style={{ padding: '6px 12px' }}>Screenshots</div>
-              <div className="at-shots">{['login-filled', 'account', 'logout-after'].map((s) => <div key={s} className="at-shot"><div className="at-shot-img" /><span className="at-mono">{s}.png</span></div>)}</div>
+              <div className="at-shots">{live.on ? browserActions.filter((b) => b.shot).slice(-6).map((b) => <button type="button" key={b.shot} className="at-shot" onClick={() => setStep(browserActions.indexOf(b))}>{Shot ? <Shot artifactId={b.shot!} alt={b.text} /> : <div className="at-shot-img" />}<span className="at-mono at-trunc">{b.text.split(' — ')[0]}</span></button>)
+                : ['login-filled', 'account', 'logout-after'].map((s) => <div key={s} className="at-shot"><div className="at-shot-img" /><span className="at-mono">{s}.png</span></div>)}</div>
             </div>
           </aside>
         </div>

@@ -1,0 +1,123 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/11-sla.json",
+    "key": "sla",
+    "title": "SLA clock for every complaint case",
+    "goal": "Operators cannot see which complaints are about to breach their response deadline. Add an SLA clock: the backend computes, for every complaint, sla_due_at from its received/created date and its severity or priority (critical 1 day, high 3 days, medium 7 days, low 15 days; treat unknown as medium), and sla_status: 'breached' when now is past the due time, 'at_risk' within the last 20% of the window, else 'on_track'. Expose sla_due_at and sla_status on the complaint list and detail APIs. In the frontend Cases workspace (and the Complaints list if it shows the same records), show an SLA badge per case with a clear label and color, and add a filter to show only cases that are at risk or breached. Add backend unit tests for the SLA computation (including boundary cases) and an API test, plus a frontend test for the badge.",
+    "constraints": "Compute SLA in one backend function; do not duplicate the rules in the frontend. Keep existing API fields unchanged (only add). All checks must pass."
+  },
+  "mission": {
+    "id": "msn_5UAYjDMdS73R",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "SLA clock for every complaint case",
+    "goal": "Operators cannot see which complaints are about to breach their response deadline. Add an SLA clock: the backend computes, for every complaint, sla_due_at from its received/created date and its severity or priority (critical 1 day, high 3 days, medium 7 days, low 15 days; treat unknown as medium), and sla_status: 'breached' when now is past the due time, 'at_risk' within the last 20% of the window, else 'on_track'. Expose sla_due_at and sla_status on the complaint list and detail APIs. In the frontend Cases workspace (and the Complaints list if it shows the same records), show an SLA badge per case with a clear label and color, and add a filter to show only cases that are at risk or breached. Add backend unit tests for the SLA computation (including boundary cases) and an API test, plus a frontend test for the badge.",
+    "constraints": "Compute SLA in one backend function; do not duplicate the rules in the frontend. Keep existing API fields unchanged (only add). All checks must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: implement failed (Budget exhausted (tool calls 61/60, tokens 114298/400000)), review failed, security failed",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T03:25:15.181Z",
+    "updatedAt": "2026-10-15T03:36:33.153Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_QKB7iG4fY9zz",
+      "missionId": "msn_5UAYjDMdS73R",
+      "key": "implement",
+      "title": "Implement the objective",
+      "role": "coder",
+      "dependencies": [],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Operators cannot see which complaints are about to breach their response deadline. Add an SLA clock: the backend computes, for every complaint, sla_due_at from its received/created date and its severi",
+        "Respect constraints: Compute SLA in one backend function; do not duplicate the rules in the frontend. Keep existing API fields unchanged (only add). All checks must pass.",
+        "Project test command exits 0 on the integrated commit"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_5UAYjDMdS73R/implement-1",
+      "branch": "atlas/msn_5UAYjDMdS73R/implement-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_3JHzxnWMwVQL",
+      "missionId": "msn_5UAYjDMdS73R",
+      "key": "review",
+      "title": "Review the change against the acceptance criteria",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_QKB7iG4fY9zz"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Every reported problem has file, line, severity and evidence",
+        "Confirmed findings reference a reproduction ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_DSZ3uXrNcaim",
+      "missionId": "msn_5UAYjDMdS73R",
+      "key": "security",
+      "title": "Security review of the change",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_QKB7iG4fY9zz"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Each security problem is reported with file, line, severity, the attack it enables and the fix",
+        "Confirmed findings reference a demonstration ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 114298,
+    "toolCalls": 61,
+    "tasks": 3,
+    "agentsNow": 0,
+    "elapsedMs": 197676
+  }
+}

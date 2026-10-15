@@ -1,0 +1,123 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/12-export.json",
+    "key": "export",
+    "title": "Export complaints to CSV",
+    "goal": "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV with a header row and a Content-Disposition attachment filename containing the date. Protect against CSV/formula injection: any cell starting with =, +, -, @, tab or carriage return must be prefixed with a single quote. Stream or bound the response so large exports do not exhaust memory (cap at 10,000 rows and say so in a response header). In the frontend Complaints page add an 'Export CSV' button that downloads the export for the current filters. Add backend tests for headers, escaping of commas/quotes/newlines, formula-injection protection, filtering and the row cap, and a frontend test for the button.",
+    "constraints": "Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass."
+  },
+  "mission": {
+    "id": "msn_uGPHmSx2mXPH",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Export complaints to CSV",
+    "goal": "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV with a header row and a Content-Disposition attachment filename containing the date. Protect against CSV/formula injection: any cell starting with =, +, -, @, tab or carriage return must be prefixed with a single quote. Stream or bound the response so large exports do not exhaust memory (cap at 10,000 rows and say so in a response header). In the frontend Complaints page add an 'Export CSV' button that downloads the export for the current filters. Add backend tests for headers, escaping of commas/quotes/newlines, formula-injection protection, filtering and the row cap, and a frontend test for the button.",
+    "constraints": "Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: implement failed (Budget exhausted (tool calls 61/60, tokens 154577/400000)), review failed, security failed",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T03:25:15.185Z",
+    "updatedAt": "2026-10-15T03:38:37.044Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_vkU8y3vaHhBb",
+      "missionId": "msn_uGPHmSx2mXPH",
+      "key": "implement",
+      "title": "Implement the objective",
+      "role": "coder",
+      "dependencies": [],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV w",
+        "Respect constraints: Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass.",
+        "Project test command exits 0 on the integrated commit"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_uGPHmSx2mXPH/implement-1",
+      "branch": "atlas/msn_uGPHmSx2mXPH/implement-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_Uk267Cita52V",
+      "missionId": "msn_uGPHmSx2mXPH",
+      "key": "review",
+      "title": "Review the change against the acceptance criteria",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_vkU8y3vaHhBb"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Every reported problem has file, line, severity and evidence",
+        "Confirmed findings reference a reproduction ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_dYrcUuqWtLFt",
+      "missionId": "msn_uGPHmSx2mXPH",
+      "key": "security",
+      "title": "Security review of the change",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_vkU8y3vaHhBb"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Each security problem is reported with file, line, severity, the attack it enables and the fix",
+        "Confirmed findings reference a demonstration ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 154577,
+    "toolCalls": 61,
+    "tasks": 3,
+    "agentsNow": 0,
+    "elapsedMs": 321483
+  }
+}

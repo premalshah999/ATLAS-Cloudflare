@@ -1,0 +1,123 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/10-csp.json",
+    "key": "csp",
+    "title": "Strict CSP without console errors on every page",
+    "goal": "Every Operon page logs browser console errors caused by the backend's Content-Security-Policy: the Google Fonts stylesheet (fonts.googleapis.com) is refused, and an inline <script> in frontend/index.html is refused by script-src 'self'. Make every page load with zero console errors while keeping the CSP strict: never add 'unsafe-inline' or 'unsafe-eval' to script-src. Move the inline script into a same-origin module (or remove it if it is redundant) and either self-host the fonts or allow exactly the needed origins (style-src fonts.googleapis.com, font-src fonts.gstatic.com). Add backend tests that check the CSP header forbids inline scripts and allows only the intended font origins, and that the built index.html contains no inline script.",
+    "constraints": "Keep the CSP strict. Touch only CSP, index.html, the moved script and tests. All backend tests, frontend tests, typecheck, lint and build must pass."
+  },
+  "mission": {
+    "id": "msn_gkfFXm77QDAT",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Strict CSP without console errors on every page",
+    "goal": "Every Operon page logs browser console errors caused by the backend's Content-Security-Policy: the Google Fonts stylesheet (fonts.googleapis.com) is refused, and an inline <script> in frontend/index.html is refused by script-src 'self'. Make every page load with zero console errors while keeping the CSP strict: never add 'unsafe-inline' or 'unsafe-eval' to script-src. Move the inline script into a same-origin module (or remove it if it is redundant) and either self-host the fonts or allow exactly the needed origins (style-src fonts.googleapis.com, font-src fonts.gstatic.com). Add backend tests that check the CSP header forbids inline scripts and allows only the intended font origins, and that the built index.html contains no inline script.",
+    "constraints": "Keep the CSP strict. Touch only CSP, index.html, the moved script and tests. All backend tests, frontend tests, typecheck, lint and build must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: implement failed (Budget exhausted (tool calls 61/60, tokens 47873/400000)), review failed, security failed",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T03:25:15.175Z",
+    "updatedAt": "2026-10-15T03:37:19.734Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_rmjdBnXFkJp3",
+      "missionId": "msn_gkfFXm77QDAT",
+      "key": "implement",
+      "title": "Implement the objective",
+      "role": "coder",
+      "dependencies": [],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Every Operon page logs browser console errors caused by the backend's Content-Security-Policy: the Google Fonts stylesheet (fonts.googleapis.com) is refused, and an inline <script> in frontend/index.h",
+        "Respect constraints: Keep the CSP strict. Touch only CSP, index.html, the moved script and tests. All backend tests, frontend tests, typecheck, lint and build must pass.",
+        "Project test command exits 0 on the integrated commit"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_gkfFXm77QDAT/implement-1",
+      "branch": "atlas/msn_gkfFXm77QDAT/implement-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_tgJrEDyApAaK",
+      "missionId": "msn_gkfFXm77QDAT",
+      "key": "review",
+      "title": "Review the change against the acceptance criteria",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_rmjdBnXFkJp3"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Every reported problem has file, line, severity and evidence",
+        "Confirmed findings reference a reproduction ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_UmhUsctx2StT",
+      "missionId": "msn_gkfFXm77QDAT",
+      "key": "security",
+      "title": "Security review of the change",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_rmjdBnXFkJp3"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Each security problem is reported with file, line, severity, the attack it enables and the fix",
+        "Confirmed findings reference a demonstration ATLAS observed"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 47873,
+    "toolCalls": 61,
+    "tasks": 3,
+    "agentsNow": 0,
+    "elapsedMs": 244349
+  }
+}

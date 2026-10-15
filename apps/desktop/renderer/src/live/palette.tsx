@@ -53,7 +53,7 @@ function PaletteSession({ closing }: { closing: boolean }) {
       { id: 'browser', label: 'Browser & desktop', group: 'Go to', icon: IGlobe, kbd: '⌘ 8', run: () => go({ screen: 'browser' }) },
       { id: 'agents', label: 'Agents and their permissions', group: 'Go to', icon: IAgents, kbd: '⌘ 4', run: () => go({ screen: 'agents' }) },
       { id: 'settings', label: 'Settings', group: 'Go to', icon: ISettings, kbd: '⌘ ,', run: () => go({ screen: 'settings' }) },
-      { id: 'preview', label: 'Design preview (sample data)', group: 'Go to', icon: IPalette, run: () => go({ screen: 'preview' }) },
+      { id: 'preview', label: 'Command center (full mission-control design, live data)', group: 'Go to', icon: IPalette, run: () => go({ screen: 'preview' }) },
       ...missions.map((m) => ({ id: `m-${m.id}`, label: m.title, group: 'Missions', dot: dotFor(m), hint: missionStatus(m).word, keywords: `${m.id} ${m.goal}`, run: () => go({ screen: 'mission', missionId: m.id }) })),
     ];
   }, [missions, workspaces]);

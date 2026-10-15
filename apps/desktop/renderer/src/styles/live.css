@@ -322,3 +322,6 @@
 .lv-wb-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 100%; }
 .lv-wb-split > * { min-width: 0; border-right: 1px solid var(--line-soft); }
 @media (max-width: 1000px) { .lv-wb { grid-template-columns: 1fr; } .lv-wb-split { grid-template-columns: 1fr; } }
+.lv-preview-banner--live { background: var(--bg-surface); color: var(--ink-muted, #9aa0a6); }
+.at-guard { display: flex; flex-direction: column; gap: 6px; margin: 12px; padding: 12px; border-radius: 8px; background: var(--bg-surface); box-shadow: inset 0 0 0 1px var(--danger, #c55); font-size: 12px; }
+.at-page--shot { display: flex; align-items: flex-start; justify-content: center; overflow: auto; } .at-page--shot img { max-width: 100%; height: auto; display: block; } .at-shot img { width: 100%; height: 64px; object-fit: cover; object-position: top; border-radius: 4px; }

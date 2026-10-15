@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { TerminalSession, TermLine } from '../data/types';
-import { agentById } from '../data/sample';
+import { agentById, live, workspace } from '../data/source';
 import { cx, Icon, IconButton, RoleMark, Badge, Tip } from './primitives';
 import { IPlus, ISearch, ICopy, IRecord, IClose, ISplit, IArrowUp, IArrowDown, IHand } from '../lib/icons';
 
@@ -40,7 +40,7 @@ export function TerminalView({ s, extra = [], focused, onFocus, onClose, onSplit
   const matches = q ? lines.filter((l) => (l.text + (l.segs?.map((x) => x.text).join('') ?? '')).toLowerCase().includes(q.toLowerCase())).length : 0;
   const human = s.owner === 'human';
   const prompt = human
-    ? <span className="at-tprompt"><span className="at-tcyan">~/code/acme/storefront</span> <span className="at-subtle">(feat/auth-refactor)</span> <span className="at-human-c">❯</span> </span>
+    ? <span className="at-tprompt"><span className="at-tcyan">{live.on ? workspace.path : '~/code/acme/storefront'}</span> <span className="at-subtle">({live.on ? workspace.branch : 'feat/auth-refactor'})</span> <span className="at-human-c">❯</span> </span>
     : <span className="at-tprompt"><span className="at-subtle">{s.cwd}</span> <span className="at-acc">❯</span> </span>;
 
   return (
@@ -83,7 +83,7 @@ export function TerminalView({ s, extra = [], focused, onFocus, onClose, onSplit
         <span className="at-mono at-subtle">pid {s.pid}</span>
         <span className="at-mono at-subtle">{s.cwd}</span>
         <span style={{ flex: 1 }} />
-        {simulatedLabel && !human && <span className="at-mono at-subtle at-trunc">sample output · not a live process</span>}
+        {simulatedLabel && !human && <span className="at-mono at-subtle at-trunc">{live.on ? 'recorded process output · sandboxed' : 'sample output · not a live process'}</span>}
         {human && <span className="at-row" style={{ gap: 6 }}><Icon as={IHand} size="sm" className="at-human-c" /><span className="at-mono at-subtle">human session · agents cannot write here</span></span>}
       </div>
     </div>

@@ -123,8 +123,8 @@ export function LiveRail() {
       </div>
       <div style={{ flex: 1 }} />
       <div className="at-rail-group">
-        <Tip label="Design preview · sample data" side="right" delay={250}>
-          <button type="button" className="at-rail-item" aria-label="Design preview" onClick={() => go({ screen: 'preview' })}><Icon as={IPalette} size="lg" /></button>
+        <Tip label="Command center · the full mission-control design on live data" side="right" delay={250}>
+          <button type="button" className="at-rail-item" aria-label="Command center" onClick={() => go({ screen: 'preview' })}><Icon as={IPalette} size="lg" /></button>
         </Tip>
         <Tip label="Settings" kbd="⌘ ," side="right" delay={250}>
           <button type="button" className="at-rail-item" aria-label="Settings" aria-current={route.screen === 'settings' ? 'page' : undefined} onClick={() => go({ screen: 'settings' })}><Icon as={ISettings} size="lg" /></button>
@@ -155,10 +155,10 @@ export function LiveStatusBar() {
   );
 }
 
-export function PreviewBanner({ onExit }: { onExit: () => void }) {
+export function PreviewBanner({ onExit, live }: { onExit: () => void; live?: boolean }) {
   return (
-    <div className="lv-preview-banner" role="status">
-      <span>Design preview · every value on these screens is sample data, not your projects.</span>
+    <div className={cx('lv-preview-banner', live && 'lv-preview-banner--live')} role="status" data-live={live ? 'true' : 'false'}>
+      <span>{live ? 'Command center · live data from your ATLAS control plane: missions, agents, terminals, reviews and deployments.' : 'Design preview · every value on these screens is sample data, not your projects.'}</span>
       <button type="button" className="at-btn at-btn--sm" onClick={onExit}><Icon as={IHome} size="sm" />Back to ATLAS</button>
     </div>
   );
