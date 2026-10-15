@@ -447,3 +447,8 @@
   .lv-grid { padding: var(--space-8) var(--space-16) var(--space-24); }
   .lv-narrow { padding: var(--space-16); }
 }
+/* Thin dark scrollbars wherever the graph or pipeline overflows */
+.at-dc-scroll, .at-tgraph, .at-graph { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.at-dc-scroll::-webkit-scrollbar { height: 8px; background: transparent; }
+.at-dc-scroll::-webkit-scrollbar-track { background: transparent; }
+.at-dc-scroll::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
