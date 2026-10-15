@@ -421,3 +421,12 @@
 .at-root[data-motion="reduced"] .at-dc-node { transition: none; }
 .at-root[data-motion="reduced"] .at-dc-node:hover { transform: none; }
 @keyframes at-dc-flow { to { stroke-dashoffset: -22; } }
+/* Visual QA: goal textarea on New mission had no reset (browser default box, tiny) */
+.at-goal-input { display: block; box-sizing: border-box; width: 100%; min-height: 96px; resize: vertical; margin: 0; padding: 0; border: 0; outline: none; background: transparent; font-family: var(--font-display); }
+.at-goal-input::placeholder { color: var(--ink-subtle); opacity: 1; }
+/* Visual QA: permission rows wrapped labels such as "Risky commands" */
+.at-permrow { grid-template-columns: minmax(120px, max-content) minmax(0, 1fr) auto; }
+.at-permrow > span:first-child { white-space: nowrap; }
+/* Visual QA: recent workspace name wrapped onto two lines on Welcome */
+.at-recent-ws > span:not(.at-trunc) { white-space: nowrap; flex: none; }
+.at-recent-ws > .at-trunc { min-width: 0; flex: 1 1 auto; }

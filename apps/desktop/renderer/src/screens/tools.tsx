@@ -96,6 +96,13 @@ ALTER TABLE refresh_tokens
 CREATE INDEX idx_refresh_family ON refresh_tokens (family_id)
   WHERE replaced_by IS NULL;`;
 
+// The highlighter only registers ts/sql/bash/yaml; map file extensions onto those so JS files do not log "Could not find the language".
+const highlightLang = (l?: string) => {
+  if (l === 'sql') return 'sql';
+  if (l === 'sh' || l === 'zsh' || l === 'bash') return 'bash';
+  if (l === 'yml' || l === 'yaml') return 'yaml';
+  return 'ts';
+};
 const contents: Record<string, { before: string; after: string; lang?: string; comments: ReviewComment[] }> = {
   'src/auth/session.ts': { before: diffs.sessionBefore, after: diffs.sessionAfter, comments: [
     { line: 7, author: 'Security Engineer', mark: 'SE', id: 'SEC-1', severity: 'high', resolved: true, body: <>Race fixed: <code>findForUpdate</code> holds a row lock inside the transaction. Verified by <code>concurrent-refresh.spec</code> · 50/50 runs.</> },
@@ -184,7 +191,7 @@ function ReviewBody() {
             <Button size="sm" icon={ICheck} onClick={() => { setVerdict({ ...verdict, [file]: 'accepted' }); const i = reviewFiles.findIndex((x) => x.path === file); if (reviewFiles[i + 1]) setFile(reviewFiles[i + 1].path); }}>Accept file</Button>
           </div>
           <div className="at-pbody" style={{ background: 'var(--bg-void)' }}>
-            <DiffView key={file + mode} before={c.before} after={c.after} lang={c.lang} mode={mode} comments={c.comments} onLineHover={setHoverLine} />
+            <DiffView key={file + mode} before={c.before} after={c.after} lang={highlightLang(c.lang)} mode={mode} comments={c.comments} onLineHover={setHoverLine} />
           </div>
         </div>
         <aside className="at-review-side">
