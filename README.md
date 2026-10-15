@@ -76,6 +76,8 @@ We pointed ATLAS at **Operon**, a complaint-operations platform (FastAPI + React
 
 - The verified mission was then **published to Cloudflare Artifacts from the app**: repository `atlas-msn_5AppeZ4wk2Ms`, every ref read back by the Worker as matching.
 
+![Cloudflare Artifacts publication](docs/screenshots/live/cloudflare.png)
+
 Failures were recorded as failures. That is the point.
 
 ---
@@ -86,8 +88,8 @@ Failures were recorded as failures. That is the point.
 | --- | --- |
 | ![Home](docs/screenshots/live/home.png) **Home** — what needs you, what is running, what is ready for review. | ![Task graph](docs/screenshots/live/task-graph.png) **Task graph** — the real dependency structure, laid out automatically; pan, zoom, critical path. |
 | ![Agent](docs/screenshots/live/agent.png) **Agent detail** — decisions and every tool call; the composer **directs a running agent** inside its live session. | ![Review](docs/screenshots/live/review.png) **Review** — the patch file by file with findings pinned to lines. |
-| ![Deployments](docs/screenshots/live/deployments.png) **Deployment cycle** — Integrate → Verify → Release, with a fix-and-rerun loop and a release report. | ![Browser](docs/screenshots/live/browser.png) **Live browser** — a real, interactive browser on the app under test; plus every recorded QA step. |
-| ![Agent Studio](docs/screenshots/live/studio.png) **Agent Studio** — every role as enforced policy; **create your own agents, skills and connectors**. | ![Settings](docs/screenshots/live/settings.png) **Settings** — every key-based model provider, live key checks, models per tier, Cloudflare, GitHub. |
+| ![Deployments](docs/screenshots/live/deployments.png) **Deployment cycle** — Integrate → Verify → Release, with a fix-and-rerun loop and a release report. | ![Browser](docs/screenshots/live/browser.png) **Live browser** — a real, interactive browser on the app under test (here: Operon running the agents' fix); plus every recorded QA step. |
+| ![Agent Studio](docs/screenshots/live/studio-new-agent.png) **Agent Studio** — every role as enforced policy; **create your own agents, skills and connectors (MCP)**. | ![Settings](docs/screenshots/live/settings.png) **Settings** — every key-based model provider, live key checks, models per tier, Cloudflare, GitHub. |
 
 ---
 

@@ -24,13 +24,20 @@ try {
   await go('agent', { agent: coder }); await shot('agent');
   await go('review'); await shot('review');
   await go('studio'); await shot('studio');
+  await page.getByRole('button', { name: /New agent/ }).first().click().catch(() => {}); await wait(900); await page.mouse.move(1590, 990); await shot('studio-new-agent');
+  await page.getByRole('button', { name: /Add connector/ }).first().click().catch(() => {}); await wait(900); await page.mouse.move(1590, 990); await shot('studio-connector');
+  await go('mission'); await page.getByTestId('open-full-record').click().catch(() => {}); await wait(2500);
+  await page.getByRole('tab', { name: /Evidence/ }).click().catch(() => {}); await wait(1500); await shot('evidence');
+  await page.getByRole('tab', { name: 'Cloudflare' }).click().catch(() => {}); await wait(2500); await shot('cloudflare');
   await go('preferences'); await shot('settings');
   await page.evaluate((id) => window.__atlasPreview.set({ missionId: id }), deployId); await wait(4000);
   await go('deploy'); await shot('deployments');
-  await go('computer'); await wait(1500);
+  await go('computer'); await wait(2500);
   if (liveUrl) {
-    const input = page.locator('.lv-lb input, input[placeholder*="URL" i], input[aria-label*="address" i]').first();
-    if (await input.count()) { await input.fill(liveUrl); await input.press('Enter'); await wait(6000); }
+    const input = page.locator('.lv-lb-url input').first();
+    if (await input.count()) { await input.fill(liveUrl); await input.press('Enter'); await wait(7000); }
+    await page.mouse.move(1590, 990); await shot('browser');
+    await page.locator('.lv-lb-stage img, .lv-lb-stage').first().click({ position: { x: 300, y: 300 } }).catch(() => {}); await wait(2500);
   }
   await shot('browser');
 } finally { await app.close(); }
