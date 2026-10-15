@@ -1,59 +1,135 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Agent, Task } from '../data/types';
 import { agents, tasks, agentById } from '../data/source';
-import { cx, Icon, RoleMark, Activity, Dot, IconButton, Tip } from './primitives';
-import { IXCircle, IClock, ICheck, IZoomIn, IZoomOut, IFit, IWarn } from '../lib/icons';
+import { cx, RoleMark, Activity, Dot, IconButton, Tip } from './primitives';
+import { IZoomIn, IZoomOut, IFit } from '../lib/icons';
 import { actions, useApp } from '../lib/store';
 
-/* ---------- shared: scale-to-fit stage ---------- */
-function useFit(w: number, h: number, maxScale = 1) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [k, setK] = useState(1);
-  useLayoutEffect(() => {
-    const el = ref.current; if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const r = el.getBoundingClientRect();
-      setK(Math.min(maxScale, (r.width - 8) / w, (r.height - 8) / h));
-    });
+/* ---------- shared: pan / zoom canvas (n8n / React Flow style) ---------- */
+type View = { x: number; y: number; k: number };
+const K_MIN = 0.35, K_MAX = 2.2, FIT_MAX = 1.6, GRID = 16;
+const clampK = (k: number) => Math.max(K_MIN, Math.min(K_MAX, k));
+const gridStyle = (v: View): React.CSSProperties => ({ backgroundPosition: `${v.x}px ${v.y}px`, backgroundSize: `${GRID * v.k}px ${GRID * v.k}px` });
+const stageTransform = (v: View) => `translate(${v.x}px, ${v.y}px) scale(${v.k})`;
+
+/** Fit-to-view on mount and on resize; ctrl/cmd+wheel zooms at the pointer; drag on empty canvas pans. */
+function usePanZoom(W: number, H: number, onBackground?: () => void) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 });
+  const drag = useRef<{ x: number; y: number; vx: number; vy: number; moved: boolean } | null>(null);
+  const fit = useCallback(() => {
+    const el = wrap.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const k = Math.max(0.2, Math.min(FIT_MAX, (r.width - 48) / W, (r.height - 48) / H));
+    setView({ k, x: (r.width - W * k) / 2, y: (r.height - H * k) / 2 });
+  }, [W, H]);
+  useLayoutEffect(() => { fit(); }, [fit]);
+  useEffect(() => {
+    const el = wrap.current; if (!el) return;
+    const ro = new ResizeObserver(() => fit());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [w, h]);
-  return { ref, k };
+  }, [fit]);
+  // Native listener so preventDefault stops Electron's page zoom on ctrl+wheel.
+  useEffect(() => {
+    const el = wrap.current; if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        const r = el.getBoundingClientRect();
+        const mx = e.clientX - r.left, my = e.clientY - r.top;
+        setView((v) => { const k = clampK(v.k * Math.exp(-e.deltaY * 0.0022)), f = k / v.k; return { k, x: mx - (mx - v.x) * f, y: my - (my - v.y) * f }; });
+      } else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+  const zoomBy = useCallback((f: number) => {
+    const el = wrap.current; if (!el) return;
+    const r = el.getBoundingClientRect(); const cx0 = r.width / 2, cy0 = r.height / 2;
+    setView((v) => { const k = clampK(v.k * f), g = k / v.k; return { k, x: cx0 - (cx0 - v.x) * g, y: cy0 - (cy0 - v.y) * g }; });
+  }, []);
+  const bind = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest('button, .at-zoom, .at-graph-legend')) return;
+      drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = drag.current; if (!d) return;
+      const dx = e.clientX - d.x, dy = e.clientY - d.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) d.moved = true;
+      setView((v) => ({ ...v, x: d.vx + dx, y: d.vy + dy }));
+    },
+    onPointerUp: () => {
+      const d = drag.current; drag.current = null;
+      if (d && !d.moved) onBackground?.();
+    },
+  };
+  return { wrap, view, fit, zoomBy, bind };
 }
 
-/* ---------- Agent node ---------- */
+function ZoomBar({ k, zoomBy, fit }: { k: number; zoomBy: (f: number) => void; fit: () => void }) {
+  return (
+    <div className="at-zoom">
+      <IconButton icon={IZoomOut} label="Zoom out" kbd="⌘ −" size="sm" onClick={() => zoomBy(1 / 1.15)} />
+      <button type="button" className="at-zoom-pct at-mono at-tnum" title="Reset to 100%" onClick={() => zoomBy(1 / k)}>{Math.round(k * 100)}%</button>
+      <IconButton icon={IZoomIn} label="Zoom in" kbd="⌘ +" size="sm" onClick={() => zoomBy(1.15)} />
+      <IconButton icon={IFit} label="Fit to view" kbd="⇧ 1" size="sm" onClick={fit} />
+    </div>
+  );
+}
+
+/* Arrowhead markers, one per edge tone. Colours come from CSS (.at-ar--*). */
+const ARROW_KINDS = ['idle', 'done', 'active', 'warn', 'fail'] as const;
+function ArrowDefs({ id }: { id: string }) {
+  return (
+    <defs>
+      {ARROW_KINDS.map((k) => (
+        <marker key={k} id={`${id}-${k}`} className={`at-ar at-ar--${k}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M1 1 L9 5 L1 9 Z" />
+        </marker>
+      ))}
+    </defs>
+  );
+}
+const arrowFor = (s: string) => s === 'done' ? 'done' : s === 'active' ? 'active' : s === 'failed' ? 'fail' : s === 'waiting' || s === 'blocked' ? 'warn' : 'idle';
+
+/* ---------- Agent node (n8n-style card) ---------- */
+const STATUS_WORD: Record<string, string> = { running: 'Working', waiting: 'Waiting', blocked: 'Blocked', failed: 'Failed', done: 'Done', idle: 'Idle', paused: 'Paused' };
+
 export function AgentNode({ a, selected, dim, onSelect, onOpen, style, compact }: { a: Agent; selected?: boolean; dim?: boolean; onSelect?: () => void; onOpen?: () => void; style?: React.CSSProperties; compact?: boolean }) {
   const paused = useApp((s) => s.paused);
   const ts = tasks.filter((t) => t.agent === a.id);
-  const glyph = a.status === 'running' ? <Activity paused={paused} />
-    : a.status === 'failed' ? <Icon as={IXCircle} size="sm" className="at-err" />
-      : a.status === 'blocked' ? <Icon as={IWarn} size="sm" className="at-warn" />
-        : a.status === 'waiting' ? <Icon as={IClock} size="sm" className="at-warn" />
-          : a.status === 'done' ? <Icon as={ICheck} size="sm" className="at-ok" /> : <Dot s="idle" />;
+  const shown = paused && a.status === 'running' ? 'paused' : a.status;
+  const live = a.status === 'running' && !paused;
+  const act = paused && a.status === 'running' ? 'Paused after current step' : a.activity;
   return (
-    <button type="button" className={cx('at-node', selected && 'at-node--sel', dim && 'at-node--dim', compact && 'at-node--compact')} data-s={paused && a.status === 'running' ? 'paused' : a.status}
-      style={style} onClick={onSelect} onDoubleClick={onOpen} aria-pressed={selected} aria-label={`${a.name}: ${a.activity}`}>
+    <button type="button" className={cx('at-node at-nn', selected && 'at-node--sel', dim && 'at-node--dim', compact && 'at-node--compact')} data-s={shown}
+      style={style} onClick={onSelect} onDoubleClick={onOpen} aria-pressed={selected} aria-label={`${a.name}: ${act}`}>
+      <span className="at-nn-port at-nn-port--in" aria-hidden />
+      <span className="at-nn-port at-nn-port--out" aria-hidden />
       <div className="at-node-top">
         <RoleMark mark={a.mark} s={a.status} size="sm" />
         <span className="at-node-name at-trunc">{a.name}</span>
-        <span className="at-node-glyph">{glyph}</span>
+        {live && <Activity />}
       </div>
-      <div className="at-node-act at-trunc">{paused && a.status === 'running' ? 'Paused after current step' : a.activity}</div>
-      {!compact && (
-        <div className="at-node-foot">
-          <span className="at-meter at-meter--segments" style={{ flex: 1 }}>{ts.map((t) => <span key={t.id} data-s={t.status} title={`${t.id} · ${t.title}`} />)}</span>
-          <span className="at-mono at-subtle at-tnum">{ts.filter((t) => t.status === 'done').length}/{ts.length}</span>
-        </div>
-      )}
+      <div className="at-node-act at-trunc">{act}</div>
+      <div className="at-node-foot">
+        <span className="at-nn-pill" data-s={shown}>{STATUS_WORD[shown] ?? shown}</span>
+        {!compact && <span className="at-meter at-meter--segments" style={{ flex: 1 }}>{ts.map((t) => <span key={t.id} data-s={t.status} title={`${t.id} · ${t.title}`} />)}</span>}
+        {!compact && <span className="at-mono at-subtle at-tnum">{ts.filter((t) => t.status === 'done').length}/{ts.length}</span>}
+      </div>
     </button>
   );
 }
 
 /* ---------- Mission Control agent graph ---------- */
 type EdgeState = 'done' | 'active' | 'waiting' | 'blocked' | 'failed' | 'pending';
-interface GEdge { id: string; from: string; to: string; d: string; label: string; lx: number; ly: number; state: EdgeState; kind: 'dep' | 'delegate' }
+interface GEdge { id: string; from: string; to: string; d: string; state: EdgeState; kind: 'dep' | 'delegate' }
 
-const NW = 184, NH = 66, COLW = 256, ROWH = 108, GX = 40, GY = 92;
+const NW = 200, NH = 76, COLW = 260, ROWH = 110, GX = 56, GY = 96;
+const ORCH_BOTTOM = 58;
 
 /** Agent-level layout from the task dependency graph: an agent sits one column right of the agents it waits on. */
 function agentLayout() {
@@ -76,21 +152,28 @@ function agentLayout() {
   const pos: Record<string, { x: number; y: number }> = {};
   cols.forEach((c, i) => c?.forEach((id, j) => { pos[id] = { x: GX + i * COLW, y: GY + j * ROWH }; }));
   const ncol = Math.max(1, cols.length), nrow = Math.max(1, ...cols.map((c) => c?.length ?? 0));
-  return { pos, deps, w: Math.max(752, GX * 2 + (ncol - 1) * COLW + NW), h: GY + (nrow - 1) * ROWH + NH + 34, workers };
+  return { pos, deps, w: Math.max(800, GX * 2 + (ncol - 1) * COLW + NW), h: GY + (nrow - 1) * ROWH + NH + 40, workers };
 }
 
 const edgeState = (s?: string): EdgeState => s === 'done' ? 'done' : s === 'running' ? 'active' : s === 'failed' ? 'failed' : s === 'blocked' ? 'blocked' : s === 'waiting' ? 'waiting' : 'pending';
 
 function edgesFor(L: ReturnType<typeof agentLayout>): GEdge[] {
   const out: GEdge[] = [];
-  const b = 58;
   for (const a of L.workers) {
     const p = L.pos[a.id]; if (!p) continue;
-    if (!(L.deps.get(a.id)?.size)) out.push({ id: `d-${a.id}`, from: 'orch', to: a.id, kind: 'delegate', d: `M${p.x + 24} ${b} V${p.y}`, label: '', lx: 0, ly: 0, state: 'done' });
+    const px = p.x, py = p.y + NH / 2;
+    // Delegation: drop from the orchestrator bar down a trunk, then curve into the root agent's input port.
+    if (!(L.deps.get(a.id)?.size)) {
+      const x0 = px - 30;
+      out.push({ id: `d-${a.id}`, from: 'orch', to: a.id, kind: 'delegate', state: edgeState(a.status),
+        d: `M${x0} ${ORCH_BOTTOM} V${py - 22} Q${x0} ${py} ${x0 + 22} ${py} H${px}` });
+    }
+    // Dependency: cubic bezier from the source's output port to this agent's input port.
     for (const from of L.deps.get(a.id) ?? []) {
       const q = L.pos[from]; if (!q) continue;
-      const x1 = q.x + NW, y1 = q.y + NH / 2, x2 = p.x, y2 = p.y + NH / 2, mx = (x1 + x2) / 2;
-      out.push({ id: `${from}-${a.id}`, from, to: a.id, kind: 'dep', d: Math.abs(y1 - y2) < 2 ? `M${x1} ${y1} H${x2}` : `M${x1} ${y1} C ${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`, label: '', lx: 0, ly: 0, state: edgeState(agentById(from).status) });
+      const x1 = q.x + NW, y1 = q.y + NH / 2, dx = Math.max(40, (px - x1) * 0.5);
+      out.push({ id: `${from}-${a.id}`, from, to: a.id, kind: 'dep', state: edgeState(agentById(from).status),
+        d: `M${x1} ${y1} C${x1 + dx} ${y1} ${px - dx} ${py} ${px} ${py}` });
     }
   }
   return out;
@@ -102,21 +185,21 @@ export function AgentGraph({ onOpenAgent }: { onOpenAgent?: (id: string) => void
   const [hover, setHover] = useState<string | null>(null);
   const L = agentLayout();
   const AG_W = L.w, AG_H = L.h, pos = L.pos;
-  const { ref, k } = useFit(AG_W, AG_H, 1.12);
+  const { wrap, view, fit, zoomBy, bind } = usePanZoom(AG_W, AG_H);
   const edges = edgesFor(L);
-  const focus = hover ?? null;
+  const focus = hover;
+  const near = new Set<string>();
+  if (focus) { near.add(focus); for (const e of edges) { if (e.from === focus) near.add(e.to); if (e.to === focus) near.add(e.from); } }
   const related = (e: GEdge) => !focus || e.from === focus || e.to === focus;
   const orch = agentById('orch');
   return (
-    <div className="at-graph" ref={ref}>
-      <div className="at-graph-stage" style={{ width: AG_W, height: AG_H, transform: `translate(-50%, -50%) scale(${k})` }}>
+    <div className="at-graph at-ngraph" ref={wrap} style={gridStyle(view)} onPointerDown={bind.onPointerDown} onPointerMove={bind.onPointerMove} onPointerUp={bind.onPointerUp}>
+      <div className="at-graph-stage" style={{ width: AG_W, height: AG_H, transform: stageTransform(view) }}>
         <svg className="at-graph-svg" width={AG_W} height={AG_H} viewBox={`0 0 ${AG_W} ${AG_H}`} aria-hidden>
-          <defs>
-            <marker id="at-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="context-stroke" strokeWidth="1.4" /></marker>
-          </defs>
-                    {edges.map((e) => (
-            <g key={e.id} className={cx('at-edge-g', !related(e) && 'at-edge-g--dim', paused && 'at-edge-g--paused')} data-state={e.state} data-kind={e.kind}>
-              <path d={e.d} className="at-edge" markerEnd={e.kind === 'dep' ? 'url(#at-arrow)' : undefined} />
+          <ArrowDefs id="ag-ar" />
+          {edges.map((e) => (
+            <g key={e.id} className={cx('at-edge-g', !related(e) && 'at-edge-g--dim', focus && related(e) && 'at-edge-g--hi', paused && 'at-edge-g--paused')} data-state={e.state} data-kind={e.kind}>
+              <path d={e.d} className="at-edge" markerEnd={`url(#ag-ar-${arrowFor(e.state)})`} />
               {e.state === 'active' && <path d={e.d} className="at-edge-flow" />}
             </g>
           ))}
@@ -132,12 +215,9 @@ export function AgentGraph({ onOpenAgent }: { onOpenAgent?: (id: string) => void
         </button>
         {L.workers.map((w) => w.id).filter((id) => pos[id]).map((id) => (
           <div key={id} onMouseEnter={() => setHover(id)} onMouseLeave={() => setHover(null)} style={{ position: 'absolute', left: pos[id].x, top: pos[id].y, width: NW, height: NH }}>
-            <AgentNode a={agentById(id)} selected={sel === id} dim={!!focus && focus !== id && !edges.some((e) => e.kind === 'dep' && ((e.from === focus && e.to === id) || (e.to === focus && e.from === id)))}
+            <AgentNode a={agentById(id)} selected={sel === id} dim={!!focus && !near.has(id)}
               onSelect={() => actions().selectAgent(id)} onOpen={() => onOpenAgent?.(id)} style={{ width: NW, height: NH }} />
           </div>
-        ))}
-        {edges.filter((e) => e.label).map((e) => (
-          <span key={e.id} className={cx('at-elabel', !related(e) && 'at-elabel--dim')} data-state={e.state} style={{ left: e.lx, top: e.ly }}>{e.label}</span>
         ))}
       </div>
       <div className="at-graph-legend">
@@ -147,6 +227,7 @@ export function AgentGraph({ onOpenAgent }: { onOpenAgent?: (id: string) => void
         <span><i className="lg-wait" />waiting / gated</span>
         <span><i className="lg-fail" />failed</span>
       </div>
+      <ZoomBar k={view.k} zoomBy={zoomBy} fit={fit} />
     </div>
   );
 }
@@ -183,20 +264,12 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
   TL = taskLayout();
   const TG_W = TL.w, TG_H = TL.h, lanes = TL.lanes, laneX = TL.laneX;
   const last = [...tasks].sort((a, b) => b.phase - a.phase)[0]?.id ?? '';
-  const wrap = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
-  const fit = () => {
-    const r = wrap.current?.getBoundingClientRect(); if (!r) return;
-    const k = Math.min(1, (r.width - 32) / TG_W, (r.height - 32) / TG_H);
-    setView({ k, x: Math.max(12, (r.width - TG_W * k) / 2), y: 8 });
-  };
-  useLayoutEffect(fit, []);
-  useEffect(() => { const ro = new ResizeObserver(fit); if (wrap.current) ro.observe(wrap.current); return () => ro.disconnect(); }, []);
+  const { wrap, view, fit, zoomBy, bind } = usePanZoom(TG_W, TG_H, () => onSelect(undefined));
   const hi = useMemo(() => {
     if (critical) { const s = chain(last, 'up'); if (last) s.add(last); return s; }
     if (!selected) return null;
     const s = new Set<string>([selected]); chain(selected, 'up', s); chain(selected, 'down', s); return s;
-  }, [selected, critical]);
+  }, [selected, critical, last]);
   const edges = useMemo(() => {
     const out: { id: string; d: string; from: string; to: string; state: string }[] = [];
     const incoming: Record<string, number> = {};
@@ -209,12 +282,8 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
         const total = t.deps.length;
         const x1 = a.x + TW / 2, y1 = a.y + TH;
         const x2 = b.x + TW / 2 + (n - (total - 1) / 2) * 14, y2 = b.y;
-        let d: string;
-        if (Math.abs(x1 - x2) < 2) d = `M${x1} ${y1} V${y2}`;
-        else {
-          const cy = y2 - 11; const r = 7; const dir = x2 > x1 ? 1 : -1;
-          d = `M${x1} ${y1} V${cy - r} Q${x1} ${cy} ${x1 + dir * r} ${cy} H${x2 - dir * r} Q${x2} ${cy} ${x2} ${cy + r} V${y2}`;
-        }
+        const my = (y1 + y2) / 2;
+        const d = `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`;
         const state = s.status === 'done' ? (t.status === 'pending' || t.status === 'waiting' || t.status === 'blocked' ? 'ready' : 'done') : s.status === 'failed' ? 'failed' : s.status === 'running' ? 'active' : 'pending';
         out.push({ id: dep + '-' + t.id, d, from: dep, to: t.id, state });
       });
@@ -222,21 +291,9 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.map((t) => `${t.id}:${t.status}:${t.phase}`).join(',')]);
-  const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   return (
-    <div className="at-tgraph" ref={wrap}
-      onWheel={(e) => {
-        const r = wrap.current!.getBoundingClientRect();
-        if (e.ctrlKey || e.metaKey) {
-          const k = Math.max(0.4, Math.min(1.8, view.k * (1 - e.deltaY * 0.002)));
-          const mx = e.clientX - r.left, my = e.clientY - r.top;
-          setView({ k, x: mx - ((mx - view.x) * k) / view.k, y: my - ((my - view.y) * k) / view.k });
-        } else setView({ ...view, x: view.x - e.deltaX, y: view.y - e.deltaY });
-      }}
-      onPointerDown={(e) => { if ((e.target as HTMLElement).closest('.at-tnode')) return; drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }}
-      onPointerMove={(e) => { const d = drag.current; if (d) setView((v) => ({ ...v, x: d.vx + e.clientX - d.x, y: d.vy + e.clientY - d.y })); }}
-      onPointerUp={(e) => { const d = drag.current; drag.current = null; if (d && Math.abs(e.clientX - d.x) < 3 && Math.abs(e.clientY - d.y) < 3) onSelect(undefined); }}>
-      <div className="at-tgraph-stage" style={{ width: TG_W, height: TG_H, transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})` }}>
+    <div className="at-tgraph at-ngraph" ref={wrap} style={gridStyle(view)} onPointerDown={bind.onPointerDown} onPointerMove={bind.onPointerMove} onPointerUp={bind.onPointerUp}>
+      <div className="at-tgraph-stage" style={{ width: TG_W, height: TG_H, transform: stageTransform(view) }}>
         {lanes.map((l) => {
           const a = agentById(l.id);
           return (
@@ -249,10 +306,10 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
         })}
         {Array.from({ length: TL.phases }, (_, p) => <span key={p} className="at-phase-tick at-mono" style={{ top: TOP + p * ROW + TH / 2 - 7 }}>{p + 1}</span>)}
         <svg className="at-graph-svg" width={TG_W} height={TG_H} aria-hidden>
-          <defs><marker id="at-arrow2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="context-stroke" strokeWidth="1.4" /></marker></defs>
+          <ArrowDefs id="tg-ar" />
           {edges.map((e) => (
             <g key={e.id} className={cx('at-edge-g', hi && !(hi.has(e.from) && hi.has(e.to)) && 'at-edge-g--dim', hi && hi.has(e.from) && hi.has(e.to) && 'at-edge-g--hi')} data-state={e.state} data-kind="dep">
-              <path d={e.d} className="at-edge" markerEnd="url(#at-arrow2)" />
+              <path d={e.d} className="at-edge" markerEnd={`url(#tg-ar-${arrowFor(e.state)})`} />
               {e.state === 'active' && <path d={e.d} className="at-edge-flow" />}
             </g>
           ))}
@@ -262,6 +319,8 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
           return (
             <button key={t.id} type="button" className={cx('at-tnode', selected === t.id && 'at-node--sel', hi && !hi.has(t.id) && 'at-node--dim')} data-s={t.status}
               style={{ left: p.x, top: p.y, width: TW, height: TH }} onClick={() => onSelect(t.id === selected ? undefined : t.id)}>
+              <span className="at-tport at-tport--in" aria-hidden />
+              <span className="at-tport at-tport--out" aria-hidden />
               <span className="at-row" style={{ gap: 6 }}>
                 <span className="at-mono at-subtle">{t.id}</span>
                 <span style={{ flex: 1 }} />
@@ -272,12 +331,7 @@ export function TaskGraph({ selected, onSelect, critical }: { selected?: string;
           );
         })}
       </div>
-      <div className="at-zoom">
-        <IconButton icon={IZoomOut} label="Zoom out" kbd="⌘ −" size="sm" onClick={() => setView((v) => ({ ...v, k: Math.max(0.4, v.k - 0.1) }))} />
-        <span className="at-mono at-subtle at-tnum" style={{ width: 36, textAlign: 'center' }}>{Math.round(view.k * 100)}%</span>
-        <IconButton icon={IZoomIn} label="Zoom in" kbd="⌘ +" size="sm" onClick={() => setView((v) => ({ ...v, k: Math.min(1.8, v.k + 0.1) }))} />
-        <IconButton icon={IFit} label="Fit to view" kbd="⇧ 1" size="sm" onClick={fit} />
-      </div>
+      <ZoomBar k={view.k} zoomBy={zoomBy} fit={fit} />
     </div>
   );
 }

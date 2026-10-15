@@ -324,3 +324,107 @@
 .at-composer-menu .at-menu-item { height: 30px; }
 .at-composer-hint { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-subtle); padding-left: 2px; }
 .at-composer-hint .at-kbd-group:not(:first-child) { margin-left: 8px; }
+
+/* n8n-style graph */
+.at-ngraph { --g-dot: rgba(122, 130, 144, 0.36); background-color: var(--bg-canvas); background-image: radial-gradient(circle at 1px 1px, var(--g-dot) 1px, transparent 1.5px); background-repeat: repeat; cursor: grab; user-select: none; touch-action: none; }
+.at-ngraph:active { cursor: grabbing; }
+.at-ngraph .at-node, .at-ngraph .at-tnode { cursor: pointer; }
+.at-graph-stage, .at-tgraph-stage { left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+
+/* Node cards: coloured left accent by status, ports on the left and right edges */
+.at-graph .at-nn {
+  --nc: var(--line-strong); justify-content: center; gap: 5px; padding: 10px 12px 9px 15px; border-radius: var(--radius-md);
+  background: var(--bg-surface); box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 20px -14px rgba(0,0,0,0.9), inset 0 0 0 1px var(--line-hair);
+  transition: box-shadow var(--dur-2) var(--ease-std), opacity var(--dur-2) var(--ease-std), background var(--dur-2) var(--ease-std), transform var(--dur-1) var(--ease-std);
+}
+.at-graph .at-nn[data-s="running"] { --nc: var(--accent); background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--bg-surface); }
+.at-graph .at-nn[data-s="done"] { --nc: var(--success); }
+.at-graph .at-nn[data-s="failed"] { --nc: var(--danger); background: linear-gradient(var(--danger-wash), var(--danger-wash)), var(--bg-surface); }
+.at-graph .at-nn[data-s="waiting"], .at-graph .at-nn[data-s="blocked"] { --nc: var(--warning); background: linear-gradient(var(--warning-wash), var(--warning-wash)), var(--bg-surface); }
+.at-graph .at-nn[data-s="paused"] { --nc: var(--ink-faint); }
+.at-graph .at-nn[data-s="idle"] { --nc: var(--line-strong); background: var(--bg-canvas); box-shadow: inset 0 0 0 1px var(--line-hair); }
+.at-graph .at-nn::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--nc); }
+.at-graph .at-nn:hover { background: var(--bg-surface-2); box-shadow: 0 10px 24px -14px rgba(0,0,0,0.95), inset 0 0 0 1px var(--line-strong); }
+.at-graph .at-nn:active { transform: scale(0.99); }
+.at-graph .at-nn.at-node--sel, .at-graph .at-nn.at-node--sel:hover { box-shadow: 0 0 0 3px var(--accent-wash), 0 0 0 1px var(--nc), 0 12px 26px -14px rgba(0,0,0,0.95); }
+.at-graph .at-node--dim { opacity: 0.34; }
+.at-graph .at-node-top { gap: 8px; }
+.at-graph .at-node-name { font-size: 12.5px; }
+.at-graph .at-node-act { margin-top: 0; font-size: 11.5px; line-height: 15px; }
+.at-graph .at-node-foot { margin-top: 3px; gap: 7px; }
+.at-graph .at-node-foot .at-meter { min-width: 0; }
+.at-nn-port { position: absolute; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; z-index: 1;
+  background: var(--bg-surface); box-shadow: inset 0 0 0 2px var(--nc), 0 0 0 3px var(--bg-canvas); transition: transform var(--dur-1) var(--ease-std); }
+.at-nn-port--in { left: -6px; }
+.at-nn-port--out { right: -6px; }
+.at-graph .at-nn:hover .at-nn-port { transform: scale(1.2); }
+.at-nn-pill { display: inline-flex; align-items: center; gap: 5px; height: 17px; padding: 0 7px 0 6px; border-radius: 999px; flex: none; white-space: nowrap;
+  font-size: 10px; line-height: 1; font-weight: 500; letter-spacing: 0.01em; color: var(--ink-muted); background: var(--bg-surface-3); box-shadow: inset 0 0 0 1px var(--line-hair); }
+.at-nn-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--nc); flex: none; }
+.at-nn-pill[data-s="running"] { color: var(--accent-hi); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.at-nn-pill[data-s="failed"] { color: var(--danger); box-shadow: inset 0 0 0 1px rgba(208,138,127,0.35); }
+.at-nn-pill[data-s="waiting"], .at-nn-pill[data-s="blocked"] { color: var(--warning); box-shadow: inset 0 0 0 1px rgba(201,168,106,0.3); }
+.at-nn-pill[data-s="done"] { color: var(--success); }
+.at-graph .at-node--compact { padding: 9px 11px 8px 14px; }
+
+/* Orchestrator bar */
+.at-graph .at-orch { border-radius: var(--radius-md); box-shadow: 0 8px 20px -14px rgba(0,0,0,0.9), inset 0 0 0 1px var(--line-hair); }
+.at-graph .at-orch:hover { box-shadow: 0 10px 24px -14px rgba(0,0,0,0.95), inset 0 0 0 1px var(--line-strong); }
+.at-graph .at-orch.at-node--sel { box-shadow: 0 0 0 3px var(--accent-wash), inset 0 0 0 1px var(--accent-line); }
+
+/* Edges */
+.at-graph .at-edge, .at-tgraph .at-edge { stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke var(--dur-2), opacity var(--dur-2), stroke-width var(--dur-2); }
+.at-graph .at-edge-g[data-kind="delegate"] .at-edge { stroke: var(--line-strong); stroke-width: 1.25; opacity: 0.9; }
+.at-graph .at-edge-g[data-kind="dep"] .at-edge, .at-tgraph .at-edge-g .at-edge { stroke: var(--line-strong); }
+.at-graph .at-edge-g[data-state="done"] .at-edge, .at-tgraph .at-edge-g[data-state="done"] .at-edge { stroke: var(--success); opacity: 0.6; }
+.at-graph .at-edge-g[data-state="active"] .at-edge, .at-tgraph .at-edge-g[data-state="active"] .at-edge { stroke: var(--accent-lo); opacity: 0.9; }
+.at-graph .at-edge-g[data-state="waiting"] .at-edge, .at-graph .at-edge-g[data-state="blocked"] .at-edge { stroke: var(--warning); stroke-dasharray: 5 4; opacity: 0.8; }
+.at-graph .at-edge-g[data-state="failed"] .at-edge, .at-tgraph .at-edge-g[data-state="failed"] .at-edge { stroke: var(--danger); opacity: 0.9; }
+.at-graph .at-edge-g[data-state="pending"] .at-edge { stroke: var(--line-strong); opacity: 0.85; }
+.at-tgraph .at-edge-g[data-state="ready"] .at-edge { stroke: var(--ink-subtle); opacity: 0.7; }
+.at-tgraph .at-edge-g[data-state="pending"] .at-edge { stroke: var(--line-strong); opacity: 0.6; }
+.at-edge-g--hi .at-edge { stroke-width: 2; opacity: 1; }
+.at-graph .at-edge-g--dim, .at-tgraph .at-edge-g--dim { opacity: 0.12; }
+.at-graph .at-edge-flow, .at-tgraph .at-edge-flow { stroke: var(--accent-hi); stroke-width: 2; stroke-dasharray: 6 10; stroke-linecap: round; animation: at-nflow 0.9s linear infinite; }
+@keyframes at-nflow { to { stroke-dashoffset: -16px; } }
+.at-ar path { stroke: none; }
+.at-ar--idle path { fill: var(--line-strong); }
+.at-ar--done path { fill: var(--success); }
+.at-ar--active path { fill: var(--accent-hi); }
+.at-ar--warn path { fill: var(--warning); }
+.at-ar--fail path { fill: var(--danger); }
+
+/* Task nodes */
+.at-tgraph .at-tnode {
+  --nc: var(--line-strong); gap: 4px; padding: 8px 10px 8px 14px; border-radius: var(--radius-md); cursor: pointer;
+  background: var(--bg-surface); box-shadow: 0 8px 18px -14px rgba(0,0,0,0.9), inset 0 0 0 1px var(--line-hair);
+}
+.at-tgraph .at-tnode::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--nc); }
+.at-tgraph .at-tnode[data-s="running"] { --nc: var(--accent); background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--bg-surface); }
+.at-tgraph .at-tnode[data-s="done"] { --nc: var(--success); }
+.at-tgraph .at-tnode[data-s="failed"] { --nc: var(--danger); background: linear-gradient(var(--danger-wash), var(--danger-wash)), var(--bg-surface); }
+.at-tgraph .at-tnode[data-s="waiting"], .at-tgraph .at-tnode[data-s="blocked"] { --nc: var(--warning); background: linear-gradient(var(--warning-wash), var(--warning-wash)), var(--bg-surface); }
+.at-tgraph .at-tnode[data-s="pending"] { background: var(--bg-canvas); box-shadow: inset 0 0 0 1px var(--line-hair); }
+.at-tgraph .at-tnode[data-s="pending"] .at-tnode-title { color: var(--ink-subtle); }
+.at-tgraph .at-tnode[data-s="done"] .at-tnode-title { color: var(--ink-muted); }
+.at-tgraph .at-tnode:hover { background: var(--bg-surface-2); box-shadow: 0 10px 22px -14px rgba(0,0,0,0.95), inset 0 0 0 1px var(--line-strong); }
+.at-tgraph .at-tnode.at-node--sel, .at-tgraph .at-tnode.at-node--sel:hover { box-shadow: 0 0 0 3px var(--accent-wash), 0 0 0 1px var(--nc), 0 12px 26px -14px rgba(0,0,0,0.95); }
+.at-tgraph .at-tnode.at-node--dim { opacity: 0.34; }
+.at-tport { position: absolute; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; z-index: 1;
+  background: var(--bg-surface); box-shadow: inset 0 0 0 1.5px var(--nc), 0 0 0 2px var(--bg-canvas); }
+.at-tport--in { top: -4px; }
+.at-tport--out { bottom: -4px; }
+.at-tgraph .at-tnode-title { font-size: 11.5px; }
+
+/* Zoom controls */
+.at-zoom { gap: 2px; border-radius: var(--radius-md); }
+.at-zoom-pct { height: 24px; min-width: 46px; padding: 0 6px; border-radius: var(--radius-xs); font-size: 11px; color: var(--ink-muted); text-align: center; }
+.at-zoom-pct:hover { background: var(--bg-surface-2); color: var(--ink); }
+
+/* Reduced motion: no transitions, no marching flow */
+.at-root[data-motion="reduced"] .at-ngraph .at-edge-flow { animation: none !important; }
+.at-root[data-motion="reduced"] .at-ngraph *, .at-root[data-motion="reduced"] .at-ngraph { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .at-ngraph .at-edge-flow { animation: none !important; }
+  .at-ngraph * { transition: none !important; }
+}
