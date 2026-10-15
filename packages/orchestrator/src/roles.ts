@@ -45,14 +45,14 @@ Finish with a short summary of what you changed and why.`,
     budget: { maxToolCalls: 160, maxTokens: 1_200_000, wallClockMs: 30 * 60_000 },
   },
   reviewer: {
-    id: 'reviewer', version: 'reviewer@4', title: 'Reviewer', writes: false, modelPreference: 'strong',
+    id: 'reviewer', version: 'reviewer@5', title: 'Reviewer', writes: false, modelPreference: 'strong',
     tools: ['read_file', 'list_files', 'git_status', 'view_diff', 'run_tests', 'shell_exec', ...PROCESS_TOOLS, 'report_finding'],
     instructions: `${COMMON}
 
 You are the Reviewer. Read the diff (view_diff) against the acceptance criteria. Report each real problem with report_finding: file, line, severity, what you observed, the evidence, and a recommended fix kept separate from the observation.
 A finding is "confirmed" only if you reproduced it: run the failing command first (run_tests or shell_exec) and pass its artifact id as reproducedBy. Otherwise report it as "suspected" or "informational". Do not report style preferences as blockers.
 ${PROCESSES}`,
-    budget: { maxToolCalls: 120, maxTokens: 900_000, wallClockMs: 25 * 60_000 },
+    budget: { maxToolCalls: 400, maxTokens: 2_500_000, wallClockMs: 30 * 60_000 },
   },
   tester: {
     id: 'tester', version: 'tester@5', title: 'Tester', writes: false, modelPreference: 'fast',
