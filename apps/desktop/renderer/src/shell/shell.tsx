@@ -14,7 +14,7 @@ import {
 const nav: { id: ScreenId; label: string; icon: IconType; kbd?: string; badge?: number; also?: ScreenId[] }[] = [
   { id: 'home', label: 'Home', icon: IHome, kbd: '⌘ 1', also: ['welcome'] },
   { id: 'workspaces', label: 'Workspaces', icon: IWorkspaces },
-  { id: 'mission', label: 'Missions', icon: IMissions, kbd: '⌘ 2', also: ['graph', 'create', 'report'] },
+  { id: 'mission', label: 'Missions', icon: IMissions, kbd: '⌘ 2', also: ['graph', 'create', 'report', 'record'] },
   { id: 'agent', label: 'Agents', icon: IAgents, kbd: '⌘ 3', also: ['studio'] },
   { id: 'review', label: 'Reviews', icon: IReviews, kbd: '⌘ 4', badge: 3 },
   { id: 'deploy', label: 'Deployments', icon: IDeploy, kbd: '⌘ 5' },
@@ -114,9 +114,13 @@ export function Rail() {
     );
     return expanded ? btn : <Tip key={n.id} label={n.label} kbd={n.kbd} side="right" delay={250}>{btn}</Tip>;
   };
+  // With the control plane attached, Projects (open, import, manage repositories) takes the Workspaces slot so each
+  // destination appears once, and Settings opens the full real settings.
+  const attached = live.on && !!adapter;
+  const primary = attached ? nav.map((n) => (n.id === 'workspaces' ? { id: 'projects' as ScreenId, label: 'Projects', icon: IFolderOpen, also: ['workspaces' as ScreenId] } : n)) : nav;
   return (
     <nav className={cx('at-rail', expanded && 'at-rail--open')} aria-label="Primary">
-      <div className="at-rail-group">{nav.map(item)}</div>
+      <div className="at-rail-group">{primary.map(item)}</div>
       <div className="at-rail-div" />
       <div className="at-rail-group">{tools.map(item)}</div>
       {expanded && (
@@ -140,11 +144,8 @@ export function Rail() {
       )}
       <div style={{ flex: 1 }} />
       <div className="at-rail-group">
-        {live.on && adapter && <>
-          <Tip label="Team spaces" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => A.go('team')}><Icon as={IUsers} size="lg" /><span className="at-rail-label">Team</span></button></Tip>
-          <Tip label="Projects, imports and classic views" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => A.go('projects')}><Icon as={IFolderOpen} size="lg" /><span className="at-rail-label">Projects</span></button></Tip>
-        </>}
-        {item({ id: 'settings', label: 'Settings', icon: ISettings, kbd: '⌘ ,' })}
+        {attached && item({ id: 'team', label: 'Team', icon: IUsers })}
+        {item(attached ? { id: 'preferences', label: 'Settings', icon: ISettings, kbd: '⌘ ,', also: ['settings'] } : { id: 'settings', label: 'Settings', icon: ISettings, kbd: '⌘ ,' })}
         <Tip label={expanded ? 'Collapse sidebar' : 'Expand sidebar'} kbd="⌘ \" side="right">
           <button type="button" className="at-rail-item" onClick={() => A.set({ sidebar: !expanded })}><Icon as={IPanelLeft} size="lg" /><span className="at-rail-label">Collapse</span></button>
         </Tip>

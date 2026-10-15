@@ -5,7 +5,7 @@ import type { AtlasEvent } from '@atlas/contracts';
 import { Badge, Button, KV, Status } from '../ui/primitives';
 import { IDisk } from '../lib/icons';
 import { call, type MissionSnapshot } from './api';
-import { fmtMs, missionStatus, resultWord, roleName } from './format';
+import { fmtMs, missionStatus, resultWord, roleName, runtimeName } from './format';
 import { toast } from './toast';
 
 const RESULT_DOT: Record<string, string> = { pass: 'done', fail: 'failed', skipped: 'idle', inconclusive: 'warning', not_configured: 'idle' };
@@ -64,7 +64,7 @@ export function ReportPanel({ snap, events }: { snap: MissionSnapshot; events: A
           ['Base commit', <span key="b" className="at-mono">{m.baseCommit?.slice(0, 12) ?? '—'}</span>],
           ['Integrated result', <span key="i" className="at-mono">{m.integrationBranch ? `${m.integrationBranch} @ ${m.integrationCommit?.slice(0, 12)}` : '—'}</span>],
           ['Agents', roles.length ? roles.map(roleName).join(', ') : '—'],
-          ['Runtime', `${m.runtime}${m.model ? ` · ${m.model}` : ''}`],
+          ['Runtime', `${runtimeName(m.runtime)}${m.model ? ` · ${m.model}` : ''}`],
           ['Staging', m.targetEnvironment ?? 'Not deployed'],
           ['Cloudflare Artifacts', pub ? <span key="c">{pub.name} · {pub.refs?.length ?? 0} refs verified{pub.checkedAt ? ` ${new Date(pub.checkedAt).toLocaleString()}` : ''}</span> : 'Not published'],
           ['Decision', m.decision ? `${m.decision === 'accepted' ? 'Accepted' : 'Rejected'}${decision ? ` ${new Date(decision.ts).toLocaleString()}` : ''}` : 'Awaiting your decision'],

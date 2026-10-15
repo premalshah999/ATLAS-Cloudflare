@@ -9,6 +9,8 @@ export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slic
 export const markOf = (e: AtlasEvent) => e.actor.kind === 'operator' ? 'YOU' : e.actor.kind === 'agent' ? ROLE_MARK[e.actor.role] ?? 'AG' : e.actor.kind === 'teammate' ? initials(e.actor.name) : e.actor.component === 'pipeline' ? 'PL' : e.actor.component === 'security-scan' ? 'SE' : 'AT';
 /** Who did it, in words: you, an agent role, a teammate by name, the pipeline, or ATLAS. */
 export const actorName = (a: AtlasEvent['actor']) => a.kind === 'operator' ? 'You' : a.kind === 'agent' ? roleName(a.role) : a.kind === 'teammate' ? a.name : a.component === 'pipeline' ? 'Pipeline' : a.component === 'team-runner' ? 'Team runner' : a.component === 'security-scan' ? 'Security scan' : 'ATLAS';
+/** The runtime in words: the model-driven Pi runtime, or the local runtime that needs no model key. */
+export const runtimeName = (r: unknown) => (r === 'fake' ? 'Local runtime' : r === 'pi' ? 'Pi' : String(r ?? '—'));
 export const roleName = (r: string) => ({ coder: 'Coder', tester: 'Tester', reviewer: 'Reviewer', orchestrator: 'Orchestrator', browser_qa: 'Browser QA', desktop_operator: 'Desktop operator', deployment_verifier: 'Deployment verifier', security_reviewer: 'Security engineer' } as Record<string, string>)[r] ?? r;
 export const roleMark = (r: string) => ROLE_MARK[r] ?? r.slice(0, 2).toUpperCase();
 
@@ -41,7 +43,7 @@ export function describeEvent(e: AtlasEvent): Row | null {
   const p = e.payload as Record<string, any>;
   const who = actorName(e.actor);
   switch (e.type) {
-    case 'mission.created': return { title: 'Mission created', detail: p.goal, meta: `${p.runtime} runtime`, tone: 'human', kind: 'activity', who };
+    case 'mission.created': return { title: 'Mission created', detail: p.goal, meta: p.runtime === 'pi' ? 'Pi runtime' : runtimeName(p.runtime), tone: 'human', kind: 'activity', who };
     case 'mission.state': return { title: `Mission ${stateWord(p.to).toLowerCase()}`, detail: p.reason, tone: p.to === 'failed' ? 'danger' : p.to === 'completed' ? 'success' : 'muted', kind: p.to === 'failed' ? 'error' : 'activity', who };
     case 'plan.proposed': return { title: `Plan v${p.version} proposed`, detail: p.summary, meta: `${p.tasks?.length ?? 0} task${p.tasks?.length === 1 ? '' : 's'}`, tone: 'accent', kind: 'decision', who };
     case 'plan.rejected': return { title: 'Plan rejected by validation', detail: (p.issues ?? []).map((i: any) => i.message).join('\n'), tone: 'danger', kind: 'error', who };

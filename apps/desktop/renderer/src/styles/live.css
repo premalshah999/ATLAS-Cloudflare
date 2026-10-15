@@ -484,3 +484,5 @@
 .lv-lb-foot > * { min-width: 0; }
 .lv-lb-spacer { flex: 1 1 auto; }
 .lv-lb-host { flex: 1 1 auto; min-height: 0; display: flex; padding: 12px; }
+/* A mission's full record hosted in the dashboard: back link above the classic mission view. */
+.lv-record > .lv-mission { height: auto; }

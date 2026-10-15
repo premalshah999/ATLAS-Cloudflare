@@ -7,6 +7,7 @@ import { call } from './api';
 import { buildSnapshot, hydrate, shortId } from './designBridge';
 import { refreshLists, useLive, get, setDesignRouter } from './store';
 import { installDesignSlots } from './designSlots';
+import { openRepository } from './shell';
 
 async function currentMission() {
   const id = live.missionId;
@@ -38,7 +39,7 @@ export function installDesignAdapter(store: Store) {
       live.missionId = m.id;
       await refreshLists();
       store.go('mission');
-      store.toast({ tone: 'info', title: `${title} — planning`, body: runtime === 'pi' ? 'The orchestrator model is planning. You approve the plan before anything runs.' : 'No model key: the scripted runtime plans it.' });
+      store.toast({ tone: 'info', title: `${title} — planning`, body: runtime === 'pi' ? 'The orchestrator model is planning. You approve the plan before anything runs.' : 'No model key: planned locally. You approve the plan before anything runs.' });
       void call('mission.plan', { missionId: m.id }).catch((e: Error) => store.toast({ tone: 'danger', title: 'Planning failed', body: e.message }));
     },
     async decide(decision) {
@@ -54,6 +55,11 @@ export function installDesignAdapter(store: Store) {
       if (r) store.toast({ tone: 'success', title: 'Audit log exported', body: `${r.records} records · SHA-256 ${r.sha256.slice(0, 16)}… → ${r.path}` });
     },
     openLive(screen) { store.go(screen === 'settings' ? 'preferences' : screen); },
+    async openRepository() {
+      const id = await openRepository();
+      if (id) store.go('projects');
+      return !!id;
+    },
     async reverify() {
       const snap = await currentMission();
       await call('mission.reverify', { missionId: snap.mission.id });

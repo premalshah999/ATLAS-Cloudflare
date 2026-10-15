@@ -30,12 +30,15 @@ interface LiveState {
   paletteSession: number;
 }
 
+/** Automated runs only: window.atlas.e2e exists under ATLAS_E2E. */
+export const automated = !!(window as unknown as { atlas?: { e2e?: unknown } }).atlas?.e2e;
+
 let state: LiveState = {
-  // The Command center (the design system on live data) is the main dashboard; automated test runs land on Projects.
+  // One shell: people always land on the dashboard. Automated test runs keep the classic Projects screen.
   route: (() => {
-    const automated = !!(window as unknown as { atlas?: { e2e?: unknown } }).atlas?.e2e;
     const fallback: Route = automated ? { screen: 'projects' } : { screen: 'preview' };
-    try { const r = JSON.parse(localStorage.getItem('atlas:route') ?? 'null'); return r && (r.screen !== 'preview' || !automated) ? r : fallback; } catch { return fallback; }
+    if (!automated) return fallback;
+    try { const r = JSON.parse(localStorage.getItem('atlas:route') ?? 'null'); return r && r.screen !== 'preview' ? r : fallback; } catch { return fallback; }
   })(),
   status: { state: 'starting', pid: null, restarts: 0 },
   workspaces: [],
@@ -53,10 +56,24 @@ export function set(patch: Partial<LiveState>) {
   listeners.forEach((l) => l());
 }
 export const get = () => state;
-/** While the dashboard is open, classic navigation is routed to its screens (designActions installs this). */
+/** Routes every navigation to the dashboard's screens (designActions installs this while the dashboard is open). */
 let designRouter: ((route: Route) => boolean) | null = null;
-export const setDesignRouter = (r: typeof designRouter) => { designRouter = r; };
-export const go = (route: Route) => { if (state.route.screen === 'preview' && route.screen !== 'preview' && designRouter?.(route)) { set({ palette: false }); return; } set({ route, palette: false }); };
+/** A navigation requested before the dashboard installed its router; replayed once it does. */
+let pending: Route | null = null;
+export const setDesignRouter = (r: typeof designRouter) => {
+  designRouter = r;
+  if (r && pending) { const p = pending; pending = null; r(p); }
+};
+export const go = (route: Route) => {
+  if (!automated) {
+    // One navigation pipeline: every destination opens inside the dashboard; it is never left.
+    if (route.screen !== 'preview' && !designRouter?.(route)) pending = route;
+    set(state.route.screen === 'preview' ? { palette: false } : { route: { screen: 'preview' }, palette: false });
+    return;
+  }
+  if (state.route.screen === 'preview' && route.screen !== 'preview' && designRouter?.(route)) { set({ palette: false }); return; }
+  set({ route, palette: false });
+};
 
 export function useLive<T>(sel: (s: LiveState) => T): T {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => sel(state), () => sel(state));

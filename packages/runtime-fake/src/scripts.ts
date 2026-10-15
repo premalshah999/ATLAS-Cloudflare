@@ -88,7 +88,7 @@ export const sampleRegressionScript: FakeScript = {
  */
 export function samplePlanner(req: { objective: string; verification: { name: string; required: boolean }[] }): unknown {
   if (req.objective.includes('[parallel sample]')) return {
-    summary: 'Two independent agents change implementation and regression tests concurrently, then a reviewer checks their integrated work. Scripted decisions; real worktrees and checks.',
+    summary: 'Two independent agents change implementation and regression tests concurrently, then a reviewer checks their integrated work. Planned locally (no model key); real worktrees and checks.',
     scope: 'src/slugify.js and test/slugify.additional.test.js in isolated worktrees.',
     tasks: [
       { key: 'implement', title: 'Fix slug generation', role: 'coder', dependsOn: [], files: ['src/slugify.js'], acceptance: ['Normalize titles into lowercase URL slugs'], tools: ['read_file', 'write_file', 'run_tests'], risk: 'low' },
@@ -99,7 +99,7 @@ export function samplePlanner(req: { objective: string; verification: { name: st
   };
   if (!req.objective.includes(DESKTOP_SAMPLE_MARKER)) return null;
   return {
-    summary: 'Scripted desktop sample: a desktop operator works on an isolated virtual display.',
+    summary: 'Planned locally (no model key): a desktop operator works on an isolated virtual display.',
     scope: 'A new virtual display; no files change.',
     tasks: [{ key: 'desktop', title: 'Operate the virtual desktop', role: 'desktop_operator', dependsOn: [], acceptance: ['The desktop session is recorded with screenshots'], tools: ['desktop_action', 'read_file'], risk: 'elevated' }],
     verification: req.verification,
@@ -120,6 +120,6 @@ export const sampleDesktopScript: FakeScript = {
     { wait: 8000 },
     { tool: 'desktop_action', args: { action: 'type', text: 'hello from the agent' } },
     { tool: 'desktop_action', args: { action: 'screenshot' } },
-    { claim: 'Operated the virtual desktop (scripted sample).' },
+    { claim: 'Operated the virtual desktop (local runtime).' },
   ],
 };

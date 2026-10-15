@@ -37,7 +37,7 @@ export const securitySurveyScript: FakeScript = {
     { say: 'Reviewing the change for security problems.' },
     { tool: 'view_diff', args: {} },
     { tool: 'security_scan', args: {} },
-    { claim: 'Security review complete. ATLAS\'s scan results are recorded; no further findings reported (scripted security engineer).' },
+    { claim: 'Security review complete. ATLAS\'s scan results are recorded; no further findings reported (local security engineer).' },
   ],
 };
 
@@ -49,7 +49,7 @@ export const reviewSurveyScript: FakeScript = {
     { say: 'Reviewing the change against the acceptance criteria.' },
     { tool: 'view_diff', args: {} },
     { tool: 'run_tests', args: {} },
-    { claim: 'Review complete. No findings reported (scripted reviewer).' },
+    { claim: 'Review complete. No findings reported (local reviewer).' },
   ],
 };
 
@@ -58,10 +58,10 @@ export const surveyScript: FakeScript = {
   name: 'survey',
   matches: () => true,
   steps: () => [
-    { say: 'Fake runtime: surveying the repository. No model is connected, so no code changes will be proposed.' },
+    { say: 'Local runtime: surveying the repository. No model key is configured, so no code changes will be proposed.' },
     { tool: 'git_status', args: {} },
     { tool: 'list_files', args: { path: '.' } },
-    { claim: 'Survey complete. No changes made (fake runtime).' },
+    { claim: 'Survey complete. No changes made (local runtime).' },
   ],
 };
 
@@ -75,11 +75,11 @@ export class FakeRuntime implements AgentRuntime {
   plan?: (req: PlanRequest) => Promise<PlanProposal>;
 
   constructor(private readonly scripts: FakeScript[] = [], private readonly stepDelayMs = 0, planner?: (req: PlanRequest) => unknown) {
-    if (planner) this.plan = async (req) => ({ plan: planner(req), rationale: 'Scripted plan (fake runtime).', inputTokens: 0, outputTokens: 0 });
+    if (planner) this.plan = async (req) => ({ plan: planner(req), rationale: 'Planned locally (no model key).', inputTokens: 0, outputTokens: 0 });
   }
 
   async health(): Promise<RuntimeHealth> {
-    return { ok: true, runtime: 'fake', version: 'fake-1', models: ['scripted'], detail: 'Deterministic scripted runtime. Output is sample behavior, not a model.' };
+    return { ok: true, runtime: 'fake', version: 'fake-1', models: ['local'], detail: 'Local runtime: plans and executes deterministically without a model key.' };
   }
 
   async start(input: AgentInput): Promise<AgentHandle> {
@@ -129,7 +129,7 @@ export class FakeRuntime implements AgentRuntime {
   }
 
   async interrupt(handle: AgentHandle) { this.runs.get(handle.id)?.abort.abort(); }
-  async resume(): Promise<void> { throw new Error('The fake runtime cannot resume; the scheduler starts a new attempt instead.'); }
+  async resume(): Promise<void> { throw new Error('The local runtime cannot resume; the scheduler starts a new attempt instead.'); }
   async dispose(handle: AgentHandle) {
     const r = this.runs.get(handle.id);
     if (!r) return;

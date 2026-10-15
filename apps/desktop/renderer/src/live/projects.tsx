@@ -23,7 +23,7 @@ export function Projects() {
       <div className="lv-scroll">
         {workspaces.length === 0 ? (
           <EmptyState center icon={IRepo} title="Open a repository to begin"
-            body="ATLAS reads the repository and runs agents in isolated git worktrees. Your checkout is never edited. To try the bundled sample project, run `pnpm seed:sample` and open the folder it prints.">
+            body="ATLAS reads the repository and runs agents in isolated git worktrees. Your checkout is never edited. To try it on the bundled starter repository (a real bug with real tests), run `pnpm seed:sample` and open the folder it prints.">
             <Button variant="primary" icon={IFolderOpen} onClick={() => void openRepository()} disabled={status !== 'ready'}>Open repository</Button>
           </EmptyState>
         ) : (

@@ -271,7 +271,7 @@ export async function buildSnapshot(missionId: string | null, missions: MissionL
   const first = Object.keys(review.contents)[0];
 
   const out: Snapshot = {
-    workspace: { name: w?.name ?? '—', owner: '', path: w?.root?.replace(/^\/Users\/[^/]+/, '~') ?? '—', branch: w?.branch ?? '—', head: w?.head?.slice(0, 7) ?? '—', environment: m.targetEnvironment ?? 'local', envHealth: 'healthy' as const, runtime: `${m.runtime === 'pi' ? 'Pi runtime' : 'Scripted runtime'} · live` },
+    workspace: { name: w?.name ?? '—', owner: '', path: w?.root?.replace(/^\/Users\/[^/]+/, '~') ?? '—', branch: w?.branch ?? '—', head: w?.head?.slice(0, 7) ?? '—', environment: m.targetEnvironment ?? 'local', envHealth: 'healthy' as const, runtime: m.runtime === 'pi' ? `Pi · ${String(m.model ?? agents.find((a) => a.model && a.model !== '—')?.model ?? 'default model').replace(/^[a-z-]+\//, '')}` : 'Local runtime' },
     workspaces: workspaces.map((x) => ({ id: x.id, name: x.name, path: x.root.replace(/^\/Users\/[^/]+/, '~'), branch: x.branch ?? '—', missions: missions.filter((y) => y.workspaceId === x.id).length, updated: ago(missions.filter((y) => y.workspaceId === x.id).map((y) => y.updatedAt).sort().at(-1) ?? new Date().toISOString()) })),
     mission: { ...missionRow(chosen, wsName), elapsed: fmtMs(snap.budget.elapsedMs), tokens: kTokens(snap.budget.tokens), compute: `${snap.budget.toolCalls} tool calls`, agents: snap.tasks.length },
     missions: ordered.map((x) => missionRow(x, wsName)),
