@@ -8,6 +8,7 @@ import { buildSnapshot, hydrate, shortId } from './designBridge';
 import { refreshLists, useLive, get, setDesignRouter } from './store';
 import { installDesignSlots } from './designSlots';
 import { openRepository } from './shell';
+import * as studio from './studioApi';
 
 async function currentMission() {
   const id = live.missionId;
@@ -54,6 +55,15 @@ export function installDesignAdapter(store: Store) {
       const r = await call('mission.export', { missionId: live.missionId });
       if (r) store.toast({ tone: 'success', title: 'Audit log exported', body: `${r.records} records · SHA-256 ${r.sha256.slice(0, 16)}… → ${r.path}` });
     },
+    listSkills: studio.listSkills,
+    saveSkill: studio.saveSkill,
+    setSkillEnabled: studio.setSkillEnabled,
+    removeSkill: studio.removeSkill,
+    listConnectors: studio.listConnectors,
+    saveConnector: studio.saveConnector,
+    testConnector: studio.testConnector,
+    removeConnector: studio.removeConnector,
+    setConnectorSecret: studio.setConnectorSecret,
     openLive(screen) { store.go(screen === 'settings' ? 'preferences' : screen); },
     async openRepository() {
       const id = await openRepository();

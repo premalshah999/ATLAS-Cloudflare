@@ -54,6 +54,12 @@ const initial: AppState = {
 
 type Listener = () => void;
 
+/** Agent Studio create flows (live only): skills, custom agents (skills bound to one role) and MCP connectors. */
+export interface StudioSkill { name: string; description: string; roles: string[]; triggers: string[]; enabled: boolean; source: 'bundled' | 'operator'; version: string }
+export interface StudioSkillDraft { name: string; description: string; roles: string[]; triggers: string[]; body: string }
+export interface StudioConnector { name: string; transport: 'http' | 'stdio'; target: string; enabled: boolean; roles: string[]; secrets: string[]; secretsSet: string[]; status: 'idle' | 'connected' | 'error'; error: string | null; tools: string[]; approval: 'ask' | 'allow' }
+export interface StudioConnectorDraft { name: string; transport: 'http' | 'stdio'; url?: string; command?: string; args: string[]; network?: boolean; roles: string[]; approval?: 'ask' | 'allow'; secretName?: string; secretValue?: string }
+
 /**
  * Real effects behind the design screens' actions. Unset in the design preview (sample behaviour); the live app
  * installs it (live/designActions.ts) so approving, directing an agent, launching or deciding reaches the control plane.
@@ -71,6 +77,15 @@ export interface DesignAdapter {
   openLive(screen: 'settings' | 'team' | 'projects'): void;
   /** The operating system folder picker; registers the repository with the control plane. */
   openRepository?(): Promise<boolean>;
+  listSkills?(): Promise<StudioSkill[]>;
+  saveSkill?(draft: StudioSkillDraft): Promise<StudioSkill[]>;
+  setSkillEnabled?(name: string, enabled: boolean): Promise<StudioSkill[]>;
+  removeSkill?(name: string): Promise<StudioSkill[]>;
+  listConnectors?(): Promise<StudioConnector[]>;
+  saveConnector?(draft: StudioConnectorDraft): Promise<StudioConnector[]>;
+  testConnector?(name: string): Promise<StudioConnector[]>;
+  removeConnector?(name: string): Promise<StudioConnector[]>;
+  setConnectorSecret?(server: string, name: string, value: string): Promise<StudioConnector[]>;
 }
 export let adapter: DesignAdapter | null = null;
 /** Live components the design screens host (the operator's real sandboxed terminal). */
