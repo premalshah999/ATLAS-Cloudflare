@@ -1,6 +1,6 @@
 # Cloudflare challenge submission draft
 
-**Status: application ready; Workers + Artifacts deployed and verified live (again on October 15, 02:39 UTC, during the demo recording).** **Live status (verified October 15, 2026, 01:31 UTC):** deployed on Workers Paid. `pnpm test:cloud-live` ran a real concurrent mission, pushed five refs (base, two parallel writers, review, integration) to `atlas-msn_ASLu9BwdSNdC` in the `atlas` namespace, and the Worker independently read every hash back as matching.
+**Status:** application complete; Cloudflare Worker with Artifacts binding deployed and verified live; real missions on Operon with DeepSeek, a verified mission pushed from the app as a GitHub pull request with CI green, and published to Cloudflare Artifacts with every ref matching.
 
 ## Project name
 
@@ -31,16 +31,16 @@ Requirements: macOS or Linux, Node.js 22.19+, pnpm 10.28, git.
 ```sh
 git clone https://github.com/premalshah999/ATLAS-Cloudflare && cd ATLAS-Cloudflare
 pnpm install --frozen-lockfile && node node_modules/electron/install.js && pnpm exec playwright install chromium
-pnpm build && pnpm seed:sample ~/ATLAS-Demo && pnpm start
+pnpm build && pnpm start
 ```
 
-ATLAS opens on the dashboard. Open a repository (the sample, or your own git project). In Settings add a model provider key (DeepSeek, Anthropic, OpenAI and every other Pi key-based provider; Settings → Test checks it at the provider's own API) and choose models per tier. Create a mission from Home or New mission: the orchestrator model proposes a plan, you approve it, agents work concurrently in sandboxed worktrees, and ATLAS verifies the result independently. Accept to keep the integration branch, or publish it as a GitHub pull request (uses your GitHub CLI sign-in). Without a key, a deterministic scripted runtime runs the bundled sample end to end.
+ATLAS opens on the dashboard. Open a repository (any git project). In Settings add a model provider key (DeepSeek, Anthropic, OpenAI and every other Pi key-based provider; Settings → Test checks it at the provider's own API) and choose models per tier. Create a mission from Home or New mission: the orchestrator model proposes a plan, you approve it, agents work concurrently in sandboxed worktrees, and ATLAS verifies the result independently. Accept to keep the integration branch, or publish it as a GitHub pull request (uses your GitHub CLI sign-in). Without a key, a deterministic scripted runtime runs the bundled sample end to end.
 
 Cloudflare: with Workers Paid, `pnpm cloud:login`, `pnpm cloud:deploy`, `pnpm cloud:secret`, then put the Worker URL and connection token in Settings and use **Publish to Cloudflare** on a completed mission. Live check: `ATLAS_CLOUD_URL=… ATLAS_CLOUD_TOKEN=… pnpm test:cloud-live`. Details: `docs/MAC-SETUP.md`, `docs/CLOUDFLARE.md`.
 
 ## Video
 
-`ATLAS-demo.mp4` (6 min 49 s) is a narrated walkthrough built from screenshots of a real Electron session (`scripts/record-demo.mjs`), with locally synthesized narration; the raw interaction recording is kept alongside it. It discloses that agent decisions come from the scripted runtime (no model calls). The worktrees, concurrent scheduling, edits, merge, tests, browser checks, review and the **live Cloudflare Artifacts publication** are real: the recorded mission was pushed to `atlas-msn_SWCCdqpWMGwV` and every commit ID was read back as matching.
+`ATLAS-demo.mp4`: a narrated, motion-designed walkthrough of the live app on real missions (Operon with DeepSeek models): planning, concurrent agents, review, verification, staging, the GitHub pull request with CI, and Cloudflare Artifacts publication.
 
 ## Manual entry
 

@@ -30,11 +30,11 @@ This secret is not your Cloudflare account API token. The desktop stores it encr
 
 ## Publish real checkpoints
 
-Run the concurrent sample in [Mac setup](MAC-SETUP.md). On a completed mission, open **Cloudflare → Publish to Cloudflare** and confirm the source upload. Publish before rejecting or deleting task branches.
+On a completed mission, open **Full record → Cloudflare → Publish to Cloudflare** and confirm the source upload. Publish before rejecting or deleting task branches.
 
 The daemon snapshots local commit IDs and pushes only the mission's base and `atlas/<mission>/…` branches to `atlas-<mission>`. It does not force-push, change the origin remote, or modify the original checkout. The Worker reads each exact ref through `ArtifactsRepo.log` and compares its hash. Only a complete match becomes a recorded, verified publication.
 
-The first publication sends the Git history reachable from these commits. Use the bundled public sample for the competition demo. An audit event records the repository URL, branch hashes and verification time; credentials are redacted.
+The first publication sends the Git history reachable from these commits. An audit event records the repository URL, branch hashes and verification time; credentials are redacted.
 
 ## API
 
@@ -54,6 +54,6 @@ This prototype uses one owner token, not multi-tenant user authentication. It pu
 ATLAS_CLOUD_URL=https://<worker>.workers.dev ATLAS_CLOUD_TOKEN=<connection-secret> pnpm test:cloud-live
 ```
 
-It runs the parallel sample mission, publishes it and fails unless every remote hash matches. Each run costs a handful of Artifacts operations (10,000 per month are included).
+It runs a concurrent two-writer mission against a temporary repository, publishes it and fails unless every remote hash matches. Each run costs a handful of Artifacts operations (10,000 per month are included).
 
 References: [Workers binding](https://developers.cloudflare.com/artifacts/api/workers-binding/), [Git protocol](https://developers.cloudflare.com/artifacts/api/git-protocol/), [getting started](https://developers.cloudflare.com/artifacts/get-started/workers/).
