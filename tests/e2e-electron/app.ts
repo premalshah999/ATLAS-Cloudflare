@@ -17,8 +17,9 @@ export async function launch(opts: { userData?: string; openDir?: string; env?: 
   for (const k of ['TAVILY_API_KEY', 'BRAVE_API_KEY', 'BRAVE_SEARCH_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_CSE_ID', 'ATLAS_WEB_TEST_BASE']) delete env[k];
   // No real provider key from the developer's shell reaches the app; a test passes its own fake key in opts.env.
   for (const v of Object.values(PROVIDER_ENV)) delete env[v];
-  Object.assign(env, opts.env ?? {});
+  // Nor any other *_API_KEY from the shell. Scrub before applying opts.env so a test's own fake keys survive.
   for (const key of Object.keys(env)) if (/_API_KEY$/.test(key)) delete env[key];
+  Object.assign(env, opts.env ?? {});
   delete env.ELECTRON_RUN_AS_NODE;
   // --no-sandbox only because CI containers run as root; the renderer still runs with sandbox: true.
   const executablePath = process.env.ATLAS_TEST_EXECUTABLE;
