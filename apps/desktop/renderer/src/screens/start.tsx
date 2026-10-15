@@ -133,9 +133,9 @@ export function Home() {
     <div className="at-screen at-home">
       <div className="at-home-head">
         <div className="at-col" style={{ gap: 4, minWidth: 0 }}>
-          <div className="at-row" style={{ gap: 10 }}><span className="display" style={{ fontSize: 20 }}>{workspace.name}</span><span className="at-subtle">{workspace.owner}</span></div>
+          <div className="at-row" style={{ gap: 10, minWidth: 0 }}><span className="display at-trunc" style={{ fontSize: 20 }}>{workspace.name}</span><span className="at-subtle at-trunc">{workspace.owner}</span></div>
           <div className="at-row at-home-meta">
-            <span><Icon as={IFolder} size="sm" /><span className="at-mono">{workspace.path}</span></span>
+            <span><Icon as={IFolder} size="sm" /><span className="at-mono at-trunc">{workspace.path}</span></span>
             <span><Icon as={IBranch} size="sm" /><span className="at-mono">{workspace.branch}</span></span>
             <span><Icon as={ICommit} size="sm" /><span className="at-mono">{workspace.head}</span>{live.on ? '' : ' auth: rotate refresh tokens per use'}</span>
             <span className="at-ok">{live.on ? workspace.runtime : 'clean'}</span>
@@ -147,62 +147,67 @@ export function Home() {
           onSend={(text?: string) => { if (adapter && text?.trim()) void adapter.launch(text.trim()).catch((e: Error) => A.toast({ tone: 'danger', title: 'Could not launch', body: e.message })); else A.go('create'); }} />
       </div>
       <div className="at-home-grid">
-        <div className="at-col" style={{ gap: 24, minWidth: 0 }}>
+        <div className="at-col at-home-main" style={{ gap: 28, minWidth: 0 }}>
           <section>
             <div className="at-home-sh"><span className="at-label">Missions</span><span style={{ flex: 1 }} /><Button size="sm" variant="ghost" icon={IPlus} kbd="⌘ N" onClick={() => A.go('create')}>New mission</Button></div>
-            <table className="at-table">
-              <thead><tr><th style={{ width: 110 }}>Status</th><th>Mission</th><th style={{ width: 120 }}>Progress</th><th style={{ width: 70 }}>Agents</th><th style={{ width: 90, textAlign: 'right' }}>Updated</th></tr></thead>
-              <tbody>
-                {missions.map((m) => (
-                  <tr key={m.id} onClick={() => A.go(m.status === 'verified' ? 'report' : m.status === 'review' ? 'review' : 'mission', live.on ? { missionId: missionIdOf(m.id) } : {})} style={{ cursor: 'default' }}>
-                    <td><Status s={mStatus(m.status)} label={m.status === 'running' ? 'Running' : m.status === 'review' ? 'Needs review' : m.status === 'verified' ? 'Verified' : m.status === 'failed' ? 'Failed' : m.status === 'paused' ? 'Plan ready' : 'Done'} /></td>
-                    <td><span className="at-row" style={{ gap: 8 }}><span className="at-mono at-subtle">{m.id}</span><span className="at-trunc" style={{ fontWeight: 500 }}>{m.title}</span></span></td>
-                    <td><span className="at-row" style={{ gap: 8 }}><Meter value={m.tasksDone} max={m.tasksTotal} tone={m.status === 'running' ? 'accent' : undefined} style={{ flex: 1 }} /><span className="at-mono at-subtle at-tnum">{m.tasksDone}/{m.tasksTotal}</span></span></td>
-                    <td className="at-mono at-muted">{m.agents}</td>
-                    <td className="at-subtle" style={{ textAlign: 'right' }}>{m.updated}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="at-table-wrap">
+              <table className="at-table at-home-table">
+                <thead><tr><th style={{ width: 120 }}>Status</th><th>Mission</th><th style={{ width: 130 }}>Progress</th><th style={{ width: 70 }}>Agents</th><th style={{ width: 90, textAlign: 'right' }}>Updated</th></tr></thead>
+                <tbody>
+                  {missions.map((m) => (
+                    <tr key={m.id} onClick={() => A.go(m.status === 'verified' ? 'report' : m.status === 'review' ? 'review' : 'mission', live.on ? { missionId: missionIdOf(m.id) } : {})} style={{ cursor: 'default' }}>
+                      <td><Status s={mStatus(m.status)} label={m.status === 'running' ? 'Running' : m.status === 'review' ? 'Needs review' : m.status === 'verified' ? 'Verified' : m.status === 'failed' ? 'Failed' : m.status === 'paused' ? 'Plan ready' : 'Done'} /></td>
+                      <td className="at-home-title"><span className="at-row at-home-titlecell" style={{ gap: 8 }}><span className="at-mono at-subtle" style={{ flex: 'none' }}>{m.id}</span><span className="at-trunc" style={{ fontWeight: 500 }}>{m.title}</span></span></td>
+                      <td><span className="at-row" style={{ gap: 8 }}><Meter value={m.tasksDone} max={m.tasksTotal} tone={m.status === 'running' ? 'accent' : undefined} style={{ flex: 1 }} /><span className="at-mono at-subtle at-tnum">{m.tasksDone}/{m.tasksTotal}</span></span></td>
+                      <td className="at-mono at-muted">{m.agents}</td>
+                      <td className="at-subtle" style={{ textAlign: 'right' }}>{m.updated}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
           <section>
             <div className="at-home-sh"><span className="at-label">Recent activity</span><span style={{ flex: 1 }} /><Button size="sm" variant="ghost" onClick={() => A.go('activity')}>All activity</Button></div>
             <div className="at-feed">
-              {activity.map((a, i) => (
+              {activity.slice(0, 6).map((a, i) => (
                 <div key={i} className="at-feed-row">
                   <span className="at-mono at-subtle">{a.time}</span>
                   <Dot s={a.kind === 'error' ? 'failed' : a.kind === 'warn' ? 'warning' : a.kind === 'ok' ? 'done' : 'human'} />
-                  <span className={cx(a.kind === 'human' && 'at-human-c')} style={{ fontWeight: 500 }}>{a.who}</span>
+                  <span className={cx('at-trunc', a.kind === 'human' && 'at-human-c')} style={{ fontWeight: 500, flex: 'none', maxWidth: '40%' }}>{a.who}</span>
                   <span className="at-muted at-trunc">{a.text}</span>
-                  <span className="at-mono at-subtle" style={{ marginLeft: 'auto' }}>{a.mission}</span>
+                  <span className="at-mono at-subtle at-trunc" style={{ marginLeft: 'auto', flex: 'none', maxWidth: 120 }}>{a.mission}</span>
                 </div>
               ))}
             </div>
           </section>
+          {deployments.length > 0 && (
+            <section>
+              <div className="at-home-sh"><span className="at-label">Environments</span></div>
+              <div className="at-envs">
+                {deployments.slice(0, 3).map((d) => <div key={d.id}><Dot s={d.status.includes('fail') || d.status.includes('roll') ? 'failed' : 'healthy'} /><span className="at-trunc">{d.env}</span><span className="at-mono at-subtle at-trunc">{d.commit} · {d.mission}</span><Badge tone={d.status.includes('warning') ? 'warning' : 'outline'}>{d.status}</Badge></div>)}
+              </div>
+            </section>
+          )}
+          {checkpoints.length > 0 && (
+            <section>
+              <div className="at-home-sh"><span className="at-label">Checkpoints</span><span style={{ flex: 1 }} /><Button size="sm" variant="ghost" onClick={() => A.set({ drawer: 'checkpoints', screen: 'mission' })}>History</Button></div>
+              {checkpoints.slice(0, 3).map((c) => <div key={c.id} className="at-feed-row"><span className="at-mono at-acc">{c.id}</span><span className="at-trunc">{c.label}</span><span className="at-mono at-subtle" style={{ marginLeft: 'auto' }}>{c.time.slice(0, 5)}</span></div>)}
+            </section>
+          )}
         </div>
-        <div className="at-col" style={{ gap: 24, minWidth: 0 }}>
+        <div className="at-col at-home-side" style={{ gap: 24, minWidth: 0 }}>
           <HomeNeeds />
           <section>
             <div className="at-home-sh"><span className="at-label">Ready for review</span></div>
             {missions.filter((m) => m.status === 'review').slice(0, 3).map((m) => (
               <button key={m.id} type="button" className="at-home-card" onClick={() => A.go('review', live.on ? { missionId: missionIdOf(m.id) } : {})}>
                 <Icon as={IReviews} className="at-subtle" />
-                <span className="at-col" style={{ gap: 2, flex: 1, minWidth: 0 }}><span style={{ fontWeight: 500 }}>{m.id} · {m.title}</span><span className="at-subtle" style={{ fontSize: 12 }}>{m.tasksDone}/{m.tasksTotal} tasks · {m.updated}</span></span>
+                <span className="at-col" style={{ gap: 2, flex: 1, minWidth: 0 }}><span className="at-trunc" style={{ fontWeight: 500 }}>{m.id} · {m.title}</span><span className="at-subtle" style={{ fontSize: 12 }}>{m.tasksDone}/{m.tasksTotal} tasks · {m.updated}</span></span>
                 <Icon as={IChevronRight} size="sm" className="at-subtle" />
               </button>
             ))}
             {!missions.some((m) => m.status === 'review') && <p className="at-subtle" style={{ fontSize: 12 }}>Nothing is waiting for review.</p>}
-          </section>
-          <section>
-            <div className="at-home-sh"><span className="at-label">Environments</span></div>
-            <div className="at-envs">
-              {deployments.slice(0, 3).map((d) => <div key={d.id}><Dot s={d.status.includes('fail') || d.status.includes('roll') ? 'failed' : 'healthy'} /><span>{d.env}</span><span className="at-mono at-subtle">{d.commit} · {d.mission}</span><Badge tone={d.status.includes('warning') ? 'warning' : 'outline'}>{d.status}</Badge></div>)}
-              {!deployments.length && <div><Dot s="idle" /><span className="at-subtle">No deployments yet</span></div>}
-            </div>
-          </section>
-          <section>
-            <div className="at-home-sh"><span className="at-label">Checkpoints</span><span style={{ flex: 1 }} /><Button size="sm" variant="ghost" onClick={() => A.set({ drawer: 'checkpoints', screen: 'mission' })}>History</Button></div>
-            {checkpoints.slice(0, 3).map((c) => <div key={c.id} className="at-feed-row"><span className="at-mono at-acc">{c.id}</span><span className="at-trunc">{c.label}</span><span className="at-mono at-subtle" style={{ marginLeft: 'auto' }}>{c.time.slice(0, 5)}</span></div>)}
           </section>
         </div>
       </div>

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { actions, adapter, useApp, useSimulation } from '../lib/store';
 import { mission, terminals, timeline as baseTimeline, agentById, tasks, agents, pipeline, live } from '../data/source';
-import { cx, Icon, Button, IconButton, Badge, Status, PanelHead, Split, Tabs, Tip, Kbd, RoleMark, usePresence, Seg } from '../ui/primitives';
+import { cx, Icon, Button, IconButton, Badge, Status, PanelHead, Tabs, Tip, Kbd, RoleMark, usePresence, Seg } from '../ui/primitives';
 import { AgentGraph } from '../ui/graph';
 import { Timeline, countByFilter, type TLFilter } from '../ui/timeline';
 import { TerminalView, TermTabs } from '../ui/terminal';
@@ -57,8 +57,11 @@ function NeedsYou() {
   const A = actions();
   const failed = agents.filter((x) => x.status === 'failed');
   const pending = approvals.filter((x) => !resolved[x.id]);
+  if (!failed.length && !pending.length) {
+    return <div className="at-needs-rail" role="status" aria-label="Needs you: nothing waiting"><span className="at-needs-count at-tnum">0</span></div>;
+  }
   return (
-    <div className="at-panel" style={{ height: '100%' }}>
+    <div className="at-panel at-mc-needs">
       <PanelHead label="Needs you" count={failed.length + pending.length} />
       <div className="at-pbody at-needs">
         <div className="at-col" style={{ gap: 8, padding: 12 }}>
@@ -82,13 +85,14 @@ function NeedsYou() {
   );
 }
 
-export function TerminalDock({ initial }: { initial?: string }) {
+export function TerminalDock({ initial, tabs, hidden }: { initial?: string; tabs?: ReactNode; hidden?: boolean }) {
   const [active, setActive] = useState(initial ?? (terminals.find((t) => t.id === 't-qa') ?? terminals[0])?.id ?? '');
   const term = useApp((s) => s.term);
   const s = terminals.find((t) => t.id === active) ?? terminals[0];
-  if (!s) return <div className="at-panel at-tdock" style={{ height: '100%' }}><PanelHead label="Terminals" /><div className="at-pbody at-subtle" style={{ padding: 16, fontSize: 12 }}>No commands have run yet. Agent and operator processes appear here live.</div></div>;
+  if (!s) return <div className="at-panel at-tdock" hidden={hidden}><PanelHead title={tabs} /><div className="at-pbody at-subtle" style={{ padding: 16, fontSize: 12 }}>No commands have run yet. Agent and operator processes appear here live.</div></div>;
   return (
-    <div className="at-panel at-tdock" style={{ height: '100%' }}>
+    <div className="at-panel at-tdock" hidden={hidden}>
+      <PanelHead title={tabs} />
       <TermTabs sessions={terminals} active={active} onSelect={setActive} />
       <div className="at-grow" style={{ display: 'flex', flexDirection: 'column' }}>
         <TerminalView key={s.id} s={s} extra={term[s.id]} focused />
@@ -97,15 +101,15 @@ export function TerminalDock({ initial }: { initial?: string }) {
   );
 }
 
-function TimelinePanel() {
+function TimelinePanel({ tabs, hidden }: { tabs?: ReactNode; hidden?: boolean }) {
   const events = useApp((s) => s.timeline);
   const [f, setF] = useState<TLFilter>('all');
   const [raw, setRaw] = useState(false);
   const c = countByFilter(events);
   const chips: [TLFilter, string][] = [['all', 'All'], ['decisions', 'Decisions'], ['files', 'Files'], ['issues', 'Issues'], ['approvals', 'Approvals'], ['verified', 'Verified']];
   return (
-    <div className="at-panel" style={{ height: '100%' }}>
-      <PanelHead label="Timeline">
+    <div className="at-panel at-mc-tl" hidden={hidden}>
+      <PanelHead title={tabs}>
         <div className="at-row at-tl-chips" style={{ gap: 4 }}>
           {chips.map(([id, l]) => <button key={id} type="button" className="at-chip at-chip--xs" aria-pressed={f === id} onClick={() => setF(id)}>{l}<span className="at-count">{c[id]}</span></button>)}
         </div>
@@ -122,25 +126,33 @@ function TimelinePanel() {
 
 export function MissionControl() {
   const A = actions();
+  const [bottomTab, setBottomTab] = useState<'timeline' | 'terminals'>('timeline');
+  const approvals = useApp((s) => s.approvals);
+  const resolved = useApp((s) => s.resolved);
+  const openCount = agents.filter((x) => x.status === 'failed').length + approvals.filter((x) => !resolved[x.id]).length;
   useSimulation(true);
+  const tabs = (
+    <Tabs<'timeline' | 'terminals'> value={bottomTab} onChange={setBottomTab} className="at-mc-tabs"
+      items={[{ id: 'timeline', label: 'Timeline' }, { id: 'terminals', label: 'Terminals', count: terminals.length }]} />
+  );
   return (
     <div className="at-screen at-mc">
       <MissionHeader tab="control" />
-      <Split dir="v" id="mc-rows" initial={0.5} min={200}>
-        <Split dir="h" id="mc-top" initial={0.69} min={420}>
-          <div className="at-panel" style={{ height: '100%' }}>
+      <div className="at-mc-body">
+        <div className={cx('at-mc-top', openCount === 0 && 'at-mc-top--calm')}>
+          <div className="at-panel at-mc-graph">
             <PanelHead label="Workforce" title={<span className="at-subtle" style={{ fontWeight: 400 }}>delegation & dependencies · click to inspect, double-click to open</span>}>
               <IconButton icon={IMaximize} label="Open task graph" size="sm" onClick={() => A.go('graph')} />
             </PanelHead>
             <AgentGraph onOpenAgent={(id) => A.go('agent', { agent: id })} />
           </div>
           <NeedsYou />
-        </Split>
-        <Split dir="h" id="mc-bottom" initial={0.56} min={360}>
-          <TimelinePanel />
-          <TerminalDock />
-        </Split>
-      </Split>
+        </div>
+        <div className="at-mc-bottom">
+          <TimelinePanel tabs={tabs} hidden={bottomTab !== 'timeline'} />
+          <TerminalDock tabs={tabs} hidden={bottomTab !== 'terminals'} />
+        </div>
+      </div>
       <RecoveryDialog />
     </div>
   );
