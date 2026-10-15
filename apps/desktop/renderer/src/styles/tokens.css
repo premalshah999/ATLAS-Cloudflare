@@ -7,57 +7,61 @@
 @font-face { font-family: "DejaVu Sans Mono"; src: url("../assets/fonts/DejaVuSansMono.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "DejaVu Sans Mono"; src: url("../assets/fonts/DejaVuSansMono-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
 :root, [data-theme="obsidian"] {
-  /* Graphite: near-neutral darks with a faint cool cast. Color is reserved for meaning, and every meaning is muted. */
-  --bg-void: #0b0c0e;
-  --bg-canvas: #111214;
-  --bg-surface: #16181b;
-  --bg-surface-2: #1c1e22;
-  --bg-surface-3: #24272c;
-  --bg-overlay: #18191d;
-  --line-hair: #25282d;
-  --line-soft: #1d2024;
-  --line-strong: #353940;
-  --ink: #e6e7e9;
-  --ink-muted: #a4a8af;
-  --ink-subtle: #868a92;
-  --ink-faint: #61656d;
-  /* Slate: a quiet blue for focus, selection and links. Primary actions are light neutral, not colored. */
-  --accent: #8fa3bf;
-  --accent-hi: #b3c2d6;
-  --accent-lo: #6a7f9c;
-  --accent-wash: rgba(143, 163, 191, 0.10);
-  --accent-line: rgba(143, 163, 191, 0.34);
-  --on-accent: #0e1116;
-  --success: #8ab59d;
-  --success-wash: rgba(138, 181, 157, 0.09);
-  --warning: #c9a86a;
-  --warning-wash: rgba(201, 168, 106, 0.09);
-  --danger: #d08a7f;
-  --danger-wash: rgba(208, 138, 127, 0.09);
-  --human: #d8d1c3;
-  --diff-add: rgba(138, 181, 157, 0.08);
-  --diff-add-strong: rgba(138, 181, 157, 0.20);
-  --diff-del: rgba(208, 138, 127, 0.08);
-  --diff-del-strong: rgba(208, 138, 127, 0.20);
-  --syn-keyword: #a9b8d0;
-  --syn-string: #a8c4b2;
-  --syn-number: #d3bc8e;
-  --syn-type: #9fbcc6;
-  --syn-fn: #e3e4e7;
-  --syn-comment: #6f747c;
-  --syn-attr: #b9b0cc;
-  --term-red: #d08a7f;
-  --term-green: #8ab59d;
-  --term-yellow: #c9a86a;
-  --term-blue: #8fa3bf;
-  --term-cyan: #8fb8c0;
-  /* Primary action: light neutral on dark. */
-  --primary: #e4e5e8;
-  --primary-hi: #f2f3f4;
-  --on-primary: #111214;
-  --shadow-raise: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-pop: 0 0 0 1px #2a2d33, 0 14px 32px -12px rgba(0, 0, 0, 0.6);
-  --shadow-overlay: 0 0 0 1px #2c2f35, 0 30px 72px -20px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.35);
+  /* Mission control: near-black canvas with a cool blue cast. Each layer is a step lighter than the one below it. */
+  --bg-void: #07080c;
+  --bg-canvas: #0a0c11;
+  --bg-surface: #0f1219;
+  --bg-surface-2: #141823;
+  --bg-surface-3: #1b202c;
+  --bg-overlay: #12151d;
+  --line-hair: #1d2230;
+  --line-soft: #161b26;
+  --line-strong: #2b3242;
+  /* Ink: primary is high-contrast cool white, muted and subtle step down in a blue-grey. */
+  --ink: #e8eaf0;
+  --ink-muted: #9aa3b2;
+  --ink-subtle: #6b7385;
+  --ink-faint: #4a5164;
+  /* One confident accent (electric indigo-blue), used for selection, focus and primary actions only. */
+  --accent: #6e8bff;
+  --accent-hi: #9db2ff;
+  --accent-lo: #4f6bd9;
+  --accent-wash: rgba(110, 139, 255, 0.12);
+  --accent-line: rgba(110, 139, 255, 0.42);
+  --on-accent: #070a14;
+  /* Semantic colours, slightly desaturated so they read as status rather than decoration. */
+  --success: #4ade80;
+  --success-wash: rgba(74, 222, 128, 0.09);
+  --warning: #f5b95a;
+  --warning-wash: rgba(245, 185, 90, 0.09);
+  --danger: #f87171;
+  --danger-wash: rgba(248, 113, 113, 0.10);
+  /* Human operator keeps a warm ivory so people stand apart from agents. */
+  --human: #e3d9c4;
+  --diff-add: rgba(74, 222, 128, 0.07);
+  --diff-add-strong: rgba(74, 222, 128, 0.20);
+  --diff-del: rgba(248, 113, 113, 0.07);
+  --diff-del-strong: rgba(248, 113, 113, 0.22);
+  --syn-keyword: #9db2ff;
+  --syn-string: #9fd6b8;
+  --syn-number: #f0c98a;
+  --syn-type: #8fd0e0;
+  --syn-fn: #e8eaf0;
+  --syn-comment: #5f6778;
+  --syn-attr: #c4b8f0;
+  --term-red: #f87171;
+  --term-green: #4ade80;
+  --term-yellow: #f5b95a;
+  --term-blue: #6e8bff;
+  --term-cyan: #7fd3e0;
+  /* Primary action: accent-filled, with a lifted highlight on hover. */
+  --primary: #6e8bff;
+  --primary-hi: #86a0ff;
+  --on-primary: #070a14;
+  /* Shadows: soft and layered; floating layers get a hairline ring plus a diffuse drop. */
+  --shadow-raise: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 12px 32px -12px rgba(0, 0, 0, 0.65), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-overlay: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 36px 80px -24px rgba(0, 0, 0, 0.8), 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 :root {
   --space-2: 2px;
@@ -71,9 +75,9 @@
   --space-32: 32px;
   --space-48: 48px;
   --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --size-titlebar: 44px;
   --size-rail: 56px;
   --size-sidebar: 232px;
@@ -82,18 +86,18 @@
   --size-control: 32px;
   --size-control-sm: 26px;
   --size-panel-header: 40px;
-  --font-sans: Inter, -apple-system, "Segoe UI", system-ui, sans-serif;
-  --font-display: "Inter Display", Inter, system-ui, sans-serif;
+  --font-sans: Inter, -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Inter Display", Inter, -apple-system, system-ui, sans-serif;
   --font-mono: "DejaVu Sans Mono", "SF Mono", Menlo, Consolas, monospace;
 }
-.display-xl { font-family: var(--font-display); font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -0.028em; }
-.display { font-family: var(--font-display); font-size: 21px; line-height: 28px; font-weight: 600; letter-spacing: -0.016em; }
-.heading { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 600; letter-spacing: -0.008em; }
+.display-xl { font-family: var(--font-display); font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -0.03em; }
+.display { font-family: var(--font-display); font-size: 21px; line-height: 28px; font-weight: 600; letter-spacing: -0.02em; }
+.heading { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 600; letter-spacing: -0.01em; }
 .body-lg { font-family: var(--font-sans); font-size: 14px; line-height: 22px; font-weight: 400; }
 .body { font-family: var(--font-sans); font-size: 13.5px; line-height: 21px; font-weight: 400; }
 .body-strong { font-family: var(--font-sans); font-size: 13.5px; line-height: 21px; font-weight: 500; }
 .small { font-family: var(--font-sans); font-size: 12.5px; line-height: 19px; font-weight: 400; }
-.caption { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 500; }
+.caption { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
 .label { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0; }
 .code { font-family: var(--font-mono); font-size: 12px; line-height: 20px; font-weight: 400; }
 .mono-sm { font-family: var(--font-mono); font-size: 11.5px; line-height: 17px; font-weight: 400; }
