@@ -1,0 +1,211 @@
+[
+ {
+  "image": null,
+  "kicker": "Cloudflare \u00b7 Git for the age of agents",
+  "title": "What if your whole engineering team could work at once?",
+  "say": "Here's a question we kept coming back to. Coding agents are good now. Really good. So why does working with them still feel like pairing with one intern at a time? One branch, one chat, one pull request, and you, reading every line, hoping it actually works. We wanted something different. So we built ATLAS."
+ },
+ {
+  "image": null,
+  "kicker": "ATLAS",
+  "title": "Mission control for a team of AI engineers",
+  "say": "ATLAS is a desktop app. You describe what you want in plain words. It turns that into a mission, staffs it with a team of specialists, and runs them at the same time, on the same repository, without them stepping on each other. And nothing reaches your code until ATLAS has proof that the change works. Let me show you on a real project."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/home.png",
+  "kicker": "A real product",
+  "title": "Operon, a complaint-operations platform",
+  "focus": {
+   "x": 0.35,
+   "y": 0.45,
+   "zoom": 1.12
+  },
+  "callouts": [
+   {
+    "x": 0.05,
+    "y": 0.4,
+    "w": 0.6,
+    "h": 0.2,
+    "label": "Real missions, real results"
+   }
+  ],
+  "say": "This is Operon. It's a real product, a complaint-operations platform with a Python backend and a React dashboard. Everything you're about to see is live. The agents are running on DeepSeek, through the official API. Nothing on these screens is mocked up."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/mission-control.png",
+  "kicker": "Planning",
+  "title": "The orchestrator staffs the mission",
+  "focus": {
+   "x": 0.4,
+   "y": 0.3,
+   "zoom": 1.25
+  },
+  "callouts": [
+   {
+    "x": 0.17,
+    "y": 0.21,
+    "w": 0.45,
+    "h": 0.06,
+    "label": "Orchestrator"
+   },
+   {
+    "x": 0.19,
+    "y": 0.28,
+    "w": 0.27,
+    "h": 0.28,
+    "label": "Specialists"
+   }
+  ],
+  "say": "We gave it a real bug. Operon's security policy was blocking its own fonts and an inline script, so every page threw console errors. The orchestrator read the repo and planned the work: one coder for the fix, then a reviewer, a security engineer, and a browser tester, each with its own job and its own acceptance criteria. I approved the plan. That's the only thing I had to do."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/task-graph.png",
+  "kicker": "Concurrency",
+  "title": "Every agent gets its own worktree",
+  "focus": {
+   "x": 0.45,
+   "y": 0.4,
+   "zoom": 1.18
+  },
+  "say": "Under the hood, every task gets its own git worktree and its own branch, inside the operating system's sandbox. That's how many agents can change one repository at the same time. Independent work runs in parallel. Dependent work waits for the checkpoints it needs. You can see the whole structure right here."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/agent.png",
+  "kicker": "Transparency",
+  "title": "Every decision. Every tool call.",
+  "focus": {
+   "x": 0.35,
+   "y": 0.45,
+   "zoom": 1.2
+  },
+  "callouts": [
+   {
+    "x": 0.05,
+    "y": 0.79,
+    "w": 0.73,
+    "h": 0.15,
+    "label": "Direct a running agent"
+   }
+  ],
+  "say": "Click into any agent and you see exactly what it did. What it was thinking, every file it read, every command it ran, and whether policy allowed it. And if you want to steer it, you just type. The message goes straight into the agent's live session, and it keeps all of its context."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/review.png",
+  "kicker": "Review",
+  "title": "Findings, pinned to the line",
+  "focus": {
+   "x": 0.5,
+   "y": 0.4,
+   "zoom": 1.15
+  },
+  "say": "Review isn't a rubber stamp here. The reviewer and the security engineer leave findings on the exact lines they're about. And in this run, they caught real things. One attempt was rejected because a test only passed if the app had been built first. That's the kind of thing that slips through when a human is tired."
+ },
+ {
+  "image": null,
+  "kicker": "The honest part",
+  "title": "It failed. Twice.",
+  "say": "And honestly, this is my favorite part. The first attempt failed, because two agents edited the same file, and ATLAS refused to paper over the merge conflict. The second attempt failed review. Neither of those was hidden or quietly marked as done. An agent saying it's finished never counts as evidence. Only checks that ATLAS runs itself do."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/evidence.png",
+  "kicker": "Verification",
+  "title": "Proof, not promises",
+  "focus": {
+   "x": 0.45,
+   "y": 0.45,
+   "zoom": 1.15
+  },
+  "say": "On the third try, everything passed. Backend tests. Frontend tests, types, lint, and the build. Five API checks. And four real browser flows, with zero console errors. ATLAS ran every one of those itself, on the integrated code, not on whatever the agent said it did."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/browser.png",
+  "kicker": "Live browser",
+  "title": "Drive the app yourself",
+  "focus": {
+   "x": 0.5,
+   "y": 0.45,
+   "zoom": 1.1
+  },
+  "callouts": [
+   {
+    "x": 0.04,
+    "y": 0.16,
+    "w": 0.95,
+    "h": 0.77,
+    "label": "Live, interactive"
+   }
+  ],
+  "say": "Want to see it for yourself? This is a real browser, live, right inside ATLAS. You can click around and type, just like normal. And this is Operon running the agents' fix. Before, this page was completely black. Now it loads clean."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/deployments.png",
+  "kicker": "Deployment cycle",
+  "title": "Integrate. Verify. Release.",
+  "focus": {
+   "x": 0.55,
+   "y": 0.22,
+   "zoom": 1.3
+  },
+  "callouts": [
+   {
+    "x": 0.2,
+    "y": 0.14,
+    "w": 0.78,
+    "h": 0.12,
+    "label": "Deployment cycle"
+   }
+  ],
+  "say": "ATLAS also deploys to staging and checks that it's actually working. It reads back the revision that's being served, sends synthetic traffic, and runs the API and browser checks against the deployed app. When something fails, you see exactly which stage, and the loop back to fix it."
+ },
+ {
+  "image": null,
+  "kicker": "GitHub",
+  "title": "Pull request #1 \u00b7 CI: backend \u2713 frontend \u2713 smoke \u2713",
+  "say": "Once a mission is verified, you decide. I accepted it, and ATLAS pushed the branch and opened a pull request on GitHub, straight from the app. GitHub Actions picked it up, and all three jobs went green. Backend, frontend, and a smoke test. If CI ever fails, ATLAS can start a follow-up mission to fix it."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/cloudflare.png",
+  "kicker": "Cloudflare Artifacts",
+  "title": "Every checkpoint, verified on Cloudflare",
+  "focus": {
+   "x": 0.4,
+   "y": 0.4,
+   "zoom": 1.15
+  },
+  "say": "And here's where Cloudflare comes in. Every mission gets its own repository on Cloudflare Artifacts. A Cloudflare Worker creates it, hands out a short-lived token, and receives the base, every agent's branch, and the final result. Then the Worker reads every branch back, and ATLAS only records the publication if every single commit matches."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/studio-new-agent.png",
+  "kicker": "Make it yours",
+  "title": "More agents. More skills. More connectors.",
+  "focus": {
+   "x": 0.4,
+   "y": 0.4,
+   "zoom": 1.12
+  },
+  "say": "And it's yours to extend. In Agent Studio, you can create your own agents with their own specialties, write skills they can load when they need them, and plug in connectors over MCP. Every one of them runs under the same rules: sandboxed, permissioned, and verified."
+ },
+ {
+  "image": "/Users/premalshah/Desktop/ATLAS-Cloudflare/docs/screenshots/live/settings.png",
+  "kicker": "Any model",
+  "title": "Bring your own models",
+  "focus": {
+   "x": 0.4,
+   "y": 0.35,
+   "zoom": 1.1
+  },
+  "say": "It works with pretty much any model provider. DeepSeek, Anthropic, OpenAI, Google, and a lot more. Keys stay in your keychain, and ATLAS checks them against the provider directly, so you know they work before you start."
+ },
+ {
+  "image": null,
+  "kicker": "Safe by default",
+  "title": "Agents never get a raw shell",
+  "say": "One more thing, because it matters. Agents in ATLAS never get a raw shell. Every tool call goes through policy first. Commands run in a sandbox where only their own worktree is writable. Anything risky waits for you to approve it, once. And your actual checkout is never touched. Accepted work lands as a branch and a pull request, the way it should."
+ },
+ {
+  "image": null,
+  "kicker": "ATLAS",
+  "title": "Many agents. One repository. Real proof.",
+  "say": "So that's ATLAS. A whole team of engineers, working in parallel, on your real code, with proof at every step, and you deciding what ships. It's open source, and you can run it on your Mac today. Thanks for watching."
+ }
+]
