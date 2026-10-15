@@ -1,0 +1,250 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/10-csp.json",
+    "key": "csp",
+    "title": "Strict CSP without console errors on every page",
+    "goal": "Every Operon page logs browser console errors caused by the backend's Content-Security-Policy: the Google Fonts stylesheet (fonts.googleapis.com) is refused, and an inline <script> in frontend/index.html is refused by script-src 'self'. Make every page load with zero console errors while keeping the CSP strict: never add 'unsafe-inline' or 'unsafe-eval' to script-src. Move the inline script into a same-origin module (or remove it if it is redundant) and either self-host the fonts or allow exactly the needed origins (style-src fonts.googleapis.com, font-src fonts.gstatic.com). Add backend tests that check the CSP header forbids inline scripts and allows only the intended font origins, and that the built index.html contains no inline script.",
+    "constraints": "Keep the CSP strict. Touch only CSP, index.html, the moved script and tests. All backend tests, frontend tests, typecheck, lint and build must pass.",
+    "staging": false
+  },
+  "mission": {
+    "id": "msn_ezWZmwmXu8pD",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Strict CSP without console errors on every page",
+    "goal": "Every Operon page logs browser console errors caused by the backend's Content-Security-Policy: the Google Fonts stylesheet (fonts.googleapis.com) is refused, and an inline <script> in frontend/index.html is refused by script-src 'self'. Make every page load with zero console errors while keeping the CSP strict: never add 'unsafe-inline' or 'unsafe-eval' to script-src. Move the inline script into a same-origin module (or remove it if it is redundant) and either self-host the fonts or allow exactly the needed origins (style-src fonts.googleapis.com, font-src fonts.gstatic.com). Add backend tests that check the CSP header forbids inline scripts and allows only the intended font origins, and that the built index.html contains no inline script.",
+    "constraints": "Keep the CSP strict. Touch only CSP, index.html, the moved script and tests. All backend tests, frontend tests, typecheck, lint and build must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: backend-csp-tests failed (Could not prepare worktree: Dependencies conflict: Merge conflict in frontend/src/main.tsx), review-csp-change failed, security-review-csp failed, run-full-test-suite failed, browser-console-check blocked",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": null,
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T05:27:07.943Z",
+    "updatedAt": "2026-10-15T05:28:57.966Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_2Rd9cDSsxHg8",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "inspect-csp-and-inline-script",
+      "title": "Locate current CSP definition and inline script in index.html",
+      "role": "coder",
+      "dependencies": [],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Identify exact file and line ranges where the CSP header is set (expected backend/main.py) and where the inline <script> lives in frontend/index.html.",
+        "Confirm script-src currently uses 'self' and note whether fonts.googleapis.com / fonts.gstatic.com are referenced anywhere.",
+        "Report the inline script's purpose so the move-or-remove decision is justified."
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_ezWZmwmXu8pD/inspect-csp-and-inline-script-1",
+      "branch": "atlas/msn_ezWZmwmXu8pD/inspect-csp-and-inline-script-1",
+      "checkpoint": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_gcyNfAFZrmpm",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "move-inline-script",
+      "title": "Move inline script from index.html into a same-origin module",
+      "role": "coder",
+      "dependencies": [
+        "tsk_2Rd9cDSsxHg8"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "frontend/index.html contains no inline <script> element (only module/script tags with src attributes served from same origin).",
+        "Any logic from the inline script is preserved in a same-origin module and imported/referenced correctly; if redundant, it is removed with rationale.",
+        "No use of 'unsafe-inline' or 'unsafe-eval' anywhere in scripts or CSP."
+      ],
+      "resultRef": "art_TuYrxHUxZPL8",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_ezWZmwmXu8pD/move-inline-script-1",
+      "branch": "atlas/msn_ezWZmwmXu8pD/move-inline-script-1",
+      "checkpoint": "45a24d452e01dd821405d4e65b07cc205cb0a1fa",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_GNrhbCzMhebi",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "fix-csp-fonts",
+      "title": "Resolve Google Fonts CSP block while keeping script-src strict",
+      "role": "coder",
+      "dependencies": [
+        "tsk_2Rd9cDSsxHg8"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "CSP style-src permits exactly the stylesheet origin needed for fonts (fonts.googleapis.com) when self-hosting is not used, or fonts are self-hosted and no external origin is added.",
+        "CSP font-src permits exactly the font file origin needed (fonts.gstatic.com) when self-hosting is not used, or fonts are self-hosted and no external origin is added.",
+        "script-src remains 'self' with no 'unsafe-inline' and no 'unsafe-eval'.",
+        "No unrelated directives are broadened."
+      ],
+      "resultRef": "art_pRXNLh6nAiAg",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_ezWZmwmXu8pD/fix-csp-fonts-1",
+      "branch": "atlas/msn_ezWZmwmXu8pD/fix-csp-fonts-1",
+      "checkpoint": "872954b43ba49f0a19c61104add9268defa77418",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_spKbVppaqiaa",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "backend-csp-tests",
+      "title": "Add backend tests asserting CSP strictness and built index.html has no inline script",
+      "role": "coder",
+      "dependencies": [
+        "tsk_gcyNfAFZrmpm",
+        "tsk_GNrhbCzMhebi"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "New backend test asserts the CSP response header does not contain 'unsafe-inline' or 'unsafe-eval' within script-src.",
+        "New backend test asserts style-src/font-src allow only the intended font origins (or no external font origins if self-hosted), and rejects other origins.",
+        "New test asserts the built index.html contains no inline <script> (only script tags with src), skipping gracefully if the build artifact is absent.",
+        "All new tests run under the existing backend test command."
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_RbyZSwbNhUHw",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "review-csp-change",
+      "title": "Review CSP and inline-script changes for correctness and strictness",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_gcyNfAFZrmpm",
+        "tsk_GNrhbCzMhebi",
+        "tsk_spKbVppaqiaa"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Diff confirms no 'unsafe-inline'/'unsafe-eval' added to script-src and no unintended origin widening.",
+        "Diff confirms inline script removed from frontend/index.html and its behavior preserved or intentionally dropped.",
+        "Reviewer records findings with severity and either approves or blocks with specific required fixes."
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_n5puXJPQiA8a",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "security-review-csp",
+      "title": "Security review of CSP directives",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_GNrhbCzMhebi",
+        "tsk_spKbVppaqiaa"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Confirm script-src is exactly 'self' (no inline/eval/object), and style-src/font-src origins are minimal and justified.",
+        "Confirm no other CSP directive regressed in permissiveness.",
+        "Report any residual risk or required hardening."
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_AVqHVJm2Hju2",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "run-full-test-suite",
+      "title": "Run backend tests, frontend tests, typecheck/lint, and build",
+      "role": "tester",
+      "dependencies": [
+        "tsk_spKbVppaqiaa",
+        "tsk_gcyNfAFZrmpm",
+        "tsk_GNrhbCzMhebi"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Backend test command succeeds including new CSP tests.",
+        "Frontend test command succeeds.",
+        "Frontend typecheck/lint command succeeds.",
+        "Frontend build command succeeds and the produced index.html contains no inline script."
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_hCif2fZGFjv2",
+      "missionId": "msn_ezWZmwmXu8pD",
+      "key": "browser-console-check",
+      "title": "Browser QA: zero console errors on all flows",
+      "role": "browser_qa",
+      "dependencies": [
+        "tsk_AVqHVJm2Hju2"
+      ],
+      "state": "blocked",
+      "retries": 0,
+      "acceptance": [
+        "Visit each defined flow path (/, /cases, /analyze, /supervisor) and confirm the expected text renders.",
+        "No console errors are logged on any visited page, specifically no CSP refusal for fonts.googleapis.com or inline script.",
+        "Screenshots captured for the defined flows."
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 101335,
+    "toolCalls": 73,
+    "tasks": 8,
+    "agentsNow": 0,
+    "elapsedMs": 98855
+  }
+}
