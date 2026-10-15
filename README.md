@@ -1,360 +1,187 @@
-# ATLAS
+# ATLAS — mission control for a team of AI software engineers
 
-## Cloudflare challenge edition — October 14, 2026
+**Many agents change one repository at the same time. Nothing reaches your code until ATLAS has proven the change works — and you decide.**
 
-This edition adds, on top of ATLAS's governed multi-agent missions:
+ATLAS is a desktop app. You describe an outcome; an orchestrator model plans it into a task graph and staffs it with specialists (coders, testers, a reviewer, a security engineer, browser QA, a deployment verifier). They work **concurrently in isolated git worktrees inside an OS sandbox**, ATLAS integrates their work, **verifies it independently** (tests, API checks, a real browser, visual diffs, a staging deploy it reads back), opens a **GitHub pull request** where CI runs, and publishes every checkpoint to **Cloudflare Artifacts** through a Cloudflare Worker that reads each commit back before ATLAS records it.
 
-- **Cloudflare Workers + Artifacts.** A completed mission's base, every agent's branch and the integrated result are published to a per-mission Artifacts repository; the Worker reads each commit back and ATLAS records the publication only when every hash matches.
-- **Concurrent agents you can watch.** Independent writers run at the same time in separate worktrees; their work is integrated, re-tested and reviewed before you decide.
-- **The full design system, live.** The Command center runs every screen of the ATLAS design system on your real control-plane data: Home, Workspaces, Create mission, Mission Control (workforce graph, needs-you, timeline, live terminals, inspector), Task graph, Agent detail (thread, trace, terminals, files, and a composer that directs the running agent), Terminal (with your own sandboxed shell), Review, Browser & desktop (real screenshots), Deployments (verification pipeline and release report), Agent Studio (the real roles), Settings, Report and Activity.
-- **Mission Control, live.** The design's Control view is also the real mission screen: the workforce of agents in dependency columns, what needs you, each agent's thread and terminal, an inspector (objective, context usage, model, sandbox, branch, worktree, permissions, tools) and a composer that **directs a running agent** — delivered to its live session, keeping its context.
-- **A dashboard for all of it.** Home, Activity across missions, Agents, and full-screen Reviews, Deployments, Terminal and Browser & desktop workbenches, plus a per-mission Report — the design preview's screens, built from real data.
-- **GitHub, end to end.** Verified missions are accepted, pushed and opened as pull requests; ATLAS reads the CI result and can start a follow-up mission that fixes a failing check. It uses your GitHub CLI sign-in when no token is saved.
-- **Every key-based model provider, checked live.** Settings → Test verifies a key at the provider's own API for free; DeepSeek is used only through api.deepseek.com, and its balance is checked too.
-- **macOS support**: the sandbox, terminal and packaged app are tested on a Mac.
+![Mission Control](docs/screenshots/live/mission-control.png)
 
-**Deployment status:** local Mac missions are tested. The Cloudflare Worker is deployed with an Artifacts binding, and a live concurrent mission was published to a per-mission Artifacts repository with every commit hash independently verified (`pnpm test:cloud-live`, see [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md)).
+---
 
-- [Run on your Mac and configure model keys](docs/MAC-SETUP.md)
-- [Cloudflare integration and deployment](docs/CLOUDFLARE.md)
-- [Submission draft and remaining requirement](docs/SUBMISSION.md)
-- [Validation report](docs/VALIDATION-2026-10-14.md)
+## Built for the Cloudflare "next-gen Git platform" challenge
 
-For the concurrent sample, use the objective `[parallel sample] Fix slugify and add regression coverage in parallel, then review and verify the integrated result.` Select the scripted runtime; decisions are scripted, while worktrees, scheduling, edits, integration and checks are real.
-
-**ATLAS is a desktop app where AI agents work on your code, and nothing changes in your project until you've seen
-proof that the work is right.**
-
-You tell ATLAS what you want done, in plain words. It plans the work, lets agents do it in a safe copy of your
-project, checks the result itself, and shows you the evidence. You decide whether to keep it. Your own files are never
-touched along the way.
-
-![A mission waiting for your approval](docs/screenshots/05-approval.png)
-
-## Why ATLAS
-
-- **Your project stays untouched.** Agents work in a separate copy, inside a locked-down sandbox. They cannot see your
-  personal files, your passwords or other projects, and they cannot reach the internet unless you allow it.
-- **Nothing is taken on trust.** An agent saying "done" counts for nothing. ATLAS runs the tests, the checks and the
-  app itself, and only calls the work *verified* when those really pass.
-- **You stay in charge.** Anything risky waits for your yes: installing software, using the network, deleting files,
-  deploying. You see exactly what will happen and why before it does.
-- **Everything is on the record.** Every step, by every agent, is logged with who did it and when. You can replay
-  it, export it and hand it to someone else.
-- **It works the way teams work.** Share missions, review each other's changes, run a shared board, and let agents
-  pick up work, without a server or sign-up.
-
-## How it works
-
-1. **Open a project.** Any folder with git in it.
-2. **Describe the outcome.** For example: "Fix the URL slugs for blog post titles so the tests pass."
-3. **Approve the plan.** ATLAS shows the tasks, which agents do them, what each may touch, and how the result will be
-   checked. Nothing runs before you approve.
-4. **Watch the work.** A coder makes the change, a reviewer and a security engineer check it, and ATLAS asks you
-   before anything risky.
-5. **See the proof.** Tests, review, security scan, browser checks, and optionally a test deployment, all run by ATLAS
-   on the final result.
-6. **Keep it or throw it away.** Keep the change on its own branch, or open a pull request with one click. Rejecting
-   removes it without a trace in your project.
-
-## A tour of the app
-
-Every picture below is the real app, captured while it worked on a small blog project called `northwind-blog`. The
-agents in these pictures are ATLAS's built-in demo agents, which follow a script. Everything else is real: the commands,
-tests, checks, approvals and records. Run `pnpm screenshots` to capture them again yourself.
-
-### Projects
-Open a folder and ATLAS shows its branch, its latest commit, whether it has unsaved changes, and every mission run on
-it.
-
-| Before you open a project | With a project |
+| The challenge asks for… | ATLAS |
 | --- | --- |
-| ![Projects, empty](docs/screenshots/01-projects-empty.png) | ![Projects](docs/screenshots/02-projects.png) |
+| A new way for **multiple agents to work on changes concurrently** | A **mission** is the unit of work: a model-proposed, validated task graph. Independent tasks run at the same time, each agent in its own git worktree and branch; dependent tasks start from their predecessors' checkpoints. |
+| Rethinking **repositories, branches, pull requests, worktrees** | Every task gets a worktree and branch (`atlas/<mission>/<task>`); ATLAS checkpoints each one, integrates them into a mission branch, and only then opens a pull request — one PR per verified mission, not per agent. |
+| Rethinking **code review** | Review is a role, not a rubber stamp: a reviewer and a security engineer pin findings to diff lines; a finding is *confirmed* only with a failing reproduction ATLAS ran itself. A clean review can gate, but never counts as evidence. |
+| Rethinking **merge conflicts** | Writers that declare overlapping files are serialized; a real conflict **stops integration** and is shown to you instead of being papered over. (It happened on a real run — see [Results](#results-on-a-real-product).) |
+| Built with **Cloudflare Workers + Artifacts** | `cloudflare/` is a Worker with an **Artifacts binding**. Per mission it creates a repository, issues a 10-minute repo-scoped git token, receives the base, every agent branch and the integration branch, then **reads every ref back** through the Artifacts API; ATLAS records the publication only if every commit ID matches. Live-verified. |
+| Open source + instructions to run | MIT licensed. Setup below takes ~5 minutes on a Mac. |
 
-### Describe what you want
-- **What:** write the outcome and any constraints ("don't change the function's name").
-- **How careful:** choose whether ATLAS should ask before risky actions, before every change, or only read.
-- **Which AI:** pick a model, or use the demo agents, which need no account.
-- **Live checks:** ATLAS checks the project as you type: is it a git repository, are there tests, is a sandbox
-  available.
+---
 
-![New mission](docs/screenshots/03-new-mission.png)
+## How a mission works
 
-### Approve the plan
-Before anything runs, you see each task, the agent role doing it, what it must achieve, which tools it may use, what
-will ask you first, and how ATLAS will check the result.
-
-![Plan review](docs/screenshots/04-plan-review.png)
-
-### Approve risky steps, as they happen
-When an agent wants to do something risky, a card shows:
-- who is asking;
-- exactly what it wants to run or change, and where;
-- what it touches, and why it asked.
-
-You approve it once or deny it. Anything waiting for you shows in the title bar, the sidebar, the status bar and the
-window title, so you never miss it.
-
-### See exactly what happened
-The **Activity** timeline lists every step in order:
-- the plan, each command and file change;
-- every policy decision and approval;
-- each check, and your decisions.
-
-Filter it to what you care about. Agent summaries are labelled as claims, not proof.
-
-| Full timeline | Only approvals and policy decisions |
-| --- | --- |
-| ![Activity](docs/screenshots/06-activity.png) | ![Filtered](docs/screenshots/06b-activity-filtered.png) |
-
-### The change, and the proof
-**Changes** shows the exact edits, file by file. **Evidence** shows the verdict in words, and every check with its
-command, result, time and full log. It also says plainly what was *not* checked.
-
-| Changes | Evidence |
-| --- | --- |
-| ![Changes](docs/screenshots/07-changes.png) | ![Evidence](docs/screenshots/08-evidence.png) |
-
-### Teams of agents, checked by other agents
-- **Splitting the work.** Big jobs split into tasks that run side by side, each in its own copy, and are merged at
-  the end. If two edits clash, ATLAS stops and tells you rather than guessing.
-- **Review.** A reviewer reads every change. A problem only counts as *confirmed* when the reviewer reproduced it
-  with a command ATLAS ran.
-- **Budgets.** Every mission has limits on time, money spent on the model, and the number of agents.
-
-| Tasks and how they connect | Choosing a test server and a budget |
-| --- | --- |
-| ![Task graph](docs/screenshots/15-task-graph.png) | ![Composer](docs/screenshots/13-composer-target-budget.png) |
-
-### A security engineer on every change
-Every change gets two kinds of security check:
-- **The automatic scan** looks for:
-  - leaked passwords and keys;
-  - code that lets outside input run commands or database queries;
-  - switched-off security checks;
-  - suspicious new packages, including look-alike names and install scripts;
-  - risky changes to CI workflows.
-  Serious problems block the change until they're fixed or you dismiss them.
-- **A security engineer agent** reads each change the way an attacker would.
-
-![Pipeline and security check](docs/screenshots/25-pipeline-and-security.png)
-
-### Testing in a real browser
-If your project is a web app, ATLAS starts it from the finished change in the sandbox. It calls its API, and clicks
-through it in a real browser that can only reach your app. A screenshot is saved at every step, and console errors
-count as failures.
-
-![Browser QA](docs/screenshots/16-browser-qa.png)
-
-Agents use the same browser the way a careful person would. They read the page as a list of its buttons, fields,
-links and text, act on exactly the element they mean, and check the console and network for errors behind what
-they see.
-
-### See what changed on screen
-When a mission touches a web app, ATLAS shows you the difference instead of describing it. It opens your app's pages
-twice, as they were before the mission and as they are now, and compares them pixel by pixel. Under **Visual** you
-can:
-- drag a slider across the before and after views;
-- see every changed pixel highlighted in red;
-- read how much of each page changed.
-
-A page that stops loading is flagged. All of this runs on your machine.
-
-![Before and after, compared with a slider](docs/screenshots/36-visual-compare.png)
-
-![Every changed pixel in red](docs/screenshots/37-visual-diff.png)
-
-### Test deployments that are checked, not trusted
-You can deploy to a test (staging) server you've allowed, and only after you approve. ATLAS then checks the
-deployment independently:
-- that the server is really running this exact change;
-- that it responds, and how fast;
-- that the browser checks pass against it;
-- that its logs are clean.
-
-If anything is off, it rolls back to the last good version. ATLAS never deploys to production.
-
-| Your approval to deploy | Deployment history |
-| --- | --- |
-| ![Deploy approval](docs/screenshots/14-deploy-approval.png) | ![Staging deploy](docs/screenshots/17-staging-deploy.png) |
-
-### From "accepted" to "ready to merge", automatically
-Each mission shows where it is: plan, build, verify, accept, pull request, CI, ready to merge. If you allow it, ATLAS
-can:
-- open the pull request as soon as you accept;
-- watch your CI;
-- when CI fails, run a fix and push it to the same pull request, up to a limit you set.
-
-It never merges for you, and anything risky inside a fix still waits for a person.
-
-![Automation settings](docs/screenshots/30-team-automation.png)
-
-### Working as a team
-Start a team space for a project and invite people with a one-time code. There's no server and no account: the team's
-shared record lives in the project's own git repository. In it you can:
-- **Share a board.** Add work for a person, for anyone, or for a team's agents. Starting a mission from a card takes
-  it, and the card moves to review and then done as the mission progresses.
-- **Follow each other's missions.** See their plan, checks and exact change. Comment, approve, or ask for changes.
-- **Set up teams that own parts of the code.** A change to the Web team's files can't be published until someone on
-  Web approves it.
-- **Hand work to agents.** A teammate's machine can pick up cards assigned to agents and run them there, after a
-  person approves the plan.
-
-| Start a team space | The shared board |
-| --- | --- |
-| ![Team start](docs/screenshots/23-team-start.png) | ![Team board](docs/screenshots/24-team-board.png) |
-
-| Review a teammate's change | Waiting for the owning team's approval |
-| --- | --- |
-| ![Team missions](docs/screenshots/27-team-missions.png) | ![Owner approval](docs/screenshots/26-owner-approval-needed.png) |
-
-| People, teams and invitations | Team activity |
-| --- | --- |
-| ![People](docs/screenshots/28-team-people.png) | ![Activity](docs/screenshots/29-team-activity.png) |
-
-### Agents that don't lose track
-Long jobs fill up a model's memory. ATLAS handles that in three ways:
-- **Summaries.** It summarizes older conversation automatically, and the timeline shows when it does.
-- **Exact records.** It keeps a precise record the agent can look up at any time: what it was asked to do, the files
-  it changed, the commands it ran and their results, and what was refused. Agents don't depend on a summary.
-- **A map of the code.** It builds a map of your code in the background: what each file defines, what uses what,
-  and which tests cover which file. Agents look things up instead of re-reading everything.
-
-### A desktop the agent can use, and you can take over
-For work that needs a real desktop app, an agent gets its own empty virtual screen, never yours. It needs your
-permission each time. You can take over, pause or stop it at any moment, and every click is recorded with a screenshot.
-
-| The agent at work | You took over |
-| --- | --- |
-| ![Desktop, agent](docs/screenshots/21a-desktop-agent.png) | ![Desktop takeover](docs/screenshots/21-desktop-takeover.png) |
-
-### A terminal, exports and imports
-- **Terminal.** Open a terminal in any task's copy, inside the same sandbox the agents use.
-- **Export.** Export a mission's full record, signed so anyone can check it wasn't altered.
-- **Import.** Open someone else's export to read it.
-
-![Terminal](docs/screenshots/19-operator-terminal.png)
-
-### Any AI model, your tools, your procedures
-- **Models.** Use any model provider supported by the Pi agent toolkit that ATLAS is built on: Anthropic, OpenAI,
-  Google, Mistral, Groq, OpenRouter and many more. Pick a default, a faster and a stronger model, or choose per
-  mission. Keys are kept in your system's password store.
-- **MCP servers.** Connect tools agents can use, such as documentation search or your issue tracker. Each call can ask
-  you first.
-- **Web access.** When you turn it on, agents search the web through your Tavily, Brave or Google accounts, read pages
-  and browse in a read-only browser. Add several accounts per provider: ATLAS moves to the next one when an account is
-  rate limited or out of searches. Sites agents did not find by searching need your approval, and your local network is
-  never reachable.
-- **Skills.** Reviewed, versioned procedures agents can follow. Write your own, or bring them in from other tools.
-- **Sync with Claude Code, Codex and OpenCode.** Keep the same skills and MCP servers in those tools, with a preview
-  before anything is written and no secrets copied.
-
-| Models | MCP servers |
-| --- | --- |
-| ![Models](docs/screenshots/31-settings-models.png) | ![MCP](docs/screenshots/32-settings-mcp.png) |
-
-| Skills | Sync with other tools |
-| --- | --- |
-| ![Skills](docs/screenshots/33-settings-skills.png) | ![Sync](docs/screenshots/34-settings-sync.png) |
-
-### Settings that keep things tidy and safe
-- **Security.** Choose whether security findings block a change or only warn, and whether a security engineer joins
-  every plan.
-- **Storage.** See what ATLAS keeps on disk, and clear old logs and caches with one click, or let ATLAS do it
-  automatically. Your records are never deleted here; you choose how long to keep them.
-- **Sandbox, desktop control and test servers.** Choose how commands are isolated, whether agents may use a desktop,
-  and which test servers they may deploy to.
-- **Agent roles.** See each role's tools and limits.
-
-| Security and storage | Desktop control and test servers |
-| --- | --- |
-| ![Security and storage](docs/screenshots/35-settings-security-storage.png) | ![Settings](docs/screenshots/11-settings-desktop-deploy.png) |
-
-| Agent roles | Models and runtimes |
-| --- | --- |
-| ![Roles](docs/screenshots/12-agent-roles.png) | ![Settings](docs/screenshots/09-settings.png) |
-
-### Keyboard first
-Press ⌘K (Ctrl+K on Windows and Linux) to jump to any mission or screen. Other shortcuts:
-
-| Shortcut | Opens |
-| --- | --- |
-| ⌘O | Open a project |
-| ⌘N | New mission |
-| ⌘1 | Projects |
-| ⌘2 | Team |
-| ⌘, | Settings |
-
-![Command palette](docs/screenshots/09a-command-palette.png)
-
-## Get started
-
-You need [Node.js](https://nodejs.org) 22.19 or newer, and git.
-
-```bash
-corepack enable
-pnpm install
-pnpm doctor          # checks that everything ATLAS needs is installed (never prints secrets)
-pnpm seed:sample     # creates a small example project with a real bug and real tests
-pnpm dev             # opens ATLAS
+```mermaid
+flowchart LR
+  G[Goal in plain words] --> P[Orchestrator model<br/>proposes task graph]
+  P -->|you approve| W
+  subgraph W[Concurrent work · isolated worktrees · OS sandbox]
+    C1[Coder] --> T[Tester]
+    C2[Coder] --> T
+    C1 --> R[Reviewer]
+    C1 --> S[Security engineer]
+    C2 --> Q[Browser QA]
+  end
+  W --> I[Integrate checkpoints<br/>conflicts stop here]
+  I --> V[Independent verification<br/>tests · API · browser · visual · staging]
+  V -->|verified| D{You decide}
+  D -->|accept| PR[GitHub pull request → CI]
+  D -->|publish| CF[Cloudflare Artifacts<br/>per-mission repo]
+  V -->|failed| F[Recorded as failed<br/>follow-up mission]
 ```
 
-Then, in ATLAS:
-1. Choose **Open repository**, then the example project.
-2. Choose **New mission** and describe the fix.
-3. Choose **Plan mission**, then approve the plan.
+- **An agent's claim is never evidence.** Only checks ATLAS runs itself can make a mission *verified*.
+- **Every tool call goes through policy** (allow / ask / deny) and runs as an argument array inside the sandbox; risky actions wait for your approval, once.
+- **Your checkout is never edited.** Agents work in worktrees; accepted work lands as a branch and a pull request.
 
-Watch the agents fix it, then review the evidence and accept or reject the change. The demo agents need no account or
-API key. To use a real model, add a provider key in **Settings** and choose **Pi** when you create a mission.
+### Cloudflare Artifacts publication
 
-To build an installer: `pnpm package`. It creates an AppImage on Linux, a .dmg on macOS, and an installer on Windows.
-The builds are not code-signed yet.
+```mermaid
+sequenceDiagram
+  participant A as ATLAS daemon
+  participant W as Cloudflare Worker (Artifacts binding)
+  participant R as Artifacts repo atlas-<mission>
+  A->>W: POST /repos/atlas-<mission>/connect (Bearer connection token)
+  W->>R: create repository (if new), createToken(write, 10 min)
+  W-->>A: remote URL + short-lived token
+  A->>R: git push base, atlas/<mission>/* refs (token only in env, never argv)
+  A->>W: POST /repos/atlas-<mission>/verify {ref, sha}[]
+  W->>R: log(ref) for every ref
+  W-->>A: per-ref expected vs actual
+  A->>A: record publication only if every hash matches
+```
 
-## Where it runs
+---
 
-ATLAS runs on Linux, macOS and Windows, and its full test suite, including the desktop app itself, runs on all three
-in CI.
+## Results on a real product
 
-| | Linux | macOS | Windows |
-| --- | --- | --- | --- |
-| Sandbox | bubblewrap | Seatbelt | Separate, limited Windows accounts. Set them up once from Settings; Windows asks for your permission |
-| Desktop control | Yes | Yes (with XQuartz) | Not available |
-| Extra requirements | Chromium for browser checks; Xvfb, xdotool and ImageMagick for desktop control | XQuartz for desktop control | None |
+We pointed ATLAS at **Operon**, a complaint-operations platform (FastAPI + React, ~600k lines including data), with **DeepSeek** models through the official API.
 
-`pnpm doctor` tells you what's missing.
+- The orchestrator model planned each mission itself — e.g. CSV export: 8 tasks across coders, testers, a reviewer, a security engineer, browser QA and a deployment verifier, with dependencies; writers ran in parallel.
+- ATLAS **deployed Operon to staging**, read the served revision back, ran 20 synthetic requests (0 errors) and all API checks.
+- The security engineer found real issues (an export not bounded in memory; a missing role check on bulk export).
+- **Strict CSP fix:** the first attempt hit a merge conflict between two parallel writers (integration refused it); the second was rejected by reviewers (confirmed findings); the third passed every check — backend tests, frontend tests/types/lint/build, 5 API checks, 4 browser flows with zero console errors — was accepted and **pushed as [a pull request](https://github.com/premalshah999/OPERON-ATLAS/pull/1) from the app; GitHub Actions: backend, frontend and smoke all green.**
 
-## Privacy and safety
+- The verified mission was then **published to Cloudflare Artifacts from the app**: repository `atlas-msn_5AppeZ4wk2Ms`, every ref read back by the Worker as matching.
 
-- **Your computer.** ATLAS runs on your computer. Your code goes nowhere except to the AI provider you choose,
-  and only for the missions you start.
-- **Secrets.** Keys and secrets live in your system's password store. They are blanked out of every log, record and
-  export.
-- **Contained agents.** Agents only get tools ATLAS controls, never a free shell. Every command runs in the sandbox,
-  with no network unless you approve it.
-- **What's always refused:** reading your credentials, escaping the project folder, rewriting git history and
-  deploying to production.
-- **No silent network traffic.** When ATLAS is idle it makes no network requests, and a test checks this.
+Failures were recorded as failures. That is the point.
+
+---
+
+## A tour
+
+| | |
+| --- | --- |
+| ![Home](docs/screenshots/live/home.png) **Home** — what needs you, what is running, what is ready for review. | ![Task graph](docs/screenshots/live/task-graph.png) **Task graph** — the real dependency structure, laid out automatically; pan, zoom, critical path. |
+| ![Agent](docs/screenshots/live/agent.png) **Agent detail** — decisions and every tool call; the composer **directs a running agent** inside its live session. | ![Review](docs/screenshots/live/review.png) **Review** — the patch file by file with findings pinned to lines. |
+| ![Deployments](docs/screenshots/live/deployments.png) **Deployment cycle** — Integrate → Verify → Release, with a fix-and-rerun loop and a release report. | ![Browser](docs/screenshots/live/browser.png) **Live browser** — a real, interactive browser on the app under test; plus every recorded QA step. |
+| ![Agent Studio](docs/screenshots/live/studio.png) **Agent Studio** — every role as enforced policy; **create your own agents, skills and connectors**. | ![Settings](docs/screenshots/live/settings.png) **Settings** — every key-based model provider, live key checks, models per tier, Cloudflare, GitHub. |
+
+---
+
+## Get started (macOS)
+
+**Requirements:** macOS 14+, Node.js 22.19+, pnpm 10.28, git, Xcode Command Line Tools.
+
+```sh
+git clone https://github.com/premalshah999/ATLAS-Cloudflare && cd ATLAS-Cloudflare
+pnpm install --frozen-lockfile
+node node_modules/electron/install.js
+pnpm exec playwright install chromium
+pnpm build && pnpm start
+```
+
+1. **Open a repository** (any git project). Optional: `pnpm seed:sample ~/atlas-example` creates a small project with a real bug and real tests to try first.
+2. **Add a model key** — Settings → Model providers. DeepSeek, Anthropic, OpenAI, Google, Mistral, xAI, Groq, OpenRouter and every other key-based provider are supported. **Test** checks the key against the provider's own API (DeepSeek: also your balance). Choose a model per tier (strong / default / fast).
+3. **Create a mission** from Home or New mission. Approve the plan. Watch Mission Control; approve risky steps when asked; direct any running agent.
+4. **Decide.** Accept to keep the integration branch, or **Publish** it as a GitHub pull request (ATLAS uses your GitHub CLI sign-in — `gh auth login` — or a token in Settings).
+
+To package a Mac app: `CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac dir --projectDir apps/desktop` → `apps/desktop/release/mac/ATLAS.app`.
+
+### Connect Cloudflare Artifacts
+
+Artifacts requires the Workers Paid plan.
+
+```sh
+pnpm cloud:login            # wrangler login
+pnpm cloud:deploy           # deploys the Worker with its Artifacts binding (namespace "atlas")
+pnpm cloud:secret           # set ATLAS_CLOUD_TOKEN (a random 32+ char secret)
+```
+
+Put the Worker URL and the same token in **Settings → Cloudflare Workers + Artifacts**. On a completed mission open **Full record → Cloudflare → Publish to Cloudflare**; every ref shows *matches* when the Worker has read it back. Live check from the CLI:
+
+```sh
+ATLAS_CLOUD_URL=https://<worker>.workers.dev ATLAS_CLOUD_TOKEN=<token> pnpm test:cloud-live
+```
+
+### Make your project verifiable
+
+Add an `atlas.config.json` to your repository to tell ATLAS how to check it — test commands, how to start the app for browser/API checks, browser flows, and a staging deploy:
+
+```json
+{
+  "version": 1,
+  "checks": [{ "name": "tests", "command": ["npm", "test"] }],
+  "app": { "start": ["npm", "start"], "readyPath": "/health" },
+  "api": [{ "name": "health", "method": "GET", "path": "/health", "expectStatus": 200 }],
+  "browser": { "flows": [{ "name": "home", "steps": [{ "action": "goto", "path": "/" }, { "action": "expectText", "text": "Welcome" }] }] },
+  "deploy": { "target": "local-staging", "provider": "local", "versionPath": "/version" }
+}
+```
+
+Without it ATLAS detects `npm test`, `typecheck` and `lint` scripts.
+
+---
+
+## Extend it: more agents, skills and connectors
+
+- **Agents** — Agent Studio → *New agent*: give a specialization (instructions, base role, triggers). The orchestrator hands it to every agent of that role.
+- **Skills** — reviewed procedures agents load on demand (e.g. *test-first*, *skeptical review*). Create, import from a repository, enable or disable; sync them to Claude Code, Codex and OpenCode.
+- **Connectors** — MCP servers, remote (streamable HTTP) or local (sandboxed stdio), behind a governed `mcp_call` tool with per-server secrets.
+- **Web access** — pooled search accounts (Tavily, Brave, Google), page fetch and read-only browsing with a public-address guard.
+
+---
+
+## Security model
+
+- The renderer has no Node access and can only send declared, schema-validated intents; the daemon owns all execution.
+- Agents never get a shell — they get governed tools. Policy is evaluated before every call; denied calls never execute.
+- Every command runs as an argument array in an OS sandbox (macOS Seatbelt / Linux bubblewrap): only the worktree is writable, no home directory, no network unless approved.
+- Keys live in the OS credential store and are redacted from every log, event and export. Model keys never reach Cloudflare; the Worker only sees a connection token and issues short-lived repo-scoped tokens.
+
+---
 
 ## For developers
 
-| Command | What it does |
+```
+apps/desktop      Electron: main (windows, IPC, credentials), preload, renderer (React dashboard)
+apps/daemon       control plane: storage, orchestrator, runtimes, Cloudflare publication, live browser
+packages/*        contracts, storage (SQLite), policy, workspace (worktrees), terminal (sandbox, PTY),
+                  orchestrator (plan, schedule, ToolGate, verify, gate), browser, deploy, mcp, web,
+                  team, security, graph, runtime-pi (Pi SDK), runtime-fake (local runtime), cloudflare
+cloudflare/       the Worker (Artifacts binding) and its tests
+```
+
+| Command | |
 | --- | --- |
-| `pnpm dev` | Run the app with live reload |
-| `pnpm typecheck`, `pnpm lint` | Type checks, linting and dependency rules |
-| `pnpm test` | Unit tests (no network, no keys) |
-| `pnpm test:integration` | Complete missions against real git repositories |
-| `pnpm eval` | A set of standard missions with hidden checks, scored in [docs/eval/latest.md](docs/eval/latest.md) |
-| `pnpm test:e2e` | Drives the built desktop app (Linux: `xvfb-run -a pnpm test:e2e`) |
-| `pnpm screenshots` | Recaptures the pictures in this README |
-| `pnpm package` | Builds installers |
+| `pnpm typecheck` / `pnpm lint` | types and lint across the workspace |
+| `pnpm test` | unit tests (350+) |
+| `pnpm test:integration` | orchestration against real git repositories |
+| `pnpm test:e2e` | drives the built Electron app with Playwright |
+| `pnpm test:cloud-live` | publishes a real mission to Cloudflare Artifacts and verifies every hash |
 
-How it fits together: a React interface with no system access talks to a background service through a narrow,
-checked channel. The service does all the work: storage, planning, agents, policy, sandboxing, checks and
-deployments. The AI runtime is the open-source [Pi agent toolkit](https://github.com/earendil-works/pi) (MIT), kept
-behind its own adapter.
+More: [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md) · [docs/MAC-SETUP.md](docs/MAC-SETUP.md) · [docs/adr](docs/adr) · [AGENTS.md](AGENTS.md)
 
-Further reading:
-- [AGENTS.md](AGENTS.md): a map of the code.
-- [docs/adr](docs/adr): the design decisions.
-- [docs/spec/status.md](docs/spec/status.md): what is tested, with the evidence for each item.
-- [docs/design/DESIGN.md](docs/design/DESIGN.md): the visual design.
+MIT License.
