@@ -2,7 +2,13 @@
 
 ## Cloudflare challenge edition — October 14, 2026
 
-This edition adds Mac setup fixes, a reproducible concurrent-agent demo, and a Workers + Artifacts publication integration.
+This edition adds, on top of ATLAS's governed multi-agent missions:
+
+- **Cloudflare Workers + Artifacts.** A completed mission's base, every agent's branch and the integrated result are published to a per-mission Artifacts repository; the Worker reads each commit back and ATLAS records the publication only when every hash matches.
+- **Concurrent agents you can watch.** Independent writers run at the same time in separate worktrees; their work is integrated, re-tested and reviewed before you decide.
+- **A dashboard for all of it.** Home (what needs you, what is running, what is ready for review, setup), Activity across missions, Agents (each role's tools, permissions, model tier and limits) and a per-mission Report — the design preview's screens, now built from real data.
+- **Every key-based model provider, checked live.** Settings → Test verifies a key at the provider's own API for free; DeepSeek is used only through api.deepseek.com, and its balance is checked too.
+- **macOS support**: the sandbox, terminal and packaged app are tested on a Mac.
 
 **Deployment status:** local Mac missions are tested. The Cloudflare Worker is deployed with an Artifacts binding, and a live concurrent mission was published to a per-mission Artifacts repository with every commit hash independently verified (`pnpm test:cloud-live`, see [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md)).
 
