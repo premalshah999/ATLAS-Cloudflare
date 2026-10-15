@@ -1,20 +1,28 @@
 // Desktop control on a disposable virtual display (manual §26–27). The operator's own desktop is never
-// controlled. One session = one Xvfb display; input via xdotool; screenshots via ImageMagick `import`.
+// controlled. One session = one Xvfb display (XQuartz's Xvfb on macOS); input via xdotool; screenshots read
+// straight from the Xvfb framebuffer file. Windows has no virtual X display: desktop control is unavailable there.
 // An exclusive controller lease decides who may emit input: the agent, the operator (takeover), or nobody.
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { xwdToPng } from './xwd';
 import { newId, nowIso, type DesktopAction, type DesktopController, type DesktopSessionInfo } from '@atlas/contracts';
 import { classifyCommand } from '@atlas/policy';
-import { sanitizedEnv, startProcess, wrapCommand, type ProcessHandle, type SandboxSpec } from '@atlas/terminal';
+import { journalStart, sanitizedEnv, startProcess, wrapCommand, type ProcessHandle, type SandboxSpec } from '@atlas/terminal';
 
 export type Controller = DesktopController;
 
-const which = (b: string) => (process.env.PATH ?? '').split(':').map((d) => `${d}/${b}`).find((p) => existsSync(p)) ?? null;
+const which = (b: string) => [...(process.env.PATH ?? '').split(path.delimiter), '/opt/X11/bin', '/opt/homebrew/bin', '/usr/local/bin'].filter(Boolean).map((d) => path.join(d, b)).find((p) => existsSync(p)) ?? null;
+const X_PATH = () => [...new Set([...(process.env.PATH ?? '').split(path.delimiter), '/opt/X11/bin', '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'])].filter(Boolean).join(path.delimiter);
 
 export function desktopSupport(): { ok: boolean; detail: string } {
-  if (process.platform !== 'linux') return { ok: false, detail: `Desktop control is implemented for Linux virtual displays only (this is ${process.platform}).` };
-  const missing = ['Xvfb', 'xdotool', 'import'].filter((b) => !which(b));
-  return missing.length ? { ok: false, detail: `Missing: ${missing.join(', ')} (apt install xvfb xdotool imagemagick)` } : { ok: true, detail: 'Xvfb + xdotool + ImageMagick' };
+  if (process.platform === 'win32') return { ok: false, detail: 'Desktop control needs an X virtual display (Xvfb), which Windows does not provide. Run ATLAS on Linux or macOS for desktop missions.' };
+  if (process.platform !== 'linux' && process.platform !== 'darwin') return { ok: false, detail: `Desktop control is not available on ${process.platform}.` };
+  const missing = ['Xvfb', 'xdotool'].filter((b) => !which(b));
+  const how = process.platform === 'darwin' ? 'install XQuartz (brew install --cask xquartz) and xdotool (brew install xdotool)' : 'apt install xvfb xdotool / dnf install xorg-x11-server-Xvfb xdotool';
+  return missing.length ? { ok: false, detail: `Missing: ${missing.join(', ')} — ${how}` } : { ok: true, detail: `Xvfb (${which('Xvfb')}) + xdotool` };
 }
 
 function freeDisplay(): number {
@@ -33,6 +41,8 @@ export class DesktopSession {
   /** Every input actually emitted, by whom. Tests and the audit log use this as ground truth. */
   readonly inputLog: InputRecord[] = [];
   private xvfb: ChildProcess | null = null;
+  private unjournal: () => void = () => {};
+  private fbdir: string | null = null;
   private apps: ProcessHandle[] = [];
   readonly startedAt = nowIso();
   private readonly launcher: (cmd: string, args: string[]) => { command: string; args: string[]; env: Record<string, string> } | null;
@@ -56,8 +66,11 @@ export class DesktopSession {
 
   async start() {
     // -noreset: keep server state (pointer, windows) when short-lived clients like xdotool disconnect.
-    this.xvfb = spawn('Xvfb', [this.display, '-screen', '0', `${this.width}x${this.height}x24`, '-nolisten', 'tcp', '-noreset'], { stdio: 'ignore', detached: true });
+    this.fbdir = mkdtempSync(path.join(os.tmpdir(), 'atlas-fb-'));
+    this.xvfb = spawn(which('Xvfb') ?? 'Xvfb', [this.display, '-screen', '0', `${this.width}x${this.height}x24`, '-nolisten', 'tcp', '-noreset', '-fbdir', this.fbdir], { stdio: 'ignore', detached: true });
     this.xvfb.unref();
+    // Detached and unref'd, so it would outlive a daemon crash forever: journal it for the reaper (P0-4 review).
+    this.unjournal = journalStart(this.xvfb.pid, 'service', `Xvfb ${this.display}`);
     const sock = `/tmp/.X11-unix/X${this.display.slice(1)}`;
     for (let i = 0; i < 100 && !existsSync(sock); i++) await new Promise((r) => setTimeout(r, 50));
     if (!existsSync(sock)) throw new Error('Virtual display did not start');
@@ -66,11 +79,15 @@ export class DesktopSession {
 
   private x(cmd: string, args: string[], encoding: 'utf8' | 'buffer' = 'utf8'): Promise<any> {
     return new Promise((resolve, reject) => {
-      execFile(cmd, args, { env: { PATH: process.env.PATH ?? '/usr/bin:/bin', DISPLAY: this.display }, encoding: encoding as BufferEncoding, maxBuffer: 64 * 1024 * 1024, timeout: 15_000 }, (err, out) => (err ? reject(err) : resolve(out)));
+      execFile(which(cmd) ?? cmd, args, { env: { PATH: X_PATH(), DISPLAY: this.display }, encoding: encoding as BufferEncoding, maxBuffer: 64 * 1024 * 1024, timeout: 15_000 }, (err, out) => (err ? reject(err) : resolve(out)));
     });
   }
 
-  async screenshot(): Promise<Buffer> { return this.x('import', ['-window', 'root', 'png:-'], 'buffer'); }
+  /** The Xvfb framebuffer is a live XWD file; read and encode it (no X client involved). */
+  async screenshot(): Promise<Buffer> {
+    if (!this.fbdir) throw new Error('Virtual display is not running');
+    return xwdToPng(await readFile(path.join(this.fbdir, 'Xvfb_screen0'))).png;
+  }
 
   async pointer(): Promise<{ x: number; y: number }> {
     const out: string = await this.x('xdotool', ['getmouselocation', '--shell']);
@@ -194,6 +211,8 @@ export class DesktopSession {
     this.apps = [];
     if (this.xvfb?.pid) { try { process.kill(-this.xvfb.pid, 'SIGTERM'); } catch { try { this.xvfb.kill('SIGTERM'); } catch { /* gone */ } } }
     this.xvfb = null;
+    this.unjournal();
+    if (this.fbdir) { rmSync(this.fbdir, { recursive: true, force: true }); this.fbdir = null; }
   }
 
   /** Sandbox wrapper for launched apps: worktree root, only this display's X socket mounted, no network. */

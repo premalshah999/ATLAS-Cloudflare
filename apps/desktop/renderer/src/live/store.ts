@@ -5,7 +5,8 @@ import { bridge, call, type DaemonStatus, type MissionListItem } from './api';
 
 export type Route =
   | { screen: 'projects' }
-  | { screen: 'new'; workspaceId?: string }
+  | { screen: 'new'; workspaceId?: string; item?: { id: string; title: string; detail: string } }
+  | { screen: 'team'; workspaceId?: string }
   | { screen: 'mission'; missionId: string }
   | { screen: 'settings' }
   | { screen: 'preview' };

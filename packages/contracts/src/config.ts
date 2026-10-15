@@ -5,10 +5,23 @@ import { z } from 'zod';
 const argv = z.array(z.string().min(1).max(1000)).min(1).max(50);
 const relPath = z.string().regex(/^\/[^\s]*$/, 'must be an absolute URL path like /healthz').max(2000);
 
+/** An element from the latest `snapshot`, e.g. "e12" (ADR 0027). */
+const ref = z.string().regex(/^e\d{1,5}$/, 'a ref from the latest snapshot, like e12');
 export const BrowserStep = z.discriminatedUnion('action', [
   z.object({ action: z.literal('goto'), path: relPath }).strict(),
-  z.object({ action: z.literal('click'), selector: z.string().max(500).optional(), text: z.string().max(500).optional(), role: z.string().max(40).optional(), name: z.string().max(500).optional() }).strict(),
-  z.object({ action: z.literal('fill'), selector: z.string().min(1).max(500), value: z.string().max(10_000) }).strict(),
+  z.object({ action: z.literal('click'), ref: ref.optional(), selector: z.string().max(500).optional(), text: z.string().max(500).optional(), role: z.string().max(40).optional(), name: z.string().max(500).optional() }).strict(),
+  z.object({ action: z.literal('fill'), ref: ref.optional(), selector: z.string().min(1).max(500).optional(), value: z.string().max(10_000) }).strict(),
+  // The page as an agent reads it: interactive and text elements, each with a ref the next steps can target.
+  z.object({ action: z.literal('snapshot'), selector: z.string().max(500).optional() }).strict(),
+  z.object({ action: z.literal('hover'), ref: ref.optional(), selector: z.string().max(500).optional() }).strict(),
+  z.object({ action: z.literal('select'), ref: ref.optional(), selector: z.string().max(500).optional(), value: z.string().max(500) }).strict(),
+  z.object({ action: z.literal('check'), ref: ref.optional(), selector: z.string().max(500).optional(), checked: z.boolean().default(true) }).strict(),
+  z.object({ action: z.literal('reload') }).strict(),
+  z.object({ action: z.literal('back') }).strict(),
+  z.object({ action: z.literal('viewport'), width: z.number().int().min(320).max(3840), height: z.number().int().min(320).max(2160) }).strict(),
+  // What the page logged and requested since the session started (or since the last read of each).
+  z.object({ action: z.literal('console') }).strict(),
+  z.object({ action: z.literal('network') }).strict(),
   z.object({ action: z.literal('press'), key: z.string().min(1).max(40), selector: z.string().max(500).optional() }).strict(),
   z.object({ action: z.literal('expectText'), text: z.string().min(1).max(2000), selector: z.string().max(500).optional() }).strict(),
   z.object({ action: z.literal('expectNoText'), text: z.string().min(1).max(2000), selector: z.string().max(500).optional() }).strict(),
@@ -16,7 +29,10 @@ export const BrowserStep = z.discriminatedUnion('action', [
   z.object({ action: z.literal('expectVisible'), selector: z.string().min(1).max(500) }).strict(),
   z.object({ action: z.literal('screenshot'), name: z.string().min(1).max(100) }).strict(),
   z.object({ action: z.literal('wait'), ms: z.number().int().min(0).max(10_000) }).strict(),
-]);
+]).superRefine((s, ctx) => {
+  // Actions on one element take it by ref (from the latest snapshot) or by selector.
+  if (['fill', 'hover', 'select', 'check'].includes(s.action) && !('ref' in s && s.ref) && !('selector' in s && s.selector)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${s.action} needs a ref or a selector` });
+});
 export type BrowserStep = z.infer<typeof BrowserStep>;
 
 export const ApiCheck = z.object({
@@ -47,6 +63,17 @@ export const AtlasConfig = z.object({
     flows: z.array(z.object({ name: z.string().min(1).max(100), required: z.boolean().default(true), steps: z.array(BrowserStep).min(1).max(100) }).strict()).max(50).default([]),
   }).strict().optional(),
   api: z.array(ApiCheck).max(100).default([]),
+  /**
+   * Visual proof (ADR 0027): the pages ATLAS renders at the mission's base and at its result, and compares. Without
+   * this section: "/" and the pages the browser flows open.
+   */
+  visual: z.object({
+    enabled: z.boolean().default(true),
+    pages: z.array(z.object({ name: z.string().min(1).max(60), path: relPath }).strict()).max(10).optional(),
+    /** Share of pixels that may differ before a page counts as changed (anti-aliasing, cursors). */
+    thresholdPercent: z.number().min(0).max(50).default(0.1),
+    viewport: z.object({ width: z.number().int().min(320).max(3840), height: z.number().int().min(320).max(2160) }).strict().default({ width: 1280, height: 800 }),
+  }).strict().optional(),
   deploy: z.object({
     target: z.string().min(1).max(100),
     provider: z.enum(['local', 'command']),

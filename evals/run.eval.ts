@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { resolveBrowser } from '@atlas/browser';
 import { PiRuntime } from '@atlas/runtime-pi';
@@ -12,11 +13,14 @@ import { makeOrchestrator } from '../tests/integration/harness';
 import { CORPUS, ensureDir, type CaseRun } from './corpus';
 import { compare, renderMarkdown, summarize, type CaseResult, type RunMeta } from './metrics';
 
-const here = path.dirname(new URL(import.meta.url).pathname);
+const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const outDir = ensureDir(process.env.ATLAS_EVAL_OUT ?? path.join(root, 'docs/eval'));
 const runtime = process.env.ATLAS_EVAL_RUNTIME === 'pi' ? 'pi' : 'fake';
 const only = process.env.ATLAS_EVAL_CASES?.split(',').filter(Boolean);
+/** Skill Laboratory variant: no skills (default), the bundled library, or another skill directory. */
+const skillsVariant = process.env.ATLAS_EVAL_SKILLS ?? 'none';
+const skillsDir = skillsVariant === 'none' ? undefined : skillsVariant === 'bundled' ? path.join(root, 'skills') : path.resolve(skillsVariant);
 
 function piRuntime() {
   const keys: Record<string, string> = {};
@@ -27,13 +31,13 @@ function piRuntime() {
 
 it('golden mission corpus', async () => {
   const meta: RunMeta = {
-    runtime, model: runtime === 'pi' ? process.env.ATLAS_EVAL_MODEL ?? 'default' : null,
+    runtime, model: runtime === 'pi' ? process.env.ATLAS_EVAL_MODEL ?? 'default' : null, skills: skillsVariant,
     atlasCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
     startedAt: new Date().toISOString(), platform: `${process.platform}-${process.arch}`, node: process.versions.node,
     sandbox: detectSandbox().kind, browser: resolveBrowser().path ? 'chromium' : null,
   };
   // The real-model run replaces the scripted agent; the repositories, oracles and gates stay identical.
-  const make = (o: Parameters<typeof makeOrchestrator>[0]) => makeOrchestrator(runtime === 'pi' && !o?.runtime ? { ...o, runtime: piRuntime(), scripts: undefined } : o);
+  const make = (o: Parameters<typeof makeOrchestrator>[0]) => makeOrchestrator({ ...(runtime === 'pi' && !o?.runtime ? { ...o, runtime: piRuntime(), scripts: undefined } : o), skillsDir });
   const results: CaseResult[] = [];
   for (const c of CORPUS.filter((x) => !only || only.includes(x.id))) {
     const base = { id: c.id, category: c.category, title: c.title, expected: c.expected, verdict: 'none' as const, oracle: null, oracleDetail: '', missionId: null, outcome: '', durationMs: 0, resources: { toolCalls: 0, commands: 0, approvals: 0, artifactBytes: 0, tokens: 0 }, trace: [] };
@@ -63,7 +67,8 @@ it('golden mission corpus', async () => {
         resources: {
           toolCalls: ev.filter((e) => e.type === 'agent.tool_call').length, commands: ev.filter((e) => e.type === 'process.started').length,
           approvals: h.repo.approvals(missionId).length, artifactBytes: h.artifacts.list(missionId).reduce((n, a) => n + a.size, 0),
-          tokens: ev.filter((e) => e.type === 'agent.usage').reduce((n, e) => n + Number(e.payload.totalTokens ?? e.payload.tokens ?? 0), 0),
+          tokens: ev.filter((e) => e.type === 'agent.usage').reduce((n, e) => n + Number(e.payload.inputTokens ?? 0) + Number(e.payload.outputTokens ?? 0), 0),
+          skillLoads: ev.filter((e) => e.type === 'skill.loaded').length,
         },
       });
     } catch (e) {

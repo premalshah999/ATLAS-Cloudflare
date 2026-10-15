@@ -40,7 +40,7 @@ export type Verdict = 'verified' | 'unverified' | 'failed';
  * Checks that gate release but are not evidence the software works: a clean review, an approval.
  * They can block; they can never on their own make a result "verified".
  */
-export const GATE_ONLY = new Set(['review']);
+export const GATE_ONLY = new Set(['review', 'verification-definition', 'security']);
 
 /** Aggregate checks. Only `pass` satisfies a required check; missing checks never count as success. */
 export function gate(checks: Pick<CheckRecord, 'name' | 'required' | 'result' | 'reason'>[]): { verdict: Verdict; summary: string } {
@@ -50,7 +50,8 @@ export function gate(checks: Pick<CheckRecord, 'name' | 'required' | 'result' | 
     return { verdict: 'failed', summary: `Blocked: ${failedReq.map((c) => `${c.name} ${label(c.result)}`).join(', ')}` };
   }
   const evidence = checks.filter((c) => c.result === 'pass' && !GATE_ONLY.has(c.name));
-  const gates = checks.filter((c) => c.result === 'pass' && GATE_ONLY.has(c.name));
+  // An unchanged verification definition is the normal case; say nothing about it in the summary.
+  const gates = checks.filter((c) => c.result === 'pass' && GATE_ONLY.has(c.name) && c.name !== 'verification-definition');
   const other = checks.filter((c) => !c.required && c.result !== 'pass');
   const tail = [...gates.map((c) => `${c.name} passed`), ...other.map((c) => `${c.name} ${label(c.result)}`)];
   if (!evidence.length) {
@@ -62,4 +63,37 @@ export function gate(checks: Pick<CheckRecord, 'name' | 'required' | 'result' | 
 
 export function label(r: CheckResult): string {
   return { pass: 'passed', fail: 'failed', skipped: 'skipped', inconclusive: 'inconclusive', not_configured: 'not configured' }[r];
+}
+
+/**
+ * A test run that executed zero tests (or skipped every test) is not evidence, even when it exits 0. Only the
+ * runners' summary lines are read, and a run is "empty" only when every summary found reports zero, so a monorepo
+ * with one empty package, or a test that prints "No tests found", is not misread. Returns a reason, or null.
+ */
+export function noTestsRan(output: string): string | null {
+  // eslint-disable-next-line no-control-regex -- strip ANSI colour codes from runner output
+  const lines = output.replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/).slice(-200);
+  const counts: number[] = [];
+  let phrase: string | null = null;
+  const num = (re: RegExp) => { for (const l of lines) { const m = re.exec(l); if (m) counts.push(Number(m[1])); } };
+  num(/^(?:#|ℹ) tests (\d+)\s*$/); // node --test (TAP and spec reporters)
+  num(/^Tests:\s+(?:.*?,\s*)?(\d+) total/); // jest
+  num(/^\s*Tests\s+(?:.*?)\((\d+)\)\s*$/); // vitest summary "Tests  5 passed (5)"
+  num(/^\s*(\d+) passing\b/); // mocha
+  num(/^running (\d+) tests?$/); // cargo
+  num(/^=+ .*?(\d+) passed/); // pytest "== 3 passed in 0.1s =="
+  if (lines.some((l) => /^No tests found, exiting with code/.test(l))) phrase = 'The runner found no tests (jest)';
+  if (lines.some((l) => /^No test files found, exiting with code/.test(l))) phrase = 'The runner found no test files (vitest)';
+  if (lines.some((l) => /^=+ no tests ran\b/i.test(l))) phrase = 'The runner reported no tests ran (pytest)';
+  if (lines.length && lines.filter((l) => /^(ok|FAIL|\?)\s/.test(l)).length && lines.filter((l) => /^(ok|FAIL|\?)\s/.test(l)).every((l) => /\[no test files\]/.test(l))) phrase = 'No package had test files (go test)';
+  if (counts.some((c) => c > 0)) {
+    // Something ran. Still empty if node --test reports every test skipped or todo.
+    const pass = lines.map((l) => /^(?:#|ℹ) pass (\d+)\s*$/.exec(l)).find(Boolean);
+    const fail = lines.map((l) => /^(?:#|ℹ) fail (\d+)\s*$/.exec(l)).find(Boolean);
+    const skip = lines.map((l) => /^(?:#|ℹ) (?:skipped|todo) (\d+)\s*$/.exec(l)).filter(Boolean).reduce((n, m) => n + Number(m![1]), 0);
+    if (pass && Number(pass[1]) === 0 && fail && Number(fail[1]) === 0 && skip > 0) return `Every test was skipped or todo (${skip})`;
+    return null;
+  }
+  if (counts.length) return 'The runner reported 0 tests';
+  return phrase;
 }

@@ -40,6 +40,33 @@ export const sampleSlugifyScript: FakeScript = {
       ],
 };
 
+/** Marker in a mission objective that selects the scripted UI sample (ADR 0027: visual proof). */
+export const UI_SAMPLE_MARKER = '[ui sample]';
+
+/** The sample page with a subtitle and a result card: a visible change for ATLAS's before/after comparison. */
+export function sampleUiPage(page: string): string {
+  return page
+    .replace('output{display:block;margin-top:16px;font-family:monospace}', 'output{display:block;margin-top:16px;font-family:monospace;padding:12px 14px;border-radius:8px;background:#eef2ff;color:#3730a3;min-height:1.4em}.sub{color:#555;margin:-8px 0 24px}')
+    .replace('<h1>Slug maker</h1>', '<h1>Slug maker</h1>\n  <p class="sub">Turn any post title into a clean, lowercase URL slug.</p>');
+}
+
+/** UI sample: the slugify fix, plus a clearer page. */
+export const sampleUiScript: FakeScript = {
+  name: 'sample-ui',
+  matches: async (input) => (await sampleSlugifyScript.matches(input)) && input.prompt.includes(UI_SAMPLE_MARKER) && input.permittedTools.includes('write_file'),
+  steps: (input) => [
+    { say: 'Reading the slug helper, its tests and the page before changing anything.' },
+    { tool: 'read_file', args: { path: 'src/slugify.js' } },
+    { tool: 'read_file', args: { path: 'public/index.html' } },
+    { tool: 'run_tests', args: {} },
+    { tool: 'write_file', args: { path: 'src/slugify.js', content: SAMPLE_FIX } },
+    { say: 'Explaining the tool under the heading and showing the slug in a result card.' },
+    { tool: 'write_file', args: { path: 'public/index.html', content: sampleUiPage(readFileSync(path.join(input.cwd, 'public', 'index.html'), 'utf8')) } },
+    { tool: 'run_tests', args: {} },
+    { claim: 'Fixed slugify() and made the page clearer: a one-line explanation and a result card. Tests pass locally.' },
+  ],
+};
+
 /** Marker in a mission objective that selects the scripted desktop sample. */
 export const DESKTOP_SAMPLE_MARKER = '[desktop sample]';
 

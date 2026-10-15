@@ -3,11 +3,13 @@ import { z } from 'zod';
 
 export const Capability = z.enum([
   'fs.read', 'fs.write', 'shell.safe', 'shell.privileged', 'browser.navigate', 'desktop.input',
-  'deploy.staging', 'deploy.production', 'secrets.use', 'agent.delegate',
+  'deploy.staging', 'deploy.production', 'secrets.use', 'agent.delegate', 'mcp.call',
+  // The open web through ATLAS (ADR 0030): search, read a page, browse.
+  'web.search', 'web.fetch', 'web.browse',
 ]);
 export type Capability = z.infer<typeof Capability>;
 
-export const ToolName = z.enum(['read_file', 'list_files', 'write_file', 'shell_exec', 'git_status', 'run_tests', 'view_diff', 'report_finding', 'delegate', 'browser_action', 'desktop_action', 'staging_deploy', 'inspect_logs']);
+export const ToolName = z.enum(['read_file', 'list_files', 'write_file', 'shell_exec', 'git_status', 'run_tests', 'view_diff', 'report_finding', 'delegate', 'browser_action', 'desktop_action', 'staging_deploy', 'inspect_logs', 'mcp_call', 'security_scan', 'mission_memory', 'code_graph', 'process_start', 'process_read', 'process_stop', 'process_list', 'web_search', 'web_fetch', 'web_browse']);
 export type ToolName = z.infer<typeof ToolName>;
 
 export type Risk = 'low' | 'elevated' | 'high';

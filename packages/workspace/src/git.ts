@@ -1,16 +1,18 @@
-import { run, sanitizedEnv } from '@atlas/terminal';
+import { BASE_FLAGS, spawnGit, type GitResult } from './exec';
+import { gitPinned, pinFor } from './pinned';
 
-export interface GitResult { code: number | null; out: string }
+export type { GitResult } from './exec';
 
-/** Run git with an argument array and a sanitized environment. Never interpolates a shell string. */
-export async function git(cwd: string, args: string[], timeoutMs = 30_000): Promise<GitResult> {
-  const r = await run({
-    // Repository config is untrusted: never run its hooks, fsmonitor or external diff/filter programs from ATLAS's own git calls.
-    command: 'git', args: ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'diff.external=', '-c', 'protocol.file.allow=user', ...args], cwd, timeoutMs,
-    env: sanitizedEnv({ GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'ATLAS', GIT_AUTHOR_EMAIL: 'atlas@localhost', GIT_COMMITTER_NAME: 'ATLAS', GIT_COMMITTER_EMAIL: 'atlas@localhost' }),
-    maxOutput: 8 * 1024 * 1024,
-  });
-  return { code: r.exitCode, out: r.output.trimEnd() };
+/**
+ * Run git with an argument array and a sanitized environment. Never interpolates a shell string.
+ * In a worktree ATLAS created (or anywhere under a managed worktree root) the call is pinned (ADR 0031): explicit
+ * --git-dir/--work-tree, verified metadata, no global config, no attribute drivers. Elsewhere (the user's own
+ * checkout) it runs as before.
+ */
+export async function git(cwd: string, args: string[], timeoutMs = 30_000, extraEnv: Record<string, string> = {}): Promise<GitResult> {
+  const pin = await pinFor(cwd);
+  if (pin) return gitPinned(pin.worktree, pin.adminDir, args, { pin, cwd, timeoutMs, env: extraEnv });
+  return spawnGit(cwd, [...BASE_FLAGS, ...args], timeoutMs, extraEnv);
 }
 
 export async function gitOk(cwd: string, args: string[]): Promise<string> {

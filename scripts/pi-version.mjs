@@ -12,4 +12,11 @@ for (const name of ['@earendil-works/pi-coding-agent', '@earendil-works/pi-agent
   console.log(`${ok ? '✓' : '✗'} ${name}@${pj.version} · ${pj.license} · ${pj.repository?.url ?? ''}${pj.gitHead ? ` · ${pj.gitHead}` : ''}`);
 }
 console.log(`pinned: ${pinned.version} (upstream commit ${pinned.gitHead})`);
+// The upstream LICENSE text must ship with ATLAS (the npm tarballs carry none).
+try {
+  const text = readFileSync(path.resolve('licenses/third-party/pi-LICENSE.txt'), 'utf8');
+  const ok = /^MIT License/.test(text) && /Mario Zechner/.test(text) && /WITHOUT WARRANTY OF ANY KIND/.test(text);
+  if (!ok) failed = true;
+  console.log(`${ok ? '✓' : '✗'} licenses/third-party/pi-LICENSE.txt (upstream MIT text)`);
+} catch { failed = true; console.log('✗ licenses/third-party/pi-LICENSE.txt is missing'); }
 process.exit(failed ? 1 : 0);

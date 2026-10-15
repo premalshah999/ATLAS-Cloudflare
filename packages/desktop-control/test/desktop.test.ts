@@ -12,6 +12,12 @@ const sandbox = detectSandbox();
 const owner = () => ({ missionId: 'msn_test', taskId: 'tsk_test', worktree: mkdtempSync(path.join(os.tmpdir(), 'atlas-dsk-')) });
 const pointer = (s: DesktopSession) => execFileSync('xdotool', ['getmouselocation'], { env: { PATH: process.env.PATH!, DISPLAY: s.display } }).toString();
 
+// CI sets ATLAS_REQUIRE_DESKTOP on runners that install Xvfb and xdotool (Linux; macOS with XQuartz), so the suites
+// below cannot pass by skipping there.
+it.runIf(process.env.ATLAS_REQUIRE_DESKTOP === '1')('desktop control is available on this runner', () => {
+  expect(support, support.detail).toMatchObject({ ok: true });
+});
+
 describe.skipIf(!support.ok)('virtual desktop control', () => {
   const events: string[] = [];
   const mgr = new DesktopManager({ session: (i, change, by) => events.push(`${change}:${by}:${i.controller}`) });
@@ -99,6 +105,11 @@ describe.skipIf(!support.ok)('virtual desktop control', () => {
     expect((await s.act('agent', { action: 'launch', app: 'xmessage', args: ['-name', 'atlas-probe', '-title', 'atlas-probe', 'hello'] })).ok).toBe(true);
     const w = await s.act('agent', { action: 'waitFor', windowTitle: 'atlas-probe', timeoutMs: 10_000 });
     expect(w.ok, w.message).toBe(true);
+    // The framebuffer screenshot shows the window: some pixels are no longer the black root.
+    const { inflateSync } = await import('node:zlib');
+    const png = await s.screenshot();
+    const raw = inflateSync(png.subarray(png.indexOf('IDAT') + 4, png.indexOf('IEND') - 8));
+    expect(raw.some((b, i) => i % (640 * 3 + 1) !== 0 && b > 200)).toBe(true);
   });
 });
 

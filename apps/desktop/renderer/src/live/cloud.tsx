@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { Mission, RuntimeHealth } from '@atlas/contracts';
+import type { Mission } from '@atlas/contracts';
 import { Badge, Button, Field, Input } from '../ui/primitives';
 import { call, type CloudPublication, type SettingsState } from './api';
 import { toast } from './toast';
@@ -23,17 +23,6 @@ export function CloudSettings({ settings, onChange }: { settings: SettingsState;
     <Field label="Connection token" aside={saved ? <Badge tone="success">saved in OS credential store</Badge> : undefined}><Input type="password" autoComplete="off" aria-label="Cloudflare connection token" placeholder={saved ? 'Leave blank to keep the saved token' : 'The ATLAS_CLOUD_TOKEN secret configured on your Worker'} value={token} onChange={(e) => setToken(e.target.value)} /></Field>
     <Button onClick={() => void save()} disabled={!!token && token.trim().length < 32}>Save Cloudflare connection</Button>
     <p className="at-subtle lv-small">Deploy the included Worker with pnpm cloud:deploy. Setup: docs/CLOUDFLARE.md. The connection token is separate from your Cloudflare account API token and model keys.</p>
-  </section>;
-}
-
-export function ModelSettings({ settings, health, onChange }: { settings: SettingsState; health: RuntimeHealth[]; onChange(s: SettingsState): void }) {
-  const [model, setModel] = useState(settings.values['runtime.model']);
-  const models = health.find((h) => h.runtime === 'pi')?.models ?? [];
-  return <section className="lv-section">
-    <div className="at-label">Model selection</div>
-    <p className="at-muted lv-small">Add a provider key below, then choose a model for new Pi missions. Leave blank to use the first available model. A saved key still needs a live request to confirm access.</p>
-    <Field label="Provider/model"><Input aria-label="Provider/model" list="atlas-models" value={model} onChange={(e) => setModel(e.target.value)} placeholder="Automatic — first available model" /><datalist id="atlas-models">{models.map((m) => <option key={m} value={m} />)}</datalist></Field>
-    <Button onClick={() => void call('settings.set', { key: 'runtime.model', value: model.trim() }).then(onChange).catch((e) => toast({ tone: 'danger', title: 'Model not saved', body: e.message }))}>Save model</Button>
   </section>;
 }
 

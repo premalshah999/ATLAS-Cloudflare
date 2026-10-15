@@ -57,3 +57,27 @@ describe('replay', () => {
     expect(() => replay([events[0], events[2]])).toThrow(/gap/);
   });
 });
+
+describe('noTestsRan', () => {
+  it('recognises empty and all-skipped runs from summary lines only', async () => {
+    const { noTestsRan } = await import('../src/verification');
+    expect(noTestsRan('# tests 0\n# pass 0\n')).toMatch(/0 tests/);
+    expect(noTestsRan('ℹ tests 0\nℹ pass 0\n')).toMatch(/0 tests/);
+    expect(noTestsRan('# tests 5\n# pass 0\n# fail 0\n# skipped 5\n')).toMatch(/skipped or todo \(5\)/);
+    expect(noTestsRan('No tests found, exiting with code 0')).toMatch(/jest/);
+    expect(noTestsRan('No test files found, exiting with code 0')).toMatch(/vitest/);
+    expect(noTestsRan('\n  0 passing (2ms)\n')).toMatch(/0 tests/);
+    expect(noTestsRan('============ no tests ran in 0.01s ============')).toMatch(/pytest/);
+    expect(noTestsRan('?   \texample.com/a\t[no test files]\n')).toMatch(/go test/);
+    expect(noTestsRan('running 0 tests\n')).toMatch(/0 tests/);
+  });
+  it('does not misfire on real runs (review findings H and K)', async () => {
+    const { noTestsRan } = await import('../src/verification');
+    expect(noTestsRan('# tests 5\n# pass 5\n')).toBeNull();
+    expect(noTestsRan('  12 passing (40ms)')).toBeNull();
+    expect(noTestsRan('my test logs: No tests found in fixture\n# tests 3\n# pass 3\n')).toBeNull();
+    // Monorepo: one package empty, another ran tests.
+    expect(noTestsRan(' Test Files  0 passed (0)\n Tests  0 passed (0)\n Test Files  2 passed (2)\n Tests  9 passed (9)\n')).toBeNull();
+    expect(noTestsRan('?   \texample.com/a\t[no test files]\nok  \texample.com/b\t0.01s\n')).toBeNull();
+  });
+});

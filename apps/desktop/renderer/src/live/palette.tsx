@@ -5,7 +5,7 @@ import { Dot, Icon, Kbd, usePresence } from '../ui/primitives';
 import { IEnter, IFolderOpen, IHome, IPalette, IPlus, ISearch, ISettings, IShield, IFolder } from '../lib/icons';
 import { get, go, set, useLive } from './store';
 import { openRepository, dotFor } from './shell';
-import { stateWord } from './format';
+import { missionStatus } from './format';
 
 interface Cmd { id: string; label: string; group: string; icon?: IconType; dot?: string; hint?: string; kbd?: string; keywords?: string; run: () => void }
 
@@ -46,7 +46,7 @@ function PaletteSession({ closing }: { closing: boolean }) {
       { id: 'projects', label: 'Projects', group: 'Go to', icon: IHome, kbd: '⌘ 1', run: () => go({ screen: 'projects' }) },
       { id: 'settings', label: 'Settings', group: 'Go to', icon: ISettings, kbd: '⌘ ,', run: () => go({ screen: 'settings' }) },
       { id: 'preview', label: 'Design preview (sample data)', group: 'Go to', icon: IPalette, run: () => go({ screen: 'preview' }) },
-      ...missions.map((m) => ({ id: `m-${m.id}`, label: m.title, group: 'Missions', dot: dotFor(m.state), hint: `${stateWord(m.state)}${m.outcome ? ` · ${m.outcome.split(':')[0]}` : ''}`, keywords: `${m.id} ${m.goal}`, run: () => go({ screen: 'mission', missionId: m.id }) })),
+      ...missions.map((m) => ({ id: `m-${m.id}`, label: m.title, group: 'Missions', dot: dotFor(m), hint: missionStatus(m).word, keywords: `${m.id} ${m.goal}`, run: () => go({ screen: 'mission', missionId: m.id }) })),
     ];
   }, [missions, workspaces]);
 

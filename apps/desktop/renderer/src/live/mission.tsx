@@ -1,19 +1,19 @@
 // Live mission view (manual §35–37): plan approval, live execution, approvals, process output, evidence.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Approval, AtlasEvent, CheckRecord, Task } from '@atlas/contracts';
+import { pipelineOf, type Approval, type AtlasEvent, type CheckRecord, type Mission, type Task } from '@atlas/contracts';
 import { Badge, Button, cx, EmptyState, Icon, PanelHead, RoleMark, Status, Tabs, Tip } from '../ui/primitives';
-import { ICheck, ICheckCircle, IClock, IFileDiff, IShield, IStopCircle, ITerminal, IWarn, IXCircle, IUndo, IMerge, IFileText, ITube, ITree, IGraph, IReviews, IGlobe, IDeploy, IComputer, IMore, IDisk, IClose } from '../lib/icons';
+import { ICheck, ICheckCircle, IClock, IFileDiff, IShield, IStopCircle, ITerminal, IWarn, IXCircle, IUndo, IMerge, IFileText, ITube, ITree, IGraph, IReviews, IGlobe, IImage, IDeploy, IComputer, IMore, IDisk, IClose, IUsers } from '../lib/icons';
 import { Menu, MenuItem } from '../ui/primitives';
-import { BrowserPanel, BudgetMeter, DeployPanel, DesktopPanel, Findings, TaskGraph, TerminalPanel } from './panels';
+import { BrowserPanel, BudgetMeter, DeployPanel, DesktopPanel, Findings, TaskGraph, TerminalPanel, VisualPanel } from './panels';
 import { go, refreshLists } from './store';
-import { call } from './api';
+import { call, type ForgeView } from './api';
 import { CloudPanel } from './cloud';
 import { useMission } from './useMission';
-import { describeEvent, fmtMs, markOf, resultWord, roleMark, roleName, stateWord, time, type Row } from './format';
+import { actorName, describeEvent, fmtMs, markOf, missionStatus, resultWord, roleMark, roleName, stalledTasks, stateWord, time, type Row } from './format';
 import { toast } from './toast';
 
 const ACTIVE = new Set(['planning', 'running', 'verifying']);
-type Tab = 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'browser' | 'deploy' | 'desktop' | 'terminal';
+type Tab = 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'visual' | 'browser' | 'deploy' | 'desktop' | 'terminal';
 
 export function MissionView({ missionId }: { missionId: string }) {
   const { snap, events, error } = useMission(missionId);
@@ -32,20 +32,23 @@ export function MissionView({ missionId }: { missionId: string }) {
   const m = snap.mission;
   const pending = snap.approvals.filter((a) => a.status === 'pending');
   const gate = [...events].reverse().find((e) => e.type === 'gate.result');
-  const verdict = gate?.payload.verdict as string | undefined;
+  const verdict = (m.verdict ?? gate?.payload.verdict) as string | undefined;
   const finished = m.state === 'completed' || m.state === 'failed';
   const patchCount = snap.artifacts.filter((a) => a.kind === 'patch').length;
   const hasBrowser = events.some((e) => e.type === 'browser.step') || snap.checks.some((c) => /^(api|browser):/.test(c.name));
+  const visualChanged = events.filter((e) => e.type === 'visual.page' && e.payload.result !== 'unchanged').length;
+  const hasVisual = visualChanged > 0 || events.some((e) => e.type === 'visual.page');
+  const stalled = stalledTasks(events);
+  const provenance = [...events].reverse().find((e) => e.type === 'operator.action' && e.payload.action === 'imported')?.payload.provenance as { signed: boolean; keyId: string | null; trusted: boolean; own: boolean } | undefined;
   const hasDesktop = events.some((e) => e.type.startsWith('desktop.')) || snap.tasks.some((t) => t.role === 'desktop_operator');
 
   return (
     <div className="at-screen lv-mission" data-testid="mission" data-state={m.state}>
       <div className="at-mhead">
         <div className="at-mhead-l">
-          <div className="at-row" style={{ gap: 10 }}>
-            <span className="at-mid">{m.id}</span>
+          <div className="at-row" style={{ gap: 12 }}>
             <h1 className="display at-trunc" style={{ margin: 0 }}>{m.title}</h1>
-            <span data-testid="mission-state"><Status s={statusKey(m.state)} label={stateWord(m.state)} /></span>
+            <span data-testid="mission-state" data-verdict={m.verdict ?? ''}><Status s={missionStatus(m).dot} label={missionStatus(m).word} /></span>
             {m.runtime === 'fake' && <Tip label="Scripted sample runtime: no model is called. Tool calls, commands and checks are real."><span><Badge tone="sample">scripted runtime</Badge></span></Tip>}
           </div>
           <div className="at-muted at-trunc" style={{ maxWidth: 900 }}>{m.goal}</div>
@@ -53,29 +56,41 @@ export function MissionView({ missionId }: { missionId: string }) {
         <div className="at-mhead-r">
           <div className="at-row" style={{ gap: 6 }}>
             {ACTIVE.has(m.state) && <Button variant="danger" icon={IStopCircle} disabled={busy} onClick={() => void act('Could not cancel', () => call('mission.cancel', { missionId }))}>Cancel mission</Button>}
-            {finished && !m.decision && (
+            {finished && !m.decision && !m.archived && (
               <>
                 <Button variant="ghost" icon={IUndo} disabled={busy} data-testid="reject" onClick={() => void act('Could not reject', () => call('mission.decide', { missionId, decision: 'reject' }))}>Reject changes</Button>
                 <Button variant={verdict === 'verified' ? 'primary' : 'default'} icon={IMerge} disabled={busy || patchCount === 0} data-testid="accept" onClick={() => void act('Could not accept', () => call('mission.decide', { missionId, decision: 'accept' }))}>Accept changes</Button>
               </>
             )}
-            {m.decision && <Badge tone="human">{m.decision === 'accepted' ? 'Accepted by you' : 'Rejected by you'}</Badge>}
+            {m.decision && <Badge tone="human">{`${m.decision === 'accepted' ? 'Accepted' : 'Rejected'} by ${decidedBy(events)}`}</Badge>}
+            {events.some((e) => e.type === 'team.shared') && <Badge tone="outline" icon={IUsers}>shared with the team</Badge>}
+            {m.decision === 'rejected' && m.integrationCommit && !m.archived && <Button variant="ghost" icon={IUndo} disabled={busy} data-testid="restore" onClick={() => void act('Could not restore', () => call('mission.restore', { missionId }))}>Restore change</Button>}
             {m.archived && <Badge tone="outline">imported archive · read-only</Badge>}
+            {m.archived && provenance && <span data-testid="provenance"><Badge tone={provenance.trusted ? 'outline' : 'warning'}>{!provenance.signed ? 'unsigned: origin unknown' : provenance.own ? 'signed by this installation' : provenance.trusted ? `signed by trusted key ${String(provenance.keyId).slice(0, 8)}` : `signed by untrusted key ${String(provenance.keyId).slice(0, 8)}`}</Badge></span>}
             <Menu align="right" width={260} trigger={(_o, toggle) => <Button variant="ghost" icon={IMore} onClick={toggle} aria-label="Mission actions" data-testid="mission-menu">More</Button>}>{(close) => (<>
+              {!m.archived && <MenuItem icon={IUsers} onClick={() => { close(); void act('Not shared', async () => { await call('team.mission.share', { missionId }); toast({ tone: 'info', title: 'Shared with the team', body: 'Teammates see it after the next sync, and it stays up to date as it runs.' }); }); }}>Share with the team</MenuItem>}
               <MenuItem icon={IDisk} onClick={() => { close(); void act('Export failed', async () => { const r = await call('mission.export', { missionId }); if (r) toast({ tone: 'info', title: 'Audit log exported', body: `${r.records} records · SHA-256 ${r.sha256.slice(0, 16)}… → ${r.path}` }); }); }}>Export audit log (JSONL)…</MenuItem>
               <MenuItem icon={IClose} onClick={() => { close(); if (ACTIVE.has(m.state)) { toast({ tone: 'danger', title: 'Cancel the mission first' }); return; } if (window.confirm('Delete this mission? Its events, artifacts, worktrees and task branches are removed. An accepted branch is kept.')) void act('Delete failed', async () => { await call('mission.delete', { missionId }); await refreshLists(); go({ screen: 'projects' }); }); }}>Delete mission…</MenuItem>
             </>)}</Menu>
           </div>
-          <span className="at-subtle lv-small">{snap.workspace?.name} · base {m.baseCommit?.slice(0, 7) ?? 'not yet snapshotted'} · {modeWord(m.approvalMode)}</span>
+          <span className="at-subtle lv-small">{snap.workspace?.name} · base {m.baseCommit?.slice(0, 7) ?? 'not yet snapshotted'} · {modeWord(m.approvalMode)} · <span className="at-mono">{m.id}</span></span>
         </div>
       </div>
 
-      {m.outcome && (
-        <div className={cx('lv-outcome', `lv-outcome--${verdict ?? (m.state === 'failed' ? 'failed' : 'neutral')}`)} data-testid="outcome">
-          <Icon as={verdict === 'verified' ? ICheckCircle : verdict === 'failed' || m.state === 'failed' ? IXCircle : IWarn} />
-          <span>{m.outcome}</span>
+      {(m.outcome || (m.state !== 'draft' && !m.archived)) && (
+        <div className="lv-statusband">
+          {m.outcome && (
+            <div className={cx('lv-outcome', `lv-outcome--${verdict ?? (m.state === 'failed' ? 'failed' : 'neutral')}`)} data-testid="outcome">
+              <Icon as={verdict === 'verified' ? ICheckCircle : verdict === 'failed' || m.state === 'failed' ? IXCircle : IWarn} />
+              <span>{m.outcome}</span>
+            </div>
+          )}
+          {m.state !== 'draft' && !m.archived && <PipelineStrip m={m} events={events} />}
         </div>
       )}
+
+      {m.followUp && <div className="lv-callout" data-testid="follow-up" style={{ margin: '0 20px 8px' }}><span>Fixes CI on pull request #{m.followUp.pullRequest}. Started from its head {m.followUp.headSha.slice(0, 7)}; publishing pushes to {m.followUp.branch}.</span></div>}
+      {m.decision === 'accepted' && !m.archived && <PullRequestBar missionId={missionId} events={events} />}
 
       {m.state === 'awaiting_approval' && snap.plan && <PlanReview snap={snap} busy={busy} onApprove={() => void act('Could not start the mission', () => call('mission.approvePlan', { missionId }))} />}
 
@@ -90,6 +105,7 @@ export function MissionView({ missionId }: { missionId: string }) {
                 { id: 'evidence', label: 'Evidence', icon: ITube, count: snap.checks.length || undefined },
                 { id: 'cloud', label: 'Cloudflare', icon: IGlobe },
                 { id: 'findings', label: 'Review', icon: IReviews, count: snap.findings.filter((f) => f.status === 'open').length || undefined },
+                ...(hasVisual ? [{ id: 'visual' as Tab, label: 'Visual', icon: IImage, count: visualChanged || undefined }] : []),
                 ...(hasBrowser ? [{ id: 'browser' as Tab, label: 'Browser', icon: IGlobe }] : []),
                 ...(m.targetEnvironment ? [{ id: 'deploy' as Tab, label: 'Deploy', icon: IDeploy }] : []),
                 ...(hasDesktop ? [{ id: 'desktop' as Tab, label: 'Desktop', icon: IComputer }] : []),
@@ -100,8 +116,9 @@ export function MissionView({ missionId }: { missionId: string }) {
             {tab === 'activity' && <ActivityTimeline events={events} />}
             {tab === 'graph' && <TaskGraph snap={snap} />}
             {tab === 'changes' && <Changes snap={snap} />}
-            {tab === 'evidence' && <Evidence checks={snap.checks} gate={gate} />}
+            {tab === 'evidence' && <Evidence checks={snap.checks} gate={gate} canApproveDefinition={m.state === 'failed' && !m.decision && !m.archived} onApproveDefinition={(hash) => void act('Could not approve', () => call('mission.approveDefinition', { missionId, hash }))} />}
             {tab === 'findings' && <Findings snap={snap} onLog={showLog} />}
+            {tab === 'visual' && <VisualPanel snap={snap} events={events} />}
             {tab === 'browser' && <BrowserPanel snap={snap} events={events} />}
             {tab === 'deploy' && <DeployPanel snap={snap} events={events} />}
             {tab === 'desktop' && <DesktopPanel snap={snap} events={events} />}
@@ -121,11 +138,37 @@ export function MissionView({ missionId }: { missionId: string }) {
             <PanelHead label="Budget" />
             <BudgetMeter snap={snap} />
             <PanelHead label="Tasks" count={snap.tasks.length} />
-            <div className="lv-tasks">{snap.tasks.map((t) => <TaskRow key={t.id} t={t} attempts={snap.attempts.filter((a) => a.taskId === t.id).length} />)}</div>
+            <div className="lv-tasks">{snap.tasks.map((t) => <TaskRow key={t.id} t={t} stalled={stalled.has(t.id)} attempts={snap.attempts.filter((a) => a.taskId === t.id).length} />)}</div>
             <ProcessPane events={events} />
           </aside>
         </div>
       )}
+    </div>
+  );
+}
+
+const decidedBy = (events: AtlasEvent[]) => {
+  const e = [...events].reverse().find((x) => x.type === 'mission.decision');
+  return e ? (e.actor.kind === 'operator' ? 'you' : actorName(e.actor)) : 'you';
+};
+
+/** Plan → build → verify → accept → pull request → CI → ready to merge (ADR 0022), from the mission's own record. */
+function PipelineStrip({ m, events }: { m: Mission; events: AtlasEvent[] }) {
+  const p = pipelineOf(m, events);
+  return (
+    <div className="lv-pipe" data-testid="pipeline" data-summary={p.summary}>
+      {p.stages.map((s, i) => (
+        <React.Fragment key={s.key}>
+          {i > 0 && <span className={cx('lv-pipe-link', s.state !== 'idle' && 'lv-pipe-link--on')} />}
+          <Tip label={`${s.label}: ${s.state}${s.detail ? ` · ${s.detail}` : ''}`}>
+            <span className={cx('lv-pipe-stage', `lv-pipe-stage--${s.state}`)} data-stage={s.key} data-state={s.state}>
+              <span className="lv-pipe-dot">{s.state === 'done' ? <Icon as={ICheck} size="sm" /> : s.state === 'failed' ? <Icon as={IXCircle} size="sm" /> : null}</span>
+              {s.label}{s.key === 'pr' && s.detail ? ` ${s.detail}` : ''}
+            </span>
+          </Tip>
+        </React.Fragment>
+      ))}
+      <span className="lv-pipe-summary lv-small">{p.automated ?? p.summary}</span>
     </div>
   );
 }
@@ -268,11 +311,12 @@ function ApprovalCard({ a }: { a: Approval }) {
   );
 }
 
-function TaskRow({ t, attempts }: { t: Task; attempts: number }) {
+function TaskRow({ t, attempts, stalled }: { t: Task; attempts: number; stalled: boolean }) {
   return (
     <div className="lv-task">
       <Status s={statusKey(t.state === 'done' ? 'completed' : t.state === 'running' ? 'running' : t.state === 'failed' ? 'failed' : 'draft')} label={stateWord(t.state)} />
       <span className="at-trunc" style={{ fontWeight: 500 }}>{t.title}</span>
+      {stalled && t.state === 'running' && <Tip label="This attempt has produced no events for a while. It is still running; stop it if it is stuck."><span><Badge tone="warning" data-testid="no-signal">No signal</Badge></span></Tip>}
       <span style={{ flex: 1 }} />
       {t.state === 'running' && <Button size="sm" variant="ghost" onClick={() => void call('task.cancel', { taskId: t.id })}>Stop</Button>}
       <span className="at-mono at-subtle lv-small">{attempts > 1 ? `attempt ${attempts}` : ''}</span>
@@ -284,9 +328,9 @@ function ProcessPane({ events }: { events: AtlasEvent[] }) {
   const lines = useMemo(() => {
     const out: { k: 'cmd' | 'out' | 'exit'; text: string; ok?: boolean }[] = [];
     for (const e of events) {
-      if (e.type === 'process.started') out.push({ k: 'cmd', text: `$ ${e.payload.command}` });
+      if (e.type === 'process.started') out.push({ k: 'cmd', text: e.payload.background ? `$ ${e.payload.command} &   # background ${e.payload.background}` : `$ ${e.payload.command}` });
       else if (e.type === 'process.output') out.push({ k: 'out', text: String(e.payload.text) });
-      else if (e.type === 'process.exited') out.push({ k: 'exit', text: e.payload.timedOut ? '[timed out]' : e.payload.cancelled ? '[cancelled]' : `[exit ${e.payload.exitCode} · ${fmtMs(e.payload.durationMs as number)}]`, ok: e.payload.exitCode === 0 });
+      else if (e.type === 'process.exited') out.push({ k: 'exit', text: e.payload.background ? `[background ${e.payload.background} ${e.payload.stopped ? 'stopped' : `exit ${e.payload.exitCode}`} · ${fmtMs(e.payload.durationMs as number)}]` : e.payload.timedOut ? '[timed out]' : e.payload.cancelled ? '[cancelled]' : `[exit ${e.payload.exitCode} · ${fmtMs(e.payload.durationMs as number)}]`, ok: e.payload.exitCode === 0 || !!e.payload.stopped });
     }
     return out;
   }, [events]);
@@ -355,7 +399,11 @@ function UnifiedDiff({ text }: { text: string }) {
   );
 }
 
-function Evidence({ checks, gate }: { checks: CheckRecord[]; gate?: AtlasEvent }) {
+function Evidence({ checks, gate, canApproveDefinition, onApproveDefinition }: { checks: CheckRecord[]; gate?: AtlasEvent; canApproveDefinition?: boolean; onApproveDefinition?: (hash: string) => void }) {
+  const defn = [...checks].reverse().find((c) => c.name === 'verification-definition');
+  const [defnHash, setDefnHash] = useState<string | null>(null);
+  // The approval is bound to the exact change shown here: its hash comes from the recorded comparison.
+  useEffect(() => { setDefnHash(null); if (defn?.artifactId) void call('artifact.read', { artifactId: defn.artifactId }).then((r) => { try { setDefnHash(JSON.parse(r.text).hash ?? null); } catch { /* not JSON */ } }).catch(() => {}); }, [defn?.artifactId]);
   const [log, setLog] = useState<{ name: string; text: string } | null>(null);
   return (
     <div className="lv-scroll" data-testid="evidence">
@@ -378,6 +426,15 @@ function Evidence({ checks, gate }: { checks: CheckRecord[]; gate?: AtlasEvent }
             {checks.length === 0 && <tr><td colSpan={6} className="at-subtle">No checks recorded.</td></tr>}
           </tbody>
         </table>
+        {defn?.result === 'fail' && canApproveDefinition && (
+          <div className="lv-callout" data-testid="definition-change" style={{ marginTop: 16 }}>
+            <Icon as={IWarn} />
+            <div style={{ flex: 1 }}>
+              <b>The mission changed how this project is verified.</b> {defn.reason} Approving records your decision and re-runs the gate; it never counts as evidence that the change works.
+              <div style={{ marginTop: 8 }}><Button size="sm" disabled={!defnHash} onClick={() => defnHash && onApproveDefinition?.(defnHash)} data-testid="approve-definition">Approve this change and re-verify</Button></div>
+            </div>
+          </div>
+        )}
         <div className="lv-callout" style={{ marginTop: 16 }}>
           <Icon as={IShield} />
           <div><b>Only the checks above count as evidence.</b> A passing review is a gate, not evidence. Anything not listed (for example a deployment that was not configured) was not verified.</div>
@@ -388,6 +445,50 @@ function Evidence({ checks, gate }: { checks: CheckRecord[]; gate?: AtlasEvent }
             <pre className="lv-proc-body" style={{ maxHeight: 360 }}>{log.text}</pre>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Pull request and CI for an accepted mission (ADR 0015). Every step is a click: publish pushes and opens the pull
+ * request, refresh reads CI, and a failure can become a follow-up mission that goes through plan approval.
+ */
+function PullRequestBar({ missionId, events }: { missionId: string; events: AtlasEvent[] }) {
+  const [view, setView] = useState<ForgeView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const forgeEvents = events.filter((e) => e.type === 'forge.published' || e.type === 'forge.ci').length;
+  useEffect(() => { void call('mission.forge', { missionId }).then(setView).catch(() => {}); }, [missionId, forgeEvents]);
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(true);
+    try { await fn(); } catch (e) { toast({ tone: 'danger', title: label, body: (e as Error).message }); } finally { setBusy(false); }
+  };
+  if (!view) return null;
+  const p = view.published;
+  const ci = view.ci && p && view.ci.headSha === p.headSha ? view.ci : null;
+  const failing = ci?.checks.filter((c) => c.conclusion && !['success', 'neutral', 'skipped'].includes(c.conclusion)) ?? [];
+  const tone = !ci ? 'outline' : ci.state === 'success' ? 'success' : ci.state === 'failure' ? 'danger' : 'outline';
+  const word = !ci ? 'CI not read yet' : ci.state === 'success' ? 'CI passed' : ci.state === 'failure' ? `CI failed: ${failing.map((c) => c.name).join(', ')}` : ci.state === 'pending' ? 'CI running' : 'No CI checks reported';
+  return (
+    <div className="lv-callout" data-testid="pull-request" data-ci={ci?.state ?? ''} style={{ margin: '0 20px 8px', alignItems: 'center' }}>
+      <div style={{ flex: 1 }}>
+        {p
+          ? <span>Pull request <a href={p.url} target="_blank" rel="noreferrer" data-testid="pr-link">#{p.number}</a> · {p.branch} at {p.headSha.slice(0, 7)} · <span data-testid="ci-state"><Badge tone={tone as any}>{word}</Badge></span></span>
+          : <span className="at-muted">{view.blocker ?? `Push this change to ${view.remote} and open a pull request. ATLAS never force-pushes.`}</span>}
+      </div>
+      <div className="at-row" style={{ gap: 6 }}>
+        {!p && <Button size="sm" variant="primary" disabled={busy || !!view.blocker} data-testid="publish" onClick={() => {
+          if (!window.confirm(`Push ${view.followUp?.branch ?? 'the accepted branch'} to ${view.remote} and open a pull request?`)) return;
+          void run('Publish failed', async () => { setView(await call('mission.publish', { missionId })); toast({ tone: 'info', title: 'Pull request ready' }); });
+        }}>Open pull request</Button>}
+        {p && <Button size="sm" variant="ghost" disabled={busy} data-testid="ci-refresh" onClick={() => void run('Could not read CI', async () => setView(await call('mission.ciRefresh', { missionId })))}>Refresh CI</Button>}
+        {view.canFixCi && <Button size="sm" disabled={busy} data-testid="fix-ci" onClick={() => void run('Could not create the follow-up', async () => {
+          const f = await call('mission.fixCi', { missionId });
+          await refreshLists();
+          go({ screen: 'mission', missionId: f.id });
+          // Planning runs in the background; the follow-up's own view shows its progress and the plan to approve.
+          void call('mission.plan', { missionId: f.id }).catch((e) => toast({ tone: 'danger', title: 'Planning failed', body: (e as Error).message }));
+        })}>Fix CI failures</Button>}
       </div>
     </div>
   );

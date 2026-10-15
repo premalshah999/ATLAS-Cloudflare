@@ -1,5 +1,5 @@
-export { Orchestrator, type OrchestratorOptions, type ExtraTool, type ToolFactoryContext } from './orchestrator';
-export { ToolGate, TOOL_SPECS, realExecutors, describe, type Executors, type GateContext, type Isolation } from './toolgate';
+export { Orchestrator, type OrchestratorOptions, type ExtraTool, type ToolFactoryContext, type Published, type CiRecord, type ForgeView } from './orchestrator';
+export { ToolGate, TOOL_SPECS, realExecutors, describe, type Executors, type GateContext, type Isolation, type McpProvider, type WebProvider, type WebSession, type WebStepResult } from './toolgate';
 export { validatePlan, defaultPlan, findCycle } from './plan';
 export { detectRecipes, gate, type Recipe, type Verdict } from './verification';
 export { canMission, canTask, assertMission, assertTask, TERMINAL_MISSION, TERMINAL_TASK } from './states';
@@ -9,3 +9,8 @@ export { buildContext, repoMap } from './context';
 export { mergeInto, topoOrder, worktreeFromBases } from './integration';
 export { FindingArgs, makeFinding, blockingFindings, fingerprint } from './findings';
 export { exportMission, importMission, deleteMission, EXPORT_VERSION } from './archive';
+export { AcceptanceStore, suiteHash, ACCEPTANCE_DIR, type AcceptanceSuite } from './acceptance';
+export { SkillLibrary, parseSkill, loadSkillDir, renderSkill, harnessSkillDirs, REPO_SKILL_DIRS, type Skill, type SkillMeta, type SkillSource } from './skills';
+export { GitHubForge, parseRemote, ciState, type Forge, type RemoteRef, type CiCheck, type CiState, type PullRequest } from './forge';
+export { Pipeline, PIPELINE } from './pipeline';
+export { ExportKeys, verifySignature, keyIdOf } from './signing';

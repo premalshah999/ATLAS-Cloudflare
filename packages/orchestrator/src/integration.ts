@@ -2,7 +2,7 @@
 // result is one integration branch merged from task checkpoints, with conflicts surfaced, never guessed.
 import { mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { git, gitOk } from '@atlas/workspace';
+import { addWorktree, git, gitOk } from '@atlas/workspace';
 
 export interface MergeResult { ok: boolean; commit: string | null; conflicts: string[]; message: string }
 
@@ -12,7 +12,7 @@ const ID = ['-c', 'user.name=ATLAS', '-c', 'user.email=atlas@localhost', '-c', '
 export async function worktreeFromBases(repoRoot: string, dir: string, branch: string, bases: string[]): Promise<MergeResult> {
   mkdirSync(path.dirname(dir), { recursive: true });
   if (existsSync(dir)) throw new Error(`worktree path already exists: ${dir}`);
-  await gitOk(repoRoot, ['worktree', 'add', '-b', branch, dir, bases[0]]);
+  await addWorktree(repoRoot, dir, branch, bases[0]);
   for (const b of bases.slice(1)) {
     const r = await mergeInto(dir, b, `ATLAS: merge dependency ${b.slice(0, 12)}`);
     if (!r.ok) return r;

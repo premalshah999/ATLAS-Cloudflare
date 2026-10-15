@@ -33,6 +33,8 @@ test('sample mission end to end, with daemon crash and app restart recovery', as
     await expect(page.getByTestId('mission')).toHaveAttribute('data-state', 'completed', { timeout: 60_000 });
     await expect(page.getByTestId('outcome')).toContainText(/Verified: tests, api:slug-endpoint, api:health, browser:make-a-slug/);
     await expect(page.getByTestId('check-row').first()).toHaveAttribute('data-result', 'pass');
+    await expect(page.getByTestId('mission-state')).toHaveAttribute('data-verdict', 'verified');
+    await expect(page.getByTestId('mission-state')).toContainText('Verified');
 
     // Timeline integrity: each event appears once, and every filter shows exactly what its chip counts.
     await page.getByRole('tab', { name: /Activity/ }).click();
@@ -131,5 +133,46 @@ test('command palette navigates to missions and screens from the keyboard', asyn
     await expect(page.getByTestId('palette')).toContainText('Nothing matches');
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('palette')).toHaveCount(0);
+  } finally { await app.close(); }
+});
+
+test('UI reload and full app restart in the middle of a mission resume accurately (manual §35)', async () => {
+  const repo = sampleRepo();
+  const first = await launch({ openDir: repo });
+  let { app, page } = first;
+  try {
+    await page.getByRole('button', { name: 'Open repository' }).first().click();
+    await page.getByRole('button', { name: 'New mission' }).first().click();
+    await page.getByTestId('mission-title').fill('Mid-mission restart');
+    await page.getByTestId('mission-goal').fill('Fix slugify.');
+    await page.getByRole('radio', { name: 'Ask for every write' }).click();
+    await page.getByTestId('plan-mission').click();
+    await page.getByTestId('approve-plan').click();
+    await expect(page.getByTestId('approval').first()).toContainText('src/slugify.js', { timeout: 30_000 });
+    const seqsBefore = await page.locator('[data-testid="timeline"] [data-seq]').count();
+
+    // 1. Renderer reload: the view resyncs from the event log, the pending approval is still there.
+    await page.reload();
+    await expect(page.getByTestId('mission')).toHaveAttribute('data-state', 'running');
+    await expect(page.getByTestId('approval').first()).toContainText('src/slugify.js');
+    await page.getByRole('tab', { name: /Activity/ }).click();
+    const seqs = await page.locator('[data-testid="timeline"] [data-seq]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-seq'))));
+    expect(seqs.length).toBeGreaterThanOrEqual(seqsBefore);
+    expect(new Set(seqs).size).toBe(seqs.length);
+
+    // 2. Full restart while the agent waits: the daemon stops with the app. On restart the unanswered approval
+    // is expired (never silently executed), the lost attempt is recorded, and the work resumes in a new attempt.
+    await app.close();
+    ({ app, page } = await launch({ userData: first.userData, openDir: repo }));
+    await expect(page.getByTestId('mission')).toBeVisible();
+    await page.getByRole('tab', { name: /Activity/ }).click();
+    await expect(page.getByTestId('timeline')).toContainText('Recovered after a daemon restart', { timeout: 30_000 });
+    const card = page.getByTestId('approval').first();
+    await expect(card).toContainText('src/slugify.js', { timeout: 30_000 });
+    await card.getByTestId('approve').click();
+    await expect(page.getByTestId('mission')).toHaveAttribute('data-state', 'completed', { timeout: 60_000 });
+    await expect(page.getByTestId('outcome')).toContainText(/^Verified/);
+    await page.getByRole('tab', { name: /Activity/ }).click();
+    await expect(page.getByTestId('timeline')).toContainText('Approval expired');
   } finally { await app.close(); }
 });

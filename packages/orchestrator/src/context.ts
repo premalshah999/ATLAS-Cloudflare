@@ -27,6 +27,14 @@ export async function buildContext(input: {
   facts: string | null;
   decisions: string[];
   includeDiff: boolean;
+  /** Index of reviewed skills (names and descriptions) the agent may load. */
+  skills?: string;
+  /** Index of MCP tools the agent may call (ADR 0018). */
+  mcp?: string;
+  /** How to use the web tools (ADR 0030). */
+  web?: string;
+  /** Overview of the code graph, when it is already built (never waited for). */
+  graph?: string;
 }): Promise<ContextBundle> {
   const sources: ContextSource[] = [];
   const parts: string[] = [];
@@ -40,7 +48,11 @@ export async function buildContext(input: {
   add('task', input.task.key, `Task ${input.task.key}: ${input.task.title}`, input.task.acceptance.map((a) => `- ${a}`).join('\n'));
   add('plan', 'approved-plan', 'Approved plan', input.planSummary);
   if (input.facts) add('facts', 'project-facts', 'Project facts (maintained by the operator)', cap(input.facts, 8000));
+  if (input.skills) add('skills', 'skill-library', 'Skills (reviewed procedures you can load)', input.skills);
+  if (input.mcp) add('mcp', 'mcp-servers', 'MCP tools (external services)', input.mcp);
+  if (input.web) add('web', 'web-access', 'The web', input.web);
   if (input.decisions.length) add('decisions', 'event-log', 'Recent decisions', input.decisions.slice(-12).join('\n'));
+  if (input.graph) add('code-graph', `${input.base.slice(0, 12)}`, 'Code graph (query details with code_graph)', input.graph);
   add('repo-map', `${input.base.slice(0, 12)}`, 'Repository files', await repoMap(input.worktree));
   if (input.includeDiff) {
     const stat = await git(input.worktree, ['diff', '--stat', input.base]);

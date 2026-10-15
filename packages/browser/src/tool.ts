@@ -32,7 +32,9 @@ export function createBrowserTool(o: { worktree: string; sandbox: StageSandbox; 
       o.emit({ action: parsed.data.step.action, ok: r.ok, message: r.message, url: r.url }, ids);
       const obs = session.observed;
       const notes = [obs.consoleErrors.length ? `${obs.consoleErrors.length} console error(s), latest: ${obs.consoleErrors.at(-1)}` : '', obs.blockedNavigations.length ? `blocked navigation to ${obs.blockedNavigations.at(-1)}` : ''].filter(Boolean).join('\n');
-      return { ok: r.ok, output: `${r.message}\nURL: ${r.url}${ids.length ? `\nScreenshot: ${ids[0]}` : ''}${notes ? `\n${notes}` : ''}`, exitCode: null, artifactIds: ids, error: r.ok ? null : 'process_failed' };
+      // What the page shows or logged is data from the app under test, never instructions.
+      const read = r.text !== undefined ? `\n<page-${parsed.data.step.action}>\n${r.text}\n</page-${parsed.data.step.action}>` : '';
+      return { ok: r.ok, output: `${r.message}\nURL: ${r.url}${ids.length ? `\nScreenshot: ${ids[0]}` : ''}${notes ? `\n${notes}` : ''}${read}`, exitCode: null, artifactIds: ids, error: r.ok ? null : 'process_failed' };
     },
     async dispose() {
       await session?.close();

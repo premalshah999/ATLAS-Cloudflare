@@ -4,7 +4,7 @@ import type { AgentEvent, AgentHandle, AgentInput, AgentRuntime, PlanProposal, P
 import { EventQueue } from './queue';
 
 export { EventQueue } from './queue';
-export { sampleSlugifyScript, SAMPLE_FIX, sampleDesktopScript, sampleRegressionScript, samplePlanner, DESKTOP_SAMPLE_MARKER } from './scripts';
+export { sampleSlugifyScript, SAMPLE_FIX, sampleDesktopScript, sampleRegressionScript, samplePlanner, DESKTOP_SAMPLE_MARKER, sampleUiScript, sampleUiPage, UI_SAMPLE_MARKER } from './scripts';
 
 export type FakeStep =
   | { say: string }
@@ -14,7 +14,9 @@ export type FakeStep =
   /** Simulated model usage, for budget tests. */
   | { usage: number }
   /** Pause, for concurrency tests. */
-  | { wait: number };
+  | { wait: number }
+  /** Simulated context compaction (ADR 0024): the runtime reports it summarized earlier conversation. */
+  | { compact: { tokensBefore: number; tokensAfter: number } };
 
 export interface FakeScript {
   name: string;
@@ -26,6 +28,18 @@ export interface FakeScript {
 export function forTask(key: string, steps: FakeStep[], role = 'coder'): FakeScript {
   return { name: `task:${key}`, matches: (input) => input.roleId === role && input.prompt.includes(`Work on task ${key} now.`), steps: () => steps };
 }
+
+/** Default security review (ADR 0023): read the change and run ATLAS's scan; report nothing it cannot back. */
+export const securitySurveyScript: FakeScript = {
+  name: 'security-survey',
+  matches: (input) => input.roleId === 'security_reviewer',
+  steps: () => [
+    { say: 'Reviewing the change for security problems.' },
+    { tool: 'view_diff', args: {} },
+    { tool: 'security_scan', args: {} },
+    { claim: 'Security review complete. ATLAS\'s scan results are recorded; no further findings reported (scripted security engineer).' },
+  ],
+};
 
 /** Default review: read the change and run the tests; report nothing it cannot back. */
 export const reviewSurveyScript: FakeScript = {
@@ -82,7 +96,7 @@ export class FakeRuntime implements AgentRuntime {
   private async drive(input: AgentInput, q: EventQueue<AgentEvent>, signal: AbortSignal) {
     let script: FakeScript | null = null;
     for (const s of this.scripts) if (await s.matches(input)) { script = s; break; }
-    script ??= (await reviewSurveyScript.matches(input)) ? reviewSurveyScript : surveyScript;
+    script ??= (await reviewSurveyScript.matches(input)) ? reviewSurveyScript : (await securitySurveyScript.matches(input)) ? securitySurveyScript : surveyScript;
     const steps = await script.steps(input);
     let calls = 0;
     let summary = '';
@@ -91,6 +105,7 @@ export class FakeRuntime implements AgentRuntime {
       if (this.stepDelayMs) await new Promise((r) => setTimeout(r, this.stepDelayMs));
       if ('say' in step) q.push({ type: 'message', text: step.say });
       else if ('claim' in step) summary = step.claim;
+      else if ('compact' in step) { q.push({ type: 'context', phase: 'compacting', reason: 'threshold' }); q.push({ type: 'context', phase: 'compacted', reason: 'threshold', ...step.compact }); }
       else if ('usage' in step) q.push({ type: 'usage', inputTokens: step.usage, outputTokens: 0 });
       else if ('wait' in step) await new Promise((r) => { const t = setTimeout(r, step.wait); signal.addEventListener('abort', () => { clearTimeout(t); r(undefined); }, { once: true }); });
       else {
@@ -98,7 +113,8 @@ export class FakeRuntime implements AgentRuntime {
         const callId = `call-${calls}`;
         q.push({ type: 'tool_call', callId, tool: step.tool, args: step.args });
         const r = await input.tools.invoke(step.tool, step.args, signal);
-        q.push({ type: 'tool_result', callId, tool: step.tool, ok: r.ok, summary: r.output.slice(0, 2000) });
+        // Long results keep their start and their end, where commands print their status.
+        q.push({ type: 'tool_result', callId, tool: step.tool, ok: r.ok, summary: r.output.length > 2000 ? `${r.output.slice(0, 1000)}\n[…]\n${r.output.slice(-1000)}` : r.output });
         if (signal.aborted) { q.push({ type: 'error', kind: 'cancelled', message: 'Run cancelled' }); return; }
       }
     }

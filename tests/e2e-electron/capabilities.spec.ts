@@ -7,6 +7,8 @@ import { sampleRepo, tmpDir } from '../helpers';
 import { launch } from './app';
 
 test('staging deploy, task graph, browser steps, terminal, export and read-only import', async () => {
+  // Windows runs each sandboxed command as the sandbox account (ADR 0020): a logon per command makes missions slower.
+  if (process.platform === 'win32') test.setTimeout(420_000);
   const repo = sampleRepo();
   const exportFile = path.join(tmpDir('atlas-e2e-export-'), 'mission.jsonl');
   const first = await launch({ openDir: repo, env: { ATLAS_E2E_SAVE_PATH: exportFile } });
@@ -36,7 +38,17 @@ test('staging deploy, task graph, browser steps, terminal, export and read-only 
     const card = page.getByTestId('approval').first();
     await expect(card).toContainText('local-staging', { timeout: 90_000 });
     await card.getByTestId('approve').click();
-    await expect(page.getByTestId('mission')).toHaveAttribute('data-state', 'completed', { timeout: 120_000 });
+    await expect(page.getByTestId('mission')).toHaveAttribute('data-state', /completed|failed/, { timeout: process.platform === 'win32' ? 300_000 : 120_000 });
+    // On failure, say why: the outcome and every check that did not pass, with the end of its output.
+    const why = await page.evaluate(async () => {
+      const a = (window as any).atlas;
+      const [m] = (await a.invoke('mission.list', {})) as { id: string; state: string }[];
+      const s = await a.invoke('mission.get', { missionId: m.id });
+      const checks = (s.checks as { name: string; result: string; reason: string; artifactId: string | null }[]).filter((c) => c.result !== 'pass');
+      const out = await Promise.all(checks.map(async (c) => `[${c.name}: ${c.result}] ${c.reason}${c.artifactId ? `\n${String((await a.invoke('artifact.read', { artifactId: c.artifactId })).text ?? '').slice(-1500)}` : ''}`));
+      return `${s.mission.state}: ${s.mission.outcome ?? ''}\n${out.join('\n---\n')}`;
+    });
+    expect(why.startsWith('completed'), why).toBe(true);
     await expect(page.getByTestId('outcome')).toContainText('staging:revision');
 
     await page.getByRole('tab', { name: /Tasks/ }).click();
@@ -56,6 +68,21 @@ test('staging deploy, task graph, browser steps, terminal, export and read-only 
     await page.locator('.lv-term').click();
     await page.keyboard.type('ls\n');
     await expect(page.locator('.lv-term')).toContainText('package.json', { timeout: 15_000 });
+    // P1-5: switching away unmounts the view, not the shell. Coming back re-attaches with the history intact.
+    await page.locator('.lv-term').click();
+    // The Windows terminal is PowerShell.
+    const win = process.platform === 'win32';
+    await page.keyboard.type(win ? "$env:ATLAS_KEPT='still-here'\n" : 'export ATLAS_KEPT=still-here\n');
+    await page.getByRole('tab', { name: /Deploy/ }).click();
+    await expect(page.getByTestId('deployment-row').first()).toBeVisible();
+    await page.getByRole('tab', { name: /Terminal/ }).click();
+    await expect(page.locator('.lv-term')).toContainText('package.json', { timeout: 15_000 });
+    await expect(page.getByTestId('open-terminal')).toHaveCount(0);
+    await page.locator('.lv-term').click();
+    await page.keyboard.type(win ? 'echo "$env:ATLAS_KEPT-$(40+2)"\n' : 'echo "$ATLAS_KEPT-$((40+2))"\n');
+    await expect(page.locator('.lv-term')).toContainText('still-here-42', { timeout: 15_000 });
+    await page.getByTestId('close-terminal').click();
+    await expect(page.getByTestId('open-terminal')).toBeVisible();
 
     await page.getByTestId('mission-menu').click();
     await page.getByRole('menuitem', { name: /Export audit log/ }).click();
@@ -69,6 +96,8 @@ test('staging deploy, task graph, browser steps, terminal, export and read-only 
     await second.page.getByTestId('import-mission').click();
     await expect(second.page.getByTestId('mission')).toBeVisible({ timeout: 15_000 });
     await expect(second.page.getByText('imported archive · read-only')).toBeVisible();
+    // A different installation: signed, but by a key it does not trust yet.
+    await expect(second.page.getByTestId('provenance')).toContainText('signed by untrusted key');
     await expect(second.page.locator('h1')).toContainText(missionTitle);
     await second.page.getByRole('tab', { name: /Evidence/ }).click();
     await expect(second.page.getByTestId('evidence')).toContainText('staging:revision');

@@ -202,7 +202,7 @@ export function Inspector() {
         </div>
         {a.blocker && (
           <div style={{ padding: '0 16px 12px' }}>
-            <div className={cx('at-callout', a.status !== 'failed' && 'at-callout--warning')} style={a.status === 'failed' ? { background: 'var(--danger-wash)', boxShadow: 'inset 0 0 0 1px rgba(240,120,106,0.25)' } : undefined}>
+            <div className={cx('at-callout', a.status !== 'failed' && 'at-callout--warning')} style={a.status === 'failed' ? { background: 'var(--danger-wash)', boxShadow: 'inset 0 0 0 1px rgba(208, 138, 127,0.25)' } : undefined}>
               <Icon as={IWarn} className={a.status === 'failed' ? 'at-err' : undefined} /><div><b>{a.status === 'failed' ? 'Failure' : 'Blocker'}</b> · {a.blocker}{a.status === 'failed' && <div style={{ marginTop: 8 }}><Button size="sm" onClick={() => A.set({ recovery: true })}>Open diagnostic</Button></div>}</div>
             </div>
           </div>

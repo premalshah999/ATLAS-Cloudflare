@@ -1,10 +1,14 @@
 // Typed persistence for the domain model. State-machine rules live in @atlas/orchestrator; this layer only stores.
-import { DEFAULT_BUDGET, nowIso, redactDeep, type Approval, type Attempt, type AtlasEvent, type CheckRecord, type Deployment, type Finding, type Mission, type NewEvent, type Plan, type Task, type Workspace } from '@atlas/contracts';
+import { DEFAULT_BUDGET, nowIso, redactDeep, type Approval, type Attempt, type AtlasEvent, type CheckRecord, type Deployment, type Finding, type Mission, type NewEvent, type Plan, type ProcessJournal, type Task, type Workspace } from '@atlas/contracts';
 import { tx, type Db } from './db';
 
 type Row = Record<string, any>;
 const j = (v: unknown) => JSON.stringify(v);
 const p = <T>(v: string): T => JSON.parse(v) as T;
+
+const toEvent = (r: Row): AtlasEvent => ({
+  missionId: r.mission_id, seq: r.seq, type: r.type, ts: r.ts, actor: p(r.actor), taskId: r.task_id, attemptId: r.attempt_id, payload: p(r.payload), artifactIds: p(r.artifact_ids),
+});
 
 export class Repo {
   private listeners = new Set<(e: AtlasEvent) => void>();
@@ -26,9 +30,62 @@ export class Repo {
   }
 
   eventsSince(missionId: string, afterSeq: number, limit = 2000): AtlasEvent[] {
-    return (this.db.prepare('SELECT * FROM events WHERE mission_id = ? AND seq > ? ORDER BY seq LIMIT ?').all(missionId, afterSeq, limit) as Row[]).map((r) => ({
-      missionId: r.mission_id, seq: r.seq, type: r.type, ts: r.ts, actor: p(r.actor), taskId: r.task_id, attemptId: r.attempt_id, payload: p(r.payload), artifactIds: p(r.artifact_ids),
-    }));
+    return (this.db.prepare('SELECT * FROM events WHERE mission_id = ? AND seq > ? ORDER BY seq LIMIT ?').all(missionId, afterSeq, limit) as Row[]).map(toEvent);
+  }
+
+  /**
+   * A mission's events chosen in SQL by type, task or attempt, oldest first. `last` keeps only the newest n. Without
+   * `last` every match is returned: a filter, never a silent cap (reading a whole log and filtering in memory dropped
+   * everything after its first 100,000 events).
+   */
+  events(missionId: string, f: { types?: readonly string[]; taskId?: string; attemptId?: string; last?: number } = {}): AtlasEvent[] {
+    const where = ['mission_id = ?'];
+    const args: (string | number)[] = [missionId];
+    if (f.types?.length) { where.push(`type IN (${f.types.map(() => '?').join(',')})`); args.push(...f.types); }
+    if (f.taskId) { where.push('task_id = ?'); args.push(f.taskId); }
+    if (f.attemptId) { where.push('attempt_id = ?'); args.push(f.attemptId); }
+    const sql = `SELECT * FROM events WHERE ${where.join(' AND ')} ORDER BY seq ${f.last ? 'DESC LIMIT ?' : 'ASC'}`;
+    if (f.last) args.push(f.last);
+    const rows = (this.db.prepare(sql).all(...args) as Row[]).map(toEvent);
+    return f.last ? rows.reverse() : rows;
+  }
+
+  /** The newest event of a type, or null. */
+  lastEvent(missionId: string, type: string): AtlasEvent | null { return this.events(missionId, { types: [type], last: 1 })[0] ?? null; }
+
+  /** Per skill: the missions that loaded it, and how many of those ended verified or failed (ADR 0029). */
+  skillUsage(): Record<string, { missions: number; verified: number; failed: number }> {
+    const rows = this.db.prepare(`SELECT json_extract(e.payload, '$.skill') AS skill, e.mission_id AS mission, m.verdict AS verdict
+      FROM events e JOIN missions m ON m.id = e.mission_id WHERE e.type = 'skill.loaded' GROUP BY skill, mission`).all() as Row[];
+    const out: Record<string, { missions: number; verified: number; failed: number }> = {};
+    for (const r of rows) {
+      if (!r.skill) continue;
+      const u = (out[r.skill] ??= { missions: 0, verified: 0, failed: 0 });
+      u.missions++;
+      if (r.verdict === 'verified') u.verified++;
+      else if (r.verdict === 'failed') u.failed++;
+    }
+    return out;
+  }
+
+  /** How many events of a type a mission has, counted in SQL. */
+  countEvents(missionId: string, type: string): number {
+    return Number((this.db.prepare('SELECT COUNT(*) AS n FROM events WHERE mission_id = ? AND type = ?').get(missionId, type) as Row).n);
+  }
+
+  /** The sequence number of a mission's newest event (0 when it has none). */
+  lastSeq(missionId: string): number {
+    return Number((this.db.prepare('SELECT MAX(seq) AS s FROM events WHERE mission_id = ?').get(missionId) as Row | undefined)?.s ?? 0);
+  }
+
+  /* ---------- process journal (orphan reaping after a crash) ---------- */
+  processJournal(): ProcessJournal {
+    return {
+      add: (e) => { this.db.prepare('INSERT OR REPLACE INTO process_journal (pid, identity, kind, command, started_at) VALUES (?,?,?,?,?)').run(e.pid, e.identity, e.kind, e.command.slice(0, 500), e.startedAt); },
+      remove: (pid, identity) => { this.db.prepare('DELETE FROM process_journal WHERE pid = ? AND identity = ?').run(pid, identity); },
+      list: () => (this.db.prepare('SELECT * FROM process_journal ORDER BY started_at').all() as Row[]).map((r) => ({ pid: r.pid, identity: r.identity, kind: r.kind, command: r.command, startedAt: r.started_at })),
+      clear: () => { this.db.prepare('DELETE FROM process_journal').run(); },
+    };
   }
 
   /* ---------- settings (operator preferences, never secrets) ---------- */
@@ -56,11 +113,11 @@ export class Repo {
 
   /* ---------- missions ---------- */
   insertMission(m: Mission) {
-    this.db.prepare(`INSERT INTO missions (id, workspace_id, title, goal, constraints, approval_mode, runtime, base_commit, state, plan_version, policy_id, outcome, decision, budget, integration_branch, integration_commit, archived, target_environment, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(m.id, m.workspaceId, m.title, m.goal, m.constraints, m.approvalMode, m.runtime, m.baseCommit, m.state, m.planVersion, m.policyId, m.outcome, m.decision, j(m.budget), m.integrationBranch, m.integrationCommit, m.archived ? 1 : 0, m.targetEnvironment ?? null, m.createdAt, m.updatedAt);
+    this.db.prepare(`INSERT INTO missions (id, workspace_id, title, goal, constraints, approval_mode, runtime, base_commit, state, plan_version, policy_id, outcome, decision, budget, integration_branch, integration_commit, archived, target_environment, verdict, follow_up, model, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(m.id, m.workspaceId, m.title, m.goal, m.constraints, m.approvalMode, m.runtime, m.baseCommit, m.state, m.planVersion, m.policyId, m.outcome, m.decision, j(m.budget), m.integrationBranch, m.integrationCommit, m.archived ? 1 : 0, m.targetEnvironment ?? null, m.verdict ?? null, m.followUp ? j(m.followUp) : null, m.model ?? null, m.createdAt, m.updatedAt);
   }
-  updateMission(id: string, patch: Partial<Pick<Mission, 'state' | 'planVersion' | 'baseCommit' | 'outcome' | 'decision' | 'integrationBranch' | 'integrationCommit'>>) {
-    const cols: Record<string, string> = { state: 'state', planVersion: 'plan_version', baseCommit: 'base_commit', outcome: 'outcome', decision: 'decision', integrationBranch: 'integration_branch', integrationCommit: 'integration_commit' };
+  updateMission(id: string, patch: Partial<Pick<Mission, 'state' | 'planVersion' | 'baseCommit' | 'outcome' | 'decision' | 'integrationBranch' | 'integrationCommit' | 'verdict'>>) {
+    const cols: Record<string, string> = { state: 'state', planVersion: 'plan_version', baseCommit: 'base_commit', outcome: 'outcome', decision: 'decision', integrationBranch: 'integration_branch', integrationCommit: 'integration_commit', verdict: 'verdict' };
     const keys = Object.keys(patch) as (keyof typeof patch)[];
     if (!keys.length) return;
     const sql = `UPDATE missions SET ${keys.map((k) => `${cols[k]} = ?`).join(', ')}, updated_at = ? WHERE id = ?`;
@@ -137,8 +194,8 @@ export class Repo {
   insertFinding(f: Finding): { finding: Finding; duplicate: boolean } {
     const existing = this.db.prepare('SELECT * FROM findings WHERE mission_id = ? AND fingerprint = ?').get(f.missionId, f.fingerprint) as Row | undefined;
     if (existing) return { finding: toFinding(existing), duplicate: true };
-    this.db.prepare(`INSERT INTO findings (id, mission_id, task_id, file, line, end_line, severity, kind, title, observation, recommendation, evidence, reproduction_artifact_id, confidence, status, fingerprint, created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(f.id, f.missionId, f.taskId, f.file, f.line, f.endLine, f.severity, f.kind, f.title, f.observation, f.recommendation, f.evidence, f.reproductionArtifactId, f.confidence, f.status, f.fingerprint, f.createdAt);
+    this.db.prepare(`INSERT INTO findings (id, mission_id, task_id, file, line, end_line, severity, kind, title, observation, recommendation, evidence, reproduction_artifact_id, confidence, status, fingerprint, created_at, source)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(f.id, f.missionId, f.taskId, f.file, f.line, f.endLine, f.severity, f.kind, f.title, f.observation, f.recommendation, f.evidence, f.reproductionArtifactId, f.confidence, f.status, f.fingerprint, f.createdAt, f.source ?? 'review');
     return { finding: f, duplicate: false };
   }
   findings(missionId: string): Finding[] { return (this.db.prepare('SELECT * FROM findings WHERE mission_id = ? ORDER BY created_at').all(missionId) as Row[]).map(toFinding); }
@@ -212,7 +269,7 @@ const toMission = (r: Row): Mission => ({
   id: r.id, workspaceId: r.workspace_id, title: r.title, goal: r.goal, constraints: r.constraints, approvalMode: r.approval_mode, runtime: r.runtime, baseCommit: r.base_commit,
   state: r.state, planVersion: r.plan_version, policyId: r.policy_id, outcome: r.outcome, decision: r.decision,
   budget: { ...DEFAULT_BUDGET, ...p<object>(r.budget ?? '{}') }, integrationBranch: r.integration_branch ?? null, integrationCommit: r.integration_commit ?? null, archived: !!r.archived,
-  targetEnvironment: r.target_environment ?? null,
+  targetEnvironment: r.target_environment ?? null, verdict: r.verdict ?? null, followUp: r.follow_up ? p(r.follow_up) : null, model: r.model ?? null,
   createdAt: r.created_at, updatedAt: r.updated_at,
 });
 const toTask = (r: Row): Task => ({ id: r.id, missionId: r.mission_id, key: r.key, title: r.title, role: r.role, dependencies: p(r.dependencies), state: r.state, retries: r.retries, acceptance: p(r.acceptance), resultRef: r.result_ref, worktree: r.worktree, branch: r.branch, checkpoint: r.checkpoint ?? null, parentTaskId: r.parent_task_id ?? null, depth: r.depth ?? 0 });
@@ -222,7 +279,7 @@ const toDeployment = (r: Row): Deployment => ({
 });
 const toFinding = (r: Row): Finding => ({
   id: r.id, missionId: r.mission_id, taskId: r.task_id, file: r.file, line: r.line, endLine: r.end_line, severity: r.severity, kind: r.kind, title: r.title, observation: r.observation,
-  recommendation: r.recommendation, evidence: r.evidence, reproductionArtifactId: r.reproduction_artifact_id, confidence: r.confidence, status: r.status, fingerprint: r.fingerprint, createdAt: r.created_at,
+  recommendation: r.recommendation, evidence: r.evidence, reproductionArtifactId: r.reproduction_artifact_id, confidence: r.confidence, status: r.status, fingerprint: r.fingerprint, createdAt: r.created_at, source: r.source === 'security' ? 'security' : 'review',
 });
 const toAttempt = (r: Row): Attempt => ({ id: r.id, taskId: r.task_id, missionId: r.mission_id, number: r.number, state: r.state, runtime: r.runtime, pid: r.pid, startedAt: r.started_at, endedAt: r.ended_at, error: r.error, tokens: r.tokens });
 const toApproval = (r: Row): Approval => ({

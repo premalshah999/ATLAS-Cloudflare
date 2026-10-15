@@ -19,7 +19,7 @@ export type ApprovalMode = z.infer<typeof ApprovalMode>;
 export const RuntimeKind = z.enum(['fake', 'pi']);
 export type RuntimeKind = z.infer<typeof RuntimeKind>;
 
-export const AgentRole = z.enum(['orchestrator', 'coder', 'reviewer', 'tester', 'browser_qa', 'desktop_operator', 'deployment_verifier']);
+export const AgentRole = z.enum(['orchestrator', 'coder', 'reviewer', 'tester', 'browser_qa', 'desktop_operator', 'deployment_verifier', 'security_reviewer']);
 export type AgentRole = z.infer<typeof AgentRole>;
 
 export interface Workspace {
@@ -57,6 +57,15 @@ export interface Mission {
   archived: boolean;
   /** Staging target the operator chose for this mission (manual §34); null = no deployment. */
   targetEnvironment: string | null;
+  /** Release-gate verdict once verification ran: only `verified` means a required check actually passed. */
+  verdict: 'verified' | 'unverified' | 'failed' | null;
+  /**
+   * Set when the mission fixes CI on an earlier mission's pull request (ADR 0015): it starts from the pull request's
+   * head instead of the checkout's HEAD, and its result is pushed to the same branch.
+   */
+  followUp: { parentMissionId: string; branch: string; headSha: string; pullRequest: number } | null;
+  /** provider/model for every agent of the mission; null: the Settings choice for each role's tier (ADR 0017). */
+  model?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,6 +143,8 @@ export interface Finding {
   status: 'open' | 'accepted' | 'dismissed' | 'fixed';
   fingerprint: string;
   createdAt: string;
+  /** An agent's review, or ATLAS's deterministic security scan (ADR 0023). */
+  source?: 'review' | 'security';
 }
 
 export interface Attempt {

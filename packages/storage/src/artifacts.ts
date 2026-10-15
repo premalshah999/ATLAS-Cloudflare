@@ -33,7 +33,7 @@ export class ArtifactStore {
     const target = this.file(id);
     const tmp = `${target}.tmp-${process.pid}`;
     writeFileSync(tmp, body, { flag: 'wx' });
-    const fd = openSync(tmp, 'r');
+    const fd = openSync(tmp, 'r+'); // Windows FlushFileBuffers needs write access
     try { fsyncSync(fd); } finally { closeSync(fd); }
     renameSync(tmp, target);
     const a: Artifact = { id, missionId: input.missionId, taskId: input.taskId, kind: input.kind, name: input.name, size: body.length, sha256, createdAt: nowIso() };

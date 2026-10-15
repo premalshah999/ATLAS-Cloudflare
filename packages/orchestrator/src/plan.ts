@@ -48,7 +48,7 @@ export function findCycle(nodes: { key: string; deps: string[] }[]): string[] | 
  * Deterministic v0.1 planner: one isolated coding task followed by independent verification.
  * Model-generated plans arrive in M2 and must pass the same validator.
  */
-export function defaultPlan(m: Pick<Mission, 'goal' | 'constraints' | 'approvalMode'>, version: number, hasTests: boolean): Plan {
+export function defaultPlan(m: Pick<Mission, 'goal' | 'constraints' | 'approvalMode'>, version: number, hasTests: boolean, security = false): Plan {
   const readOnly = m.approvalMode === 'plan_only';
   return {
     version,
@@ -79,6 +79,12 @@ export function defaultPlan(m: Pick<Mission, 'goal' | 'constraints' | 'approvalM
         tools: ['read_file', 'list_files', 'git_status', 'view_diff', 'run_tests', 'report_finding'],
         risk: 'low',
       },
+      // The security engineer (ADR 0023) reads the same change as an attacker would, in parallel with the review.
+      ...(security && !readOnly ? [{
+        key: 'security', title: 'Security review of the change', role: 'security_reviewer' as const, dependsOn: ['implement'],
+        acceptance: ['Each security problem is reported with file, line, severity, the attack it enables and the fix', 'Confirmed findings reference a demonstration ATLAS observed'],
+        tools: ['read_file', 'list_files', 'git_status', 'view_diff', 'security_scan', 'report_finding'], risk: 'low' as const,
+      }] : []),
     ],
     verification: [{ name: 'tests', required: hasTests }],
   };

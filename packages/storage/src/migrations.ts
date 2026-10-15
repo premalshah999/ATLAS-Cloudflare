@@ -89,4 +89,49 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
       CREATE INDEX deployments_target ON deployments(target, created_at);
     `,
   },
+  {
+    version: 5,
+    sql: `
+      -- The gate verdict, so "unverified" is never displayed as plain "completed". Backfilled from the log.
+      ALTER TABLE missions ADD COLUMN verdict TEXT;
+      UPDATE missions SET verdict = (
+        SELECT json_extract(e.payload, '$.verdict') FROM events e WHERE e.mission_id = missions.id AND e.type = 'gate.result' ORDER BY e.seq DESC LIMIT 1
+      );
+      -- Every process ATLAS starts is journaled until it exits, so a crashed daemon's orphans can be reaped.
+      CREATE TABLE process_journal (
+        pid INTEGER NOT NULL, identity TEXT NOT NULL, kind TEXT NOT NULL, command TEXT NOT NULL, started_at TEXT NOT NULL,
+        PRIMARY KEY (pid, identity)
+      );
+    `,
+  },
+  {
+    version: 6,
+    sql: `
+      -- A mission that fixes CI on an earlier mission's pull request (ADR 0015).
+      ALTER TABLE missions ADD COLUMN follow_up TEXT;
+    `,
+  },
+  {
+    version: 7,
+    sql: `
+      -- The model chosen for a mission (provider/model, ADR 0017); NULL uses the Settings choice per role tier.
+      ALTER TABLE missions ADD COLUMN model TEXT;
+    `,
+  },
+  {
+    version: 8,
+    sql: `
+      -- Who reported a finding (ADR 0023): an agent review, or ATLAS's own security scan.
+      ALTER TABLE findings ADD COLUMN source TEXT NOT NULL DEFAULT 'review';
+    `,
+  },
+  {
+    version: 9,
+    sql: `
+      -- Event lookups by type, task and attempt run in SQL instead of reading a whole mission's log.
+      CREATE INDEX events_type ON events(mission_id, type, seq);
+      CREATE INDEX events_task ON events(mission_id, task_id, seq);
+      CREATE INDEX events_attempt ON events(attempt_id, seq) WHERE attempt_id IS NOT NULL;
+    `,
+  },
 ];

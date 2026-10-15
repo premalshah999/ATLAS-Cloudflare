@@ -46,7 +46,8 @@ export class DeployManager {
     const tar = path.join(dir, '..', `${path.basename(dir)}.tar`);
     const a = await run({ command: 'git', args: ['-C', repoDir, '-c', 'core.hooksPath=/dev/null', 'archive', '--format=tar', '-o', tar, commit], cwd: repoDir, timeoutMs: 120_000 });
     if (a.exitCode !== 0) throw new AtlasError('deployment_fail', `git archive failed: ${a.output.slice(0, 300)}`);
-    const x = await run({ command: 'tar', args: ['-xf', tar, '-C', dir], cwd: dir, timeoutMs: 120_000 });
+    // Relative names only: GNU tar (Git for Windows) reads "C:\…" as host "C" (CI: "Cannot connect to C").
+    const x = await run({ command: 'tar', args: ['-xf', path.join('..', path.basename(tar))], cwd: dir, timeoutMs: 120_000 });
     rmSync(tar, { force: true });
     if (x.exitCode !== 0) throw new AtlasError('deployment_fail', `extract failed: ${x.output.slice(0, 300)}`);
   }

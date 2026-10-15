@@ -3,9 +3,9 @@
 import { app, BrowserWindow, dialog, ipcMain, session, shell, type IpcMainInvokeEvent } from 'electron';
 import { appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
-import { IPC, parseRequest, PROVIDER_ENV, type Envelope, type Method } from '@atlas/contracts';
+import { IPC, parseRequest, PROVIDER_ENV, SERVICE_ENV, type Envelope, type Method } from '@atlas/contracts';
 import { DaemonClient, type DaemonStatus } from './daemon';
-import { credentials, deploySecrets } from './credentials';
+import { credentials, deploySecrets, mcpSecrets, webKeys, webKeyValues } from './credentials';
 
 const isMac = process.platform === 'darwin';
 const devUrl = process.env.VITE_DEV_SERVER_URL;
@@ -14,6 +14,10 @@ const rendererIndex = path.join(__dirname, '..', 'dist', 'index.html');
 const EXTERNAL_ALLOW = [/^https:\/\/(www\.)?github\.com\//, /^https:\/\/pi\.dev\//, /^https:\/\/code\.claude\.com\//];
 
 if (process.env.ATLAS_USER_DATA) app.setPath('userData', process.env.ATLAS_USER_DATA);
+// One app per profile: a second instance focuses the first instead of starting a second daemon on the same data.
+const primary = app.requestSingleInstanceLock();
+if (!primary) app.quit();
+app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 const dataDir = () => path.join(app.getPath('userData'), 'data');
 const logFile = () => path.join(app.getPath('userData'), 'logs', 'main.log');
 function log(msg: string) {
@@ -46,14 +50,32 @@ function daemonEnv(): Record<string, string> {
   // Proxy/CA settings, forwarded by the sandbox only to commands granted network access.
   for (const k of ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE']) if (process.env[k]) env[k] = process.env[k]!;
   env.ATLAS_DATA_DIR = dataDir();
+  // Bundled, reviewed skills (ADR 0013): shipped as an extra resource; the repository's skills/ in development.
+  env.ATLAS_SKILLS_DIR = app.isPackaged ? path.join(process.resourcesPath, 'skills') : path.join(__dirname, '..', '..', '..', 'skills');
   env.ATLAS_VERSION = app.getVersion();
   env.PI_TELEMETRY = '0';
   if (process.env.ATLAS_MODEL) env.ATLAS_MODEL = process.env.ATLAS_MODEL;
-  for (const [provider, key] of Object.entries(credentials.keys())) env[PROVIDER_ENV[provider]] = key;
+  const keys = credentials.keys();
+  const providerKeys = Object.fromEntries(Object.entries(keys).filter(([p]) => PROVIDER_ENV[p]));
+  if (Object.keys(providerKeys).length) env.ATLAS_PROVIDER_KEYS = JSON.stringify(providerKeys);
+  for (const [service, name] of Object.entries(SERVICE_ENV)) if (keys[service]) env[name] = keys[service];
+  if (process.env.ATLAS_GITHUB_API) env.ATLAS_GITHUB_API = process.env.ATLAS_GITHUB_API;
+  if (process.env.ATLAS_WEB_TEST_BASE) env.ATLAS_WEB_TEST_BASE = process.env.ATLAS_WEB_TEST_BASE;
   const ds = deploySecrets.decrypted();
   if (Object.keys(ds).length) env.ATLAS_DEPLOY_SECRETS = JSON.stringify(ds);
+  // MCP secrets exported in the launching shell (for systems without a credential store); resolved by the daemon.
+  for (const [k, v] of Object.entries(process.env)) if (k.startsWith('ATLAS_MCP_SECRET_') && v) env[k] = v;
+  const ms = mcpSecrets.decrypted();
+  if (Object.keys(ms).length) env.ATLAS_MCP_SECRETS = JSON.stringify(ms);
+  // Search accounts (ADR 0030): stored keys, and keys exported in the launching shell.
+  const wk = webKeyValues();
+  if (Object.keys(wk).length) env.ATLAS_WEB_KEYS = JSON.stringify(wk);
+  for (const k of ['TAVILY_API_KEY', 'BRAVE_API_KEY', 'BRAVE_SEARCH_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_CSE_ID']) if (process.env[k]) env[k] = process.env[k]!;
   return env;
 }
+
+/** Hand the daemon every decrypted key and secret again after one changed. */
+const applySecrets = () => daemon.request('credentials.apply', { keys: credentials.keys(), deploySecrets: deploySecrets.decrypted(), mcpSecrets: mcpSecrets.decrypted(), webKeys: webKeyValues() });
 
 async function route(method: Method, params: any): Promise<unknown> {
   switch (method) {
@@ -98,20 +120,46 @@ async function route(method: Method, params: any): Promise<unknown> {
     case 'credentials.list': return { available: credentials.available(), providers: credentials.list() };
     case 'credentials.set':
       credentials.set(params.provider, params.key);
-      await daemon.request('credentials.apply', { keys: credentials.keys(), deploySecrets: deploySecrets.decrypted() });
+      await applySecrets();
       return { available: credentials.available(), providers: credentials.list() };
+    case 'mcp.secret.set':
+      mcpSecrets.set(params.server, params.name, params.value);
+      await applySecrets();
+      return daemon.request('mcp.list', {});
+    case 'mcp.secret.remove':
+      mcpSecrets.remove(params.server, params.name);
+      await applySecrets();
+      return daemon.request('mcp.list', {});
+    case 'mcp.remove': {
+      const out = await daemon.request('mcp.remove', params);
+      mcpSecrets.removeAll(params.name);
+      await applySecrets();
+      return out;
+    }
+    // Search account keys go to the OS credential store here; the daemon gets the account without its key.
+    case 'web.account.save': {
+      const { key, account } = params as { key?: string; account: { id: string } };
+      if (key) { webKeys.set(account.id, 'key', key); await applySecrets(); }
+      return daemon.request('web.account.save', { account });
+    }
+    case 'web.account.remove': {
+      const out = await daemon.request('web.account.remove', params);
+      webKeys.removeAll(params.id);
+      await applySecrets();
+      return out;
+    }
     case 'deploy.secrets.list': return deploySecrets.list();
     case 'deploy.secrets.set':
       deploySecrets.set(params.target, params.name, params.value);
-      await daemon.request('credentials.apply', { keys: credentials.keys(), deploySecrets: deploySecrets.decrypted() });
+      await applySecrets();
       return deploySecrets.list();
     case 'deploy.secrets.remove':
       deploySecrets.remove(params.target, params.name);
-      await daemon.request('credentials.apply', { keys: credentials.keys(), deploySecrets: deploySecrets.decrypted() });
+      await applySecrets();
       return deploySecrets.list();
     case 'credentials.remove':
       credentials.remove(params.provider);
-      await daemon.request('credentials.apply', { keys: credentials.keys() });
+      await applySecrets();
       return { available: credentials.available(), providers: credentials.list() };
     default:
       return daemon.request(method, params);
@@ -168,9 +216,19 @@ function createWindow() {
 
 // Process-wide sandbox. `--no-sandbox` is honored only for root CI containers; renderers keep sandbox: true regardless.
 if (!app.commandLine.hasSwitch('no-sandbox')) app.enableSandbox();
+// Manual §43: the window loads only bundled content, so it needs no proxy. Without this, Chromium on Windows probes
+// for a proxy auto-config file (WPAD, http://wpad/) as soon as it starts: an unexplained outbound request.
+app.commandLine.appendSwitch('no-proxy-server');
+
 app.whenReady().then(() => {
+  if (!primary) return;
   // Deny every permission request (camera, notifications, …) from web content.
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+  // Manual §43: no unexplained outbound traffic. Chromium otherwise downloads Hunspell dictionaries from Google.
+  session.defaultSession.setSpellCheckerEnabled(false);
+  if (process.platform !== 'darwin') {
+    try { session.defaultSession.setSpellCheckerDictionaryDownloadURL('http://127.0.0.1:9/'); session.defaultSession.setSpellCheckerLanguages([]); } catch { /* platform spellchecker */ }
+  }
   daemon = new DaemonClient(
     path.join(__dirname, 'daemon.mjs'),
     daemonEnv,
@@ -183,7 +241,7 @@ app.whenReady().then(() => {
   registerIpc();
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-});
+}).catch((e: Error) => { process.stderr.write(`ATLAS failed to start: ${e.stack ?? e.message}\n`); app.exit(1); });
 
 app.on('web-contents-created', (_e, contents) => {
   contents.on('will-attach-webview', (e) => e.preventDefault());

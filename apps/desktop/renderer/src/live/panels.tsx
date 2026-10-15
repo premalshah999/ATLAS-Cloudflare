@@ -2,11 +2,12 @@
 // the virtual desktop, the operator terminal and the budget meter. All data comes from the daemon.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AtlasEvent, Deployment, DesktopAction, DesktopSessionInfo, Finding, Task } from '@atlas/contracts';
-import { Badge, Button, cx, EmptyState, Icon, Input, Meter, RoleMark, Status, Tip } from '../ui/primitives';
-import { ICamera, ICheck, IComputer, IDeploy, IGlobe, IHand, IPause, IPlay, IReviews, IStop, ITerminal, IUndo, IWarn, IXCircle } from '../lib/icons';
+import { Badge, Button, cx, EmptyState, Icon, Input, Meter, RoleMark, Seg, Status, Tip } from '../ui/primitives';
+import { ICamera, ICheck, IComputer, IDeploy, IGlobe, IHand, IImage, IPause, IPlay, IReviews, IStop, ITerminal, IUndo, IWarn, IXCircle } from '../lib/icons';
 import { bridge, call, type MissionSnapshot } from './api';
 import { fmtMs, roleMark, roleName, stateWord } from './format';
 import { toast } from './toast';
+import { attachGate } from './termSync';
 
 const fail = (title: string) => (e: unknown) => toast({ tone: 'danger', title, body: (e as Error).message });
 const taskStatus = (s: string) => ({ done: 'done', running: 'running', reviewing: 'running', failed: 'failed', cancelled: 'idle', blocked: 'waiting' } as Record<string, string>)[s] ?? 'draft';
@@ -101,6 +102,7 @@ export function Findings({ snap, onLog }: { snap: MissionSnapshot; onLog: (artif
             <div className="at-row" style={{ gap: 8 }}>
               <Badge tone={SEV_TONE[f.severity]}>{f.severity}</Badge>
               <Badge tone={f.kind === 'confirmed' ? 'danger' : 'outline'}>{f.kind}</Badge>
+              {f.source === 'security' && <Badge tone="warning">security scan</Badge>}
               <span className="body-strong at-trunc" style={{ flex: 1 }}>{f.title}</span>
               <span className="at-mono at-subtle lv-small">{f.file}{f.line ? `:${f.line}${f.endLine && f.endLine !== f.line ? `–${f.endLine}` : ''}` : ''}</span>
             </div>
@@ -127,16 +129,94 @@ export function Findings({ snap, onLog }: { snap: MissionSnapshot; onLog: (artif
 
 // ---------------------------------------------------------------- screenshots
 
-export function Screenshot({ artifactId, alt }: { artifactId: string; alt: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+/** A PNG artifact as a data URL, or why it cannot be shown. */
+function useArtifactImage(artifactId: string | null): { src: string | null; err: string | null } {
+  const [state, setState] = useState<{ src: string | null; err: string | null }>({ src: null, err: null });
   useEffect(() => {
+    if (!artifactId) { setState({ src: null, err: null }); return; }
     let live = true;
-    void call('artifact.read', { artifactId }).then((r) => { if (!live) return; if (r.base64) setSrc(`data:image/png;base64,${r.base64}`); else setErr(r.intact ? 'Image too large to preview' : 'Artifact missing or altered'); }).catch((e) => live && setErr((e as Error).message));
+    setState({ src: null, err: null });
+    void call('artifact.read', { artifactId }).then((r) => { if (!live) return; setState(r.base64 ? { src: `data:image/png;base64,${r.base64}`, err: null } : { src: null, err: r.intact ? 'Image too large to preview' : 'Artifact missing or altered' }); }).catch((e) => live && setState({ src: null, err: (e as Error).message }));
     return () => { live = false; };
   }, [artifactId]);
+  return state;
+}
+
+export function Screenshot({ artifactId, alt }: { artifactId: string; alt: string }) {
+  const { src, err } = useArtifactImage(artifactId);
   if (err) return <div className="lv-shot lv-shot--err at-subtle lv-small">{err}</div>;
   return src ? <img className="lv-shot" src={src} alt={alt} /> : <div className="lv-shot at-subtle lv-small">Loading…</div>;
+}
+
+// ---------------------------------------------------------------- visual proof (ADR 0027)
+
+type VisualRow = { name: string; path: string; result: 'changed' | 'unchanged' | 'new' | 'broken' | 'missing'; percent: number | null; before: string | null; after: string | null; diff: string | null; note: string | null };
+type VisualView = 'compare' | 'diff' | 'before' | 'after';
+
+/** Before over after, split where the operator drags: the same page at the mission's base and at its result. */
+function CompareSlider({ before, after, name }: { before: string; after: string; name: string }) {
+  const b = useArtifactImage(before), a = useArtifactImage(after);
+  const [at, setAt] = useState(50);
+  if (b.err || a.err) return <div className="lv-shot lv-shot--err at-subtle lv-small">{b.err ?? a.err}</div>;
+  if (!b.src || !a.src) return <div className="lv-shot at-subtle lv-small">Loading…</div>;
+  return (
+    <div className="lv-compare" data-testid="visual-compare">
+      <div className="lv-compare__stage">
+        <img className="lv-shot" src={a.src} alt={`${name} after`} />
+        <img className="lv-compare__before" src={b.src} alt={`${name} before`} style={{ clipPath: `inset(0 ${100 - at}% 0 0)` }} />
+        <div className="lv-compare__line" style={{ left: `${at}%` }} />
+      </div>
+      <div className="lv-compare__bar lv-small at-subtle">
+        <span>Before</span>
+        <input type="range" min={0} max={100} value={at} aria-label="Before and after split" onChange={(e) => setAt(Number(e.target.value))} />
+        <span>After</span>
+      </div>
+    </div>
+  );
+}
+
+function VisualPage({ row }: { row: VisualRow }) {
+  const both = !!(row.before && row.after);
+  const [view, setView] = useState<VisualView>(row.diff ? 'diff' : both ? 'compare' : 'after');
+  const shown = view === 'before' ? row.before : view === 'after' ? row.after : view === 'diff' ? row.diff : null;
+  const tone = row.result === 'changed' ? 'accent' : row.result === 'broken' || row.result === 'missing' ? 'danger' : row.result === 'new' ? 'success' : 'outline';
+  const label = row.result === 'changed' ? `${row.percent! >= 0.1 ? row.percent!.toFixed(1) : row.percent!.toFixed(2)}% changed` : row.result === 'unchanged' ? 'No visual change' : row.result === 'new' ? 'New page' : row.result === 'broken' ? 'Stopped rendering' : 'Not rendered';
+  const items: { id: VisualView; label: string }[] = [
+    ...(both ? [{ id: 'compare' as const, label: 'Compare' }] : []),
+    ...(row.diff ? [{ id: 'diff' as const, label: 'Diff' }] : []),
+    ...(row.before ? [{ id: 'before' as const, label: 'Before' }] : []),
+    ...(row.after ? [{ id: 'after' as const, label: 'After' }] : []),
+  ];
+  return (
+    <div className="lv-visual" data-testid="visual-page" data-result={row.result}>
+      <div className="lv-visual__head">
+        <span className="body-strong">{row.name}</span>
+        {row.name !== row.path && <span className="at-mono at-subtle lv-small">{row.path}</span>}
+        <Badge tone={tone}>{label}</Badge>
+        <span style={{ flex: 1 }} />
+        {items.length > 1 && <Seg items={items} value={view} onChange={setView} />}
+      </div>
+      {row.note && <p className="at-muted lv-small" style={{ margin: '4px 0 8px' }}>{row.note}</p>}
+      {view === 'compare' && both ? <CompareSlider before={row.before!} after={row.after!} name={row.name} /> : shown ? <Screenshot artifactId={shown} alt={`${row.name} ${view}`} /> : null}
+      {view === 'diff' && <p className="at-subtle lv-small" style={{ marginTop: 6 }}>Red marks every pixel that differs; the rest of the result is shown faded.</p>}
+    </div>
+  );
+}
+
+export function VisualPanel({ snap, events }: { snap: MissionSnapshot; events: AtlasEvent[] }) {
+  const check = snap.checks.filter((c) => c.name === 'visual').at(-1);
+  // The latest run per page (a re-verification renders the pages again).
+  const rows = [...new Map(events.filter((e) => e.type === 'visual.page').map((e) => [String(e.payload.path), e.payload as unknown as VisualRow])).values()];
+  if (!rows.length) return <EmptyState center icon={IImage} title="No visual comparison" body="When a project has an app section in atlas.config.json, ATLAS renders its pages at the mission's starting point and at the result, and shows what changed on screen." />;
+  return (
+    <div className="lv-scroll" data-testid="visual">
+      <div className="lv-evid">
+        <div className="at-label">What changed on screen</div>
+        {check && <p className="at-muted" style={{ margin: '6px 0 16px' }} data-testid="visual-summary">{check.reason}</p>}
+        {rows.map((r) => <VisualPage key={r.path} row={r} />)}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- browser QA
@@ -234,7 +314,12 @@ export function DesktopPanel({ snap, events }: { snap: MissionSnapshot; events: 
     if (!live) { setFrame(null); return; }
     let stop = false;
     const tick = async () => {
-      try { const f = await call('desktop.frame', { sessionId: live.id }); if (!stop) { setFrame(`data:image/png;base64,${f.png}`); setSessions((s) => s.map((x) => (x.id === f.info.id ? f.info : x))); } } catch { /* session ended */ }
+      try { const f = await call('desktop.frame', { sessionId: live.id }); if (!stop) { setFrame(`data:image/png;base64,${f.png}`); setSessions((s) => s.map((x) => (x.id === f.info.id ? f.info : x))); } }
+      catch {
+        // The session ended: stop asking for its frames and drop it, instead of polling a session that is gone.
+        if (!stop) { stop = true; setSessions((s) => s.filter((x) => x.id !== live.id)); }
+        return;
+      }
       if (!stop) window.setTimeout(() => void tick(), 1000);
     };
     void tick();
@@ -291,40 +376,81 @@ export function TerminalPanel({ snap }: { snap: MissionSnapshot }) {
   const [target, setTarget] = useState<string>(snap.mission.integrationCommit ? 'integration' : snap.tasks.find((t) => t.worktree)?.id ?? '');
   const [session, setSession] = useState<{ sessionId: string; writable: boolean; worktree: string } | null>(null);
   const [ended, setEnded] = useState<number | null | undefined>(undefined);
-  const term = useRef<{ dispose(): void; write(s: string): void } | null>(null);
+  /** Detach from the view only: the shell keeps running in the daemon (P1-5). */
+  const detach = useRef<(() => void) | null>(null);
+  const resize = useRef<(() => void) | null>(null);
+  /** Bumped by every attach/open and by unmount: a slower, older attempt disposes itself instead of leaking. */
+  const gen = useRef(0);
+  /** Until the session list is known, offering "Open terminal" would start a second shell beside a running one. */
+  const [listed, setListed] = useState(false);
   const targets = [...(snap.mission.integrationCommit ? [{ id: 'integration', label: 'Integration branch' }] : []), ...snap.tasks.filter((t) => t.worktree).map((t) => ({ id: t.id, label: `${t.key} · ${t.title}` }))];
 
-  const open = async () => {
-    if (!host.current || !target) return;
+  const mountXterm = async () => {
     const [{ Terminal }, { FitAddon }] = await Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit')]);
     await import('@xterm/xterm/css/xterm.css');
-    term.current?.dispose();
+    detach.current?.();
     const t = new Terminal({ fontFamily: 'DejaVu Sans Mono, monospace', fontSize: 12.5, theme: { background: '#0e0f12' }, cursorBlink: true });
     const fit = new FitAddon();
     t.loadAddon(fit);
-    t.open(host.current);
+    t.open(host.current!);
     fit.fit();
-    try {
-      const s = await call('terminal.open', { missionId: snap.mission.id, target, cols: Math.max(20, t.cols), rows: Math.max(5, t.rows) });
-      term.current = t;
-      t.onData((d) => void call('terminal.input', { sessionId: s.sessionId, data: d }).catch(() => {}));
-      setSession(s); setEnded(undefined);
-      t.focus();
-    } catch (e) { t.dispose(); fail('Terminal not opened')(e); }
+    return { t, fit };
   };
+
+  const attach = async (sessionId: string, x?: Awaited<ReturnType<typeof mountXterm>>, my = ++gen.current) => {
+    if (!host.current || !bridge) { x?.t.dispose(); return; }
+    const { t, fit } = x ?? await mountXterm();
+    if (my !== gen.current) { t.dispose(); return; }
+    const gate = attachGate((d) => t.write(d), (code) => setEnded(code));
+    // Subscribe before the snapshot, so nothing emitted in between is lost.
+    const off = bridge.onTerminal((m) => { if (m.sessionId === sessionId) gate.push(m); });
+    try {
+      const a = await call('terminal.attach', { sessionId });
+      if (my !== gen.current) { off(); t.dispose(); return; }
+      gate.snapshot(a.snapshot, a.seq);
+      setSession({ sessionId, writable: a.writable, worktree: a.worktree });
+      setTarget(a.target);
+      setEnded(undefined);
+    } catch (e) { off(); t.dispose(); fail('Terminal not attached')(e); return; }
+    const input = t.onData((d) => void call('terminal.input', { sessionId, data: d }).catch(() => {}));
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    resize.current = () => {
+      fit.fit();
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(() => void call('terminal.resize', { sessionId, cols: Math.max(20, t.cols), rows: Math.max(5, t.rows) }).catch(() => {}), 120);
+    };
+    resize.current();
+    detach.current = () => { off(); input.dispose(); if (pending) clearTimeout(pending); resize.current = null; t.dispose(); detach.current = null; };
+    t.focus();
+  };
+
+  const open = async () => {
+    if (!host.current || !target) return;
+    const my = ++gen.current;
+    const x = await mountXterm();
+    if (my !== gen.current) { x.t.dispose(); return; }
+    try {
+      const s = await call('terminal.open', { missionId: snap.mission.id, target, cols: Math.max(20, x.t.cols), rows: Math.max(5, x.t.rows) });
+      await attach(s.sessionId, x, my);
+    } catch (e) { x.t.dispose(); fail('Terminal not opened')(e); }
+  };
+
+  // Mounting again (another tab, a reload): re-attach to the mission's open session instead of starting a new one.
   useEffect(() => {
-    if (!session || !bridge) return;
-    return bridge.onTerminal((m) => {
-      if (m.sessionId !== session.sessionId) return;
-      if (m.data) term.current?.write(m.data);
-      if (m.exit !== undefined) setEnded(m.exit);
-    });
-  }, [session?.sessionId]);
+    let cancelled = false;
+    setListed(false);
+    void call('terminal.list', { missionId: snap.mission.id })
+      .then((list) => { if (cancelled) return; setListed(true); const s = list.at(-1); if (s) void attach(s.sessionId); })
+      .catch(() => { if (!cancelled) setListed(true); });
+    return () => { cancelled = true; gen.current++; detach.current?.(); };
+  }, [snap.mission.id]);
+  const hasTargets = targets.length > 0;
   useEffect(() => {
-    if (!session) return;
-    const t = term.current;
-    return () => { void call('terminal.close', { sessionId: session.sessionId }).catch(() => {}); t?.dispose(); };
-  }, [session?.sessionId]);
+    if (!host.current) return;
+    const ro = new ResizeObserver(() => resize.current?.());
+    ro.observe(host.current);
+    return () => ro.disconnect();
+  }, [hasTargets]);
 
   if (!targets.length) return <EmptyState center icon={ITerminal} title="No worktree to open" body="A terminal opens inside a task worktree or the integration branch, in the same sandbox as agent commands." />;
   return (
@@ -333,10 +459,10 @@ export function TerminalPanel({ snap }: { snap: MissionSnapshot }) {
         <select className="lv-native-select" value={target} onChange={(e) => setTarget(e.target.value)} disabled={!!session && ended === undefined}>
           {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
-        {(!session || ended !== undefined) && <Button size="sm" variant="primary" icon={ITerminal} onClick={() => void open()} data-testid="open-terminal">Open terminal</Button>}
-        {session && ended === undefined && <Button size="sm" variant="ghost" onClick={() => void call('terminal.close', { sessionId: session.sessionId }).then(() => setEnded(null))}>Close</Button>}
+        {listed && (!session || ended !== undefined) && <Button size="sm" variant="primary" icon={ITerminal} onClick={() => void open()} data-testid="open-terminal">Open terminal</Button>}
+        {session && ended === undefined && <Button size="sm" variant="ghost" onClick={() => void call('terminal.close', { sessionId: session.sessionId }).then(() => setEnded(null))} data-testid="close-terminal">Close</Button>}
         {session && <span className="at-subtle lv-small at-trunc">{session.writable ? 'writable' : 'read-only: an agent holds this worktree'} · sandboxed · <span className="at-mono">{session.worktree}</span>{ended !== undefined ? ` · exited${ended === null ? '' : ` ${ended}`}` : ''}</span>}
-        <Tip label="Your keystrokes go to a PTY inside the OS sandbox. Opening and closing it is recorded in the mission log."><span><Badge tone="human">operator</Badge></span></Tip>
+        <Tip label="Your keystrokes go to a PTY inside the OS sandbox. The shell keeps running when you switch views; Close ends it. Opening and closing it is recorded in the mission log."><span><Badge tone="human">operator</Badge></span></Tip>
       </div>
       <div className="lv-term" ref={host} />
     </div>

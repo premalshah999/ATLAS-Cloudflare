@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AtlasEvent } from '@atlas/contracts';
 import { call, type MissionSnapshot } from './api';
 import { onEvent, useLive } from './store';
+import { fetchAllSince, mergeInOrder } from './eventSync';
 
 export function useMission(missionId: string) {
   const [snap, setSnap] = useState<MissionSnapshot | null>(null);
@@ -22,18 +23,15 @@ export function useMission(missionId: string) {
   // Merge strictly by sequence: concurrent catch-ups and live pushes may overlap, but each seq is kept once.
   const merge = useCallback((incoming: AtlasEvent[]) => {
     setEvents((prev) => {
-      const last = prev.length ? prev[prev.length - 1].seq : 0;
-      const fresh = incoming.filter((e) => e.seq > last).sort((a, b) => a.seq - b.seq);
-      const out = prev.slice();
-      for (const e of fresh) if (e.seq === (out.length ? out[out.length - 1].seq : 0) + 1) out.push(e);
+      const out = mergeInOrder(prev, incoming);
       lastSeq.current = out.length ? out[out.length - 1].seq : 0;
-      return out.length === prev.length ? prev : out;
+      return out;
     });
   }, []);
 
-  // Catch up from the last sequence we saw: no gaps, no duplicates.
+  // Catch up from the last sequence we saw, page by page until the log is exhausted: no gaps, no duplicates.
   const catchUp = useCallback(async () => {
-    const more = await call('events.since', { missionId, afterSeq: lastSeq.current });
+    const more = await fetchAllSince((after) => call('events.since', { missionId, afterSeq: after }), lastSeq.current);
     if (more.length) merge(more);
   }, [missionId, merge]);
 

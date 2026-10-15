@@ -49,3 +49,26 @@ test('undeclared, malformed and unknown-target requests are denied', async () =>
     expect(results.ok).toBe('allowed');
   } finally { await app.close(); }
 });
+
+test('network audit: the idle app makes no outbound requests (manual §43)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const path = await import('node:path');
+  const { tmpDir } = await import('../helpers');
+  const log = path.join(tmpDir('atlas-netlog-'), 'netlog.json');
+  const { app, page } = await launch({ args: [`--log-net-log=${log}`, '--net-log-capture-mode=Default'] });
+  try {
+    // Visit every top-level screen, then sit idle.
+    await page.keyboard.press('Control+,');
+    await expect(page.getByTestId('settings')).toBeVisible();
+    await expect(page.getByTestId('roles')).toContainText('Coder');
+    await page.keyboard.press('Control+1');
+    await page.waitForTimeout(10_000);
+  } finally { await app.close(); }
+  const text = readFileSync(log, 'utf8');
+  expect(text.length).toBeGreaterThan(100); // the log was actually written
+  const urls = [...text.matchAll(/"url":"([^"]+)"/g)].map((m) => m[1]);
+  const hosts = [...text.matchAll(/"host":"([^"]+)"/g)].map((m) => m[1]);
+  const local = (u: string) => /^(file|devtools|chrome|chrome-extension|data|blob|about):/.test(u) || /^(https?|wss?):\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\//.test(u);
+  expect(urls.filter((u) => !local(u))).toEqual([]);
+  expect(hosts.filter((h) => !/^(localhost|127\.0\.0\.1|\[?::1\]?)(:\d+)?$/.test(h))).toEqual([]);
+});

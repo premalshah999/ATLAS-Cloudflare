@@ -10,6 +10,7 @@ import { Projects } from './projects';
 import { NewMission } from './newMission';
 import { MissionView } from './mission';
 import { Settings } from './settings';
+import { TeamScreen } from './team';
 import { bridge } from './api';
 import { LivePalette, togglePalette } from './palette';
 import { useAttentionTitle } from './attention';
@@ -23,6 +24,7 @@ function Keys() {
       if (k === 'k') { e.preventDefault(); togglePalette(); return; }
       if (k === 'o') { e.preventDefault(); void openRepository(); }
       else if (k === '1') { e.preventDefault(); go({ screen: 'projects' }); }
+      else if (k === '2') { e.preventDefault(); go({ screen: 'team' }); }
       else if (k === 'n') { e.preventDefault(); go({ screen: 'new' }); }
       else if (k === ',') { e.preventDefault(); go({ screen: 'settings' }); }
     };
@@ -64,7 +66,8 @@ export function LiveApp() {
         <div className="at-body">
           <main className="at-canvas">
             {route.screen === 'projects' && <Projects />}
-            {route.screen === 'new' && <NewMission workspaceId={route.workspaceId} />}
+            {route.screen === 'new' && <NewMission key={route.item?.id ?? 'new'} workspaceId={route.workspaceId} item={route.item} />}
+            {route.screen === 'team' && <TeamScreen workspaceId={route.workspaceId} />}
             {route.screen === 'mission' && <MissionView missionId={route.missionId} />}
             {route.screen === 'settings' && <Settings />}
           </main>

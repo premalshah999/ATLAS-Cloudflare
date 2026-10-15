@@ -1,6 +1,8 @@
 // `pnpm doctor` (manual §46): checks local requirements without printing secrets.
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const checks = [];
 const add = (ok, name, detail) => checks.push({ ok, name, detail });
@@ -13,6 +15,23 @@ try { await import('node:sqlite'); sqlite = true; } catch {}
 add(sqlite, 'node:sqlite available', sqlite ? 'yes' : 'upgrade Node');
 const git = ver('git', ['--version']);
 add(!!git, 'git', git ?? 'not found — required for worktrees');
+if (git) {
+  // ADR 0031, same rule as gitHardening() in packages/workspace/src/pinned.ts: git ≥ 2.40 that honours GIT_ATTR_SOURCE
+  // in a probe ignores in-tree .gitattributes for ATLAS's own git calls; otherwise drivers are disabled by name.
+  const [maj, min] = (/(\d+)\.(\d+)/.exec(git) ?? [0, '0', '0']).slice(1).map(Number);
+  let honoured = false;
+  if (maj > 2 || (maj === 2 && min >= 40)) {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'atlas-doctor-'));
+    try {
+      const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
+      execFileSync('git', ['init', '-q'], { cwd: dir, env, stdio: 'ignore' });
+      writeFileSync(path.join(dir, '.gitattributes'), '* atlas-attr-probe\n');
+      const check = (extra) => execFileSync('git', ['check-attr', 'atlas-attr-probe', '--', 'probe.txt'], { cwd: dir, env: { ...env, ...extra }, encoding: 'utf8' }).trim();
+      honoured = check({}).endsWith(': set') && check({ GIT_ATTR_SOURCE: '4b825dc642cb6eb9a060e54bf8d69288fbee4904' }).endsWith(': unspecified');
+    } catch { honoured = false; } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+  add(true, 'Git metadata hardening', honoured ? 'in-tree .gitattributes ignored for ATLAS git calls (GIT_ATTR_SOURCE)' : 'fallback: every filter and diff driver disabled by name (git before 2.40 or GIT_ATTR_SOURCE not honoured)');
+}
 const pnpm = ver('pnpm', ['--version']);
 add(!!pnpm, 'pnpm', pnpm ?? 'not found — run `corepack enable`');
 add(existsSync('node_modules/electron/dist'), 'Electron binary', existsSync('node_modules/electron/dist') ? 'installed' : 'downloaded on first launch, or now with `npx install-electron`');

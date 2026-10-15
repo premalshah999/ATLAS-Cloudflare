@@ -3,13 +3,16 @@
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { chromium } from 'playwright-core';
+import { createRequire } from 'node:module';
+
+/** playwright-core is loaded only when a browser is actually looked up (evolution P2-1: ~36 MB resident). */
+const playwrightChromium = (): { executablePath(): string } => createRequire(import.meta.url)('playwright-core').chromium;
 
 export function resolveBrowser(): { path: string | null; detail: string } {
   const candidates: [string | undefined, string][] = [
     [process.env.ATLAS_CHROMIUM_PATH, 'ATLAS_CHROMIUM_PATH'],
   ];
-  try { candidates.push([chromium.executablePath(), 'Playwright Chromium']); } catch { /* not installed */ }
+  try { candidates.push([playwrightChromium().executablePath(), 'Playwright Chromium']); } catch { /* not installed */ }
   if (process.env.PLAYWRIGHT_BROWSERS_PATH) candidates.push([path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium'), 'PLAYWRIGHT_BROWSERS_PATH']);
   const sys = process.platform === 'darwin'
     ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', path.join(os.homedir(), 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome')]

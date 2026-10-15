@@ -2,10 +2,10 @@
 import React from 'react';
 import type { IconType } from 'react-icons';
 import { cx, Dot, Icon, Kbd, Menu, MenuItem, Tip } from '../ui/primitives';
-import { IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IMissions, IPlus, ISettings, IPalette, ISearch, IShield } from '../lib/icons';
+import { IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IMissions, IPlus, ISettings, IPalette, ISearch, IShield, IUsers } from '../lib/icons';
 import { call } from './api';
 import { go, refreshLists, useLive, type Route } from './store';
-import { stateWord } from './format';
+import { missionStatus } from './format';
 import { toast } from './toast';
 import { togglePalette } from './palette';
 
@@ -27,6 +27,7 @@ export async function openRepository(): Promise<string | null> {
 const NAV: { id: Route['screen']; label: string; icon: IconType; kbd?: string }[] = [
   { id: 'projects', label: 'Projects', icon: IHome, kbd: '⌘ 1' },
   { id: 'new', label: 'New mission', icon: IPlus, kbd: '⌘ N' },
+  { id: 'team', label: 'Team', icon: IUsers, kbd: '⌘ 2' },
 ];
 
 export function LiveTitleBar() {
@@ -58,9 +59,9 @@ export function LiveTitleBar() {
         <>
           <span className="at-sep-v" />
           <button type="button" className="at-tb-mission" onClick={() => go({ screen: 'mission', missionId: current.id })}>
-            <Dot s={dotFor(current.state)} />
+            <Dot s={missionStatus(current).dot} />
             <span className="at-trunc">{current.title}</span>
-            <span className="at-subtle">{stateWord(current.state)}</span>
+            <span className="at-subtle">{missionStatus(current).word}</span>
           </button>
         </>
       )}
@@ -87,7 +88,7 @@ function NeedsYouChip() {
   );
 }
 
-export const dotFor = (s: string) => ({ running: 'running', verifying: 'running', planning: 'running', awaiting_approval: 'waiting', completed: 'done', failed: 'failed', cancelled: 'idle', draft: 'idle' } as Record<string, string>)[s] ?? 'idle';
+export const dotFor = (m: { state: string; verdict?: string | null }) => missionStatus(m).dot;
 
 export function LiveRail() {
   const route = useLive((s) => s.route);

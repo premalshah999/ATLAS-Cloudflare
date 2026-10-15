@@ -1,6 +1,7 @@
 // AgentRuntime contract (manual §9). Adapters convert this into SDK calls; SDK objects never leak out.
 import type { AgentRole, RuntimeKind } from './domain';
 import type { ToolResult } from './capabilities';
+import type { ModelInfo } from './providers';
 
 export interface ToolSpec {
   name: string;
@@ -30,6 +31,14 @@ export interface AgentInput {
   budget: { maxToolCalls: number; maxTokens: number; wallClockMs: number };
   tools: ToolInvoker;
   signal: AbortSignal;
+  /**
+   * Continue the conversation of an attempt lost to a daemon restart (evolution R2: durable sessions). Set only when
+   * `canResume` said yes; the worktree then starts from a snapshot of that attempt's files, so the model's memory of
+   * its edits matches what it finds. A runtime that cannot honour it starts a fresh conversation with `prompt`.
+   */
+  resume?: { attemptId: string; prompt: string };
+  /** provider/model chosen by ATLAS for this attempt (ADR 0017). Absent: the runtime's default. */
+  model?: string;
 }
 
 export type AgentEvent =
@@ -38,11 +47,15 @@ export type AgentEvent =
   | { type: 'tool_result'; callId: string; tool: string; ok: boolean; summary: string }
   | { type: 'usage'; inputTokens: number; outputTokens: number }
   | { type: 'completed'; summary: string }
+  /** The runtime summarized earlier conversation to free context (ADR 0024). Token counts are the runtime's estimates. */
+  | { type: 'context'; phase: 'compacting' | 'compacted' | 'failed'; reason: string; tokensBefore?: number; tokensAfter?: number; detail?: string }
   | { type: 'error'; kind: 'model_auth' | 'model_rate_limit' | 'model_unavailable' | 'budget_exceeded' | 'cancelled' | 'internal'; message: string };
 
 export interface AgentHandle {
   id: string;
   runtime: RuntimeKind;
+  /** True when the run continues an earlier attempt's conversation (`AgentInput.resume`). */
+  resumed?: boolean;
 }
 
 export interface RuntimeHealth {
@@ -68,6 +81,8 @@ export interface PlanRequest {
   maxTasks: number;
   /** Issues from a previous attempt, for one repair round. */
   previousIssues?: string[];
+  /** provider/model for the planner (ADR 0017). Absent: the runtime's default. */
+  model?: string;
   signal: AbortSignal;
 }
 
@@ -83,4 +98,22 @@ export interface AgentRuntime {
   interrupt(handle: AgentHandle): Promise<void>;
   resume(handle: AgentHandle, checkpoint: string): Promise<void>;
   dispose(handle: AgentHandle): Promise<void>;
+  /** Whether a conversation saved for this attempt survives and can be continued. Optional: absent means never. */
+  canResume?(attemptId: string): boolean;
+  /** Delete whatever the runtime saved for this attempt. Called once an attempt has ended or been resumed. */
+  discard?(attemptId: string): void;
+  /** Models this runtime can use now (a key is configured for the provider). Optional. */
+  models?(): Promise<ModelInfo[]>;
+}
+
+/**
+ * Durable record of processes ATLAS started (evolution P0-4). A crashed daemon cannot clean up after itself,
+ * so the next start reaps every journaled process whose OS identity (pid + start time) still matches.
+ */
+export interface ProcessJournalEntry { pid: number; identity: string; kind: string; command: string; startedAt: string }
+export interface ProcessJournal {
+  add(e: ProcessJournalEntry): void;
+  remove(pid: number, identity: string): void;
+  list(): ProcessJournalEntry[];
+  clear(): void;
 }

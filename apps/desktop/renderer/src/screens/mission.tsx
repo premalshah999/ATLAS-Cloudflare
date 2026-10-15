@@ -163,7 +163,7 @@ export function RecoveryDialog() {
       <div className="at-scrim" data-closing={closing} onMouseDown={close} />
       <div className="at-dialog at-recovery" data-closing={closing} role="dialog" aria-labelledby="rec-title">
         <div className="at-dialog-head">
-          <span className="at-apd-icon" style={{ color: 'var(--danger)', background: 'var(--danger-wash)', boxShadow: 'inset 0 0 0 1px rgba(240,120,106,0.35)' }}><Icon as={IXCircle} /></span>
+          <span className="at-apd-icon" style={{ color: 'var(--danger)', background: 'var(--danger-wash)', boxShadow: 'inset 0 0 0 1px rgba(208, 138, 127,0.35)' }}><Icon as={IXCircle} /></span>
           <div className="at-col" style={{ gap: 2, flex: 1 }}>
             <div id="rec-title" className="heading">T12 failed: logout clears session</div>
             <div className="at-subtle" style={{ fontSize: 12 }}>QA Engineer · 09:56:12 · failed 3 of 3 runs · other 11 tests pass</div>

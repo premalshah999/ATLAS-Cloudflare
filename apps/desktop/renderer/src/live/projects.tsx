@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Dot, EmptyState, Icon } from '../ui/primitives';
-import { IFolderOpen, IPlus, IRepo, IBranch, IHistory, IDoc } from '../lib/icons';
-import { call } from './api';
+import { Badge, Button, Dot, EmptyState, Icon, Input } from '../ui/primitives';
+import { IFolderOpen, IPlus, IRepo, IBranch, IHistory, IDoc, IShield } from '../lib/icons';
+import { call, type AcceptanceView } from './api';
 import { toast } from './toast';
 import { refreshLists } from './store';
 import { go, useLive } from './store';
 import { openRepository, dotFor } from './shell';
-import { ago, stateWord } from './format';
+import { ago, missionStatus } from './format';
 
 export function Projects() {
   const workspaces = useLive((s) => s.workspaces);
@@ -43,15 +43,16 @@ export function Projects() {
                     {w.isGit ? <span className="at-row" style={{ gap: 6 }}><Icon as={IBranch} size="sm" className="at-subtle" /><span className="at-mono">{w.branch}</span><span className="at-mono at-subtle">{w.head?.slice(0, 7)}</span>{w.dirty ? <Badge tone="warning">{w.dirty} uncommitted</Badge> : <Badge tone="outline">clean</Badge>}</span> : <Badge tone="warning">not a git repository</Badge>}
                   </div>
                   <Facts workspaceId={w.id} />
+                  <Acceptance workspaceId={w.id} />
                   <div className="at-label" style={{ margin: '14px 0 6px' }}>Missions</div>
                   {ms.length === 0 ? <div className="at-subtle lv-small">No missions yet.</div> : (
                     <ul className="lv-list">
                       {ms.slice(0, 6).map((m) => (
                         <li key={m.id}>
                           <button type="button" className="lv-row" onClick={() => go({ screen: 'mission', missionId: m.id })}>
-                            <Dot s={dotFor(m.state)} />
+                            <Dot s={dotFor(m)} />
                             <span className="at-trunc" style={{ fontWeight: 500 }}>{m.title}</span>
-                            <span className="at-subtle lv-small">{stateWord(m.state)}{m.outcome ? ` · ${m.outcome.split(':')[0]}` : ''}</span>
+                            <span className="at-subtle lv-small" data-testid="mission-status">{missionStatus(m).word}</span>
                             <span style={{ flex: 1 }} />
                             <span className="at-subtle lv-small">{ago(m.updatedAt)}</span>
                           </button>
@@ -67,7 +68,7 @@ export function Projects() {
         {archived.length > 0 && (
           <section className="lv-card" style={{ margin: '0 24px 24px' }} data-testid="archives">
             <div className="lv-card-head"><Icon as={IHistory} className="at-subtle" /><span className="heading">Imported audit logs</span></div>
-            <ul className="lv-list">{archived.map((m) => <li key={m.id}><button type="button" className="lv-row" onClick={() => go({ screen: 'mission', missionId: m.id })}><Dot s={dotFor(m.state)} /><span className="at-trunc" style={{ fontWeight: 500 }}>{m.title}</span><span className="at-subtle lv-small">{stateWord(m.state)} · read-only</span></button></li>)}</ul>
+            <ul className="lv-list">{archived.map((m) => <li key={m.id}><button type="button" className="lv-row" onClick={() => go({ screen: 'mission', missionId: m.id })}><Dot s={dotFor(m)} /><span className="at-trunc" style={{ fontWeight: 500 }}>{m.title}</span><span className="at-subtle lv-small">{missionStatus(m).word} · read-only</span></button></li>)}</ul>
           </section>
         )}
       </div>
@@ -90,6 +91,50 @@ function Facts({ workspaceId }: { workspaceId: string }) {
           <div className="at-row" style={{ gap: 6, marginTop: 6 }}>
             <Button size="sm" disabled={text === saved} onClick={() => void call('workspace.facts.set', { workspaceId, text }).then((r) => { setSaved(r.text); toast({ tone: 'info', title: 'Project facts saved', body: 'New agent attempts include them in their context.' }); }).catch((e) => toast({ tone: 'danger', title: 'Not saved', body: (e as Error).message }))}>Save facts</Button>
             <span className="at-subtle lv-small">Shown to agents as operator-provided context, with its hash recorded.</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Holdout acceptance tests: kept by ATLAS outside the repository and never shown to agents; they run at the gate on
+ * the integrated code and must pass for "Verified". The tests import the project from `../` (they run inside
+ * `.atlas-acceptance/` in the integration worktree).
+ */
+function Acceptance({ workspaceId }: { workspaceId: string }) {
+  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [suite, setSuite] = useState<AcceptanceView | null>(null);
+  const [file, setFile] = useState('acceptance.test.js');
+  const [code, setCode] = useState('');
+  const [cmd, setCmd] = useState('node --test .atlas-acceptance/acceptance.test.js');
+  const load = (s: AcceptanceView | null) => {
+    setSuite(s); setLoaded(true);
+    if (s) { const [f, c] = Object.entries(s.files)[0] ?? ['acceptance.test.js', '']; setFile(f); setCode(c); setCmd([s.command, ...s.args].join(' ')); }
+  };
+  useEffect(() => { if (open && !loaded) void call('workspace.acceptance.get', { workspaceId }).then(load).catch(() => setLoaded(true)); }, [open]);
+  const save = () => {
+    const [command, ...args] = cmd.trim().split(/\s+/);
+    void call('workspace.acceptance.set', { workspaceId, command, args, files: { [file]: code } })
+      .then((s) => { load(s); toast({ tone: 'info', title: 'Acceptance tests saved', body: 'They run at the gate of every new or re-verified mission. Agents never see them.' }); })
+      .catch((e) => toast({ tone: 'danger', title: 'Not saved', body: (e as Error).message }));
+  };
+  return (
+    <div style={{ marginTop: 6 }}>
+      <button type="button" className="lv-link" onClick={() => setOpen(!open)} data-testid="acceptance-toggle"><Icon as={IShield} size="sm" /> Holdout acceptance tests{suite ? ` · ${suite.hash.slice(0, 12)}` : ''}</button>
+      {open && loaded && (
+        <div style={{ marginTop: 6 }}>
+          <div className="at-row" style={{ gap: 6 }}>
+            <Input value={file} onChange={(e) => setFile(e.target.value)} aria-label="File name" style={{ maxWidth: 220 }} />
+            <Input value={cmd} onChange={(e) => setCmd(e.target.value)} aria-label="Command" />
+          </div>
+          <textarea className="lv-textarea at-mono" rows={8} value={code} onChange={(e) => setCode(e.target.value)} placeholder={"import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { slugify } from '../src/slugify.js';\n\ntest('requirement', () => assert.equal(slugify('Fish & Chips'), 'fish-chips'));"} data-testid="acceptance-code" style={{ marginTop: 6 }} />
+          <div className="at-row" style={{ gap: 6, marginTop: 6 }}>
+            <Button size="sm" disabled={!code.trim() || !file.trim()} onClick={save} data-testid="acceptance-save">Save acceptance tests</Button>
+            {suite && <Button size="sm" variant="ghost" onClick={() => void call('workspace.acceptance.remove', { workspaceId }).then(() => { setSuite(null); setCode(''); })}>Remove</Button>}
+            <span className="at-subtle lv-small">Stored by ATLAS, never in the repository; agents cannot read them. Required to pass for “Verified”.</span>
           </div>
         </div>
       )}

@@ -2,8 +2,9 @@
 // no package imports UI or app code, and the renderer imports no privileged package.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dirs = [...readdirSync(path.join(root, 'packages')).map((d) => `packages/${d}`), 'apps/daemon', 'apps/desktop'].filter((d) => existsSync(path.join(root, d, 'package.json')));
 const pkgs = new Map();
 for (const d of dirs) {

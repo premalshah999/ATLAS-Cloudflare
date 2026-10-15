@@ -25,6 +25,10 @@ function setup(scripts: FakeScript[], enabled: boolean, planned: unknown = plan)
   return { h, mgr, changes };
 }
 
+it.runIf(process.env.ATLAS_REQUIRE_DESKTOP === '1')('desktop control is available on this runner', () => {
+  expect(desktopSupport(), desktopSupport().detail).toMatchObject({ ok: true });
+});
+
 describe.skipIf(!desktopSupport().ok)('desktop control in a mission', () => {
   it('operator takeover mid-run blocks the agent; every action and frame is recorded', async () => {
     const script = forTask('desk', [

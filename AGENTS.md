@@ -42,9 +42,15 @@ packages/policy              capabilities, role grants, command classification, 
 packages/workspace           canonical path checks, git worktrees, checkpoints, diffs, leases
 packages/terminal            argument-array executor, env allowlist, process-tree kill, timeouts
 packages/orchestrator        state machines, plan validation, scheduler, ToolGate, verification, release gate, recovery
-packages/browser             Playwright browser sessions, app start in the sandbox, API checks, browser_action tool
+packages/browser             Playwright browser sessions, app start in the sandbox, API checks, browser_action (snapshot + refs), visual proof stage
 packages/deploy              staging providers (local, command), independent verification, rollback, reconcile
 packages/desktop-control     Xvfb virtual displays, xdotool input, controller lease, desktop_action tool
+packages/mcp                 MCP client (stdio in the sandbox, streamable HTTP) and server manager behind mcp_call
+packages/sync                skills and MCP servers synced to Claude Code, Codex and OpenCode (preview, ownership, conflicts)
+packages/team                team spaces: signed append-only record in refs/atlas/team, invitations, teams, board, reviews, owner gate
+packages/security            deterministic security scan of a change: secrets, injection-prone code, dependency and CI risks
+packages/graph               code graph of a repository (files, symbols, imports) that agents query instead of re-reading files
+packages/web                 web access for agents: search accounts pooled per provider (Tavily, Brave, Google), web_fetch, read-only web_browse, public-address guard
 packages/runtime-fake        deterministic scripted runtime (CI and the sample missions)
 packages/runtime-pi          Pi SDK adapter (pinned 0.87.1)
 fixtures/sample-app          sample project with a real bug and real tests

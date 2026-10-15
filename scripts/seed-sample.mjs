@@ -3,8 +3,9 @@ import { cpSync, existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = path.resolve(process.argv[2] ?? path.join(os.homedir(), 'atlas-sample-app'));
 if (existsSync(target)) {
   if (!process.argv.includes('--force')) { console.error(`${target} already exists (use --force to recreate)`); process.exit(1); }

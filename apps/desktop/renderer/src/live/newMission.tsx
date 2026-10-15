@@ -1,12 +1,13 @@
 // Mission composer (manual §34): repository, objective, constraints, approval mode, runtime, preflight.
 import React, { useEffect, useState } from 'react';
-import { DEFAULT_BUDGET, type ApprovalMode, type MissionBudget, type RuntimeHealth, type RuntimeKind } from '@atlas/contracts';
+import { DEFAULT_BUDGET, type ApprovalMode, type MissionBudget, type ModelInfo, type RuntimeHealth, type RuntimeKind } from '@atlas/contracts';
 import { Badge, Button, Field, Icon, Input, Seg, Select } from '../ui/primitives';
 import { IFolderOpen, IInfo, IWarn, IXCircle, ISpark } from '../lib/icons';
 import { call, type Preflight } from './api';
 import { go, refreshLists, useLive } from './store';
 import { openRepository } from './shell';
 import { toast } from './toast';
+import { ModelSelect } from './models';
 
 const MODES: { id: ApprovalMode; label: string; help: string }[] = [
   { id: 'ask_risky', label: 'Ask for risky actions', help: 'Reads, edits inside the worktree and safe commands (tests, git status) run directly. Installs, network, deletes and git writes wait for you.' },
@@ -14,11 +15,11 @@ const MODES: { id: ApprovalMode; label: string; help: string }[] = [
   { id: 'plan_only', label: 'Read-only', help: 'Agents may read and run tests but cannot change files or run privileged commands.' },
 ];
 
-export function NewMission({ workspaceId }: { workspaceId?: string }) {
+export function NewMission({ workspaceId, item }: { workspaceId?: string; item?: { id: string; title: string; detail: string } }) {
   const workspaces = useLive((s) => s.workspaces);
   const [ws, setWs] = useState<string | undefined>(workspaceId ?? workspaces[0]?.id);
-  const [title, setTitle] = useState('');
-  const [goal, setGoal] = useState('');
+  const [title, setTitle] = useState(item?.title ?? '');
+  const [goal, setGoal] = useState(item?.detail || item?.title || '');
   const [constraints, setConstraints] = useState('');
   const [mode, setMode] = useState<ApprovalMode>('ask_risky');
   const [runtime, setRuntime] = useState<RuntimeKind>('fake');
@@ -29,8 +30,11 @@ export function NewMission({ workspaceId }: { workspaceId?: string }) {
   const [target, setTarget] = useState<string>('none');
   const [budget, setBudget] = useState<MissionBudget>(DEFAULT_BUDGET);
   const [showBudget, setShowBudget] = useState(false);
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [model, setModel] = useState<string | null>(null);
 
   useEffect(() => { if (!ws && workspaces[0]) setWs(workspaceId ?? workspaces[0].id); }, [workspaces, ws, workspaceId]);
+  useEffect(() => { void call('models.list').then(setModels).catch(() => {}); }, []);
   useEffect(() => { void call('runtime.health').then((h) => { setHealth(h); if (h.find((x) => x.runtime === 'pi')?.ok) setRuntime('pi'); }).catch(() => {}); }, []);
   useEffect(() => {
     if (!ws) return;
@@ -45,7 +49,7 @@ export function NewMission({ workspaceId }: { workspaceId?: string }) {
     if (!ws || !title.trim() || !goal.trim()) return;
     setBusy(true);
     try {
-      const m = await call('mission.create', { workspaceId: ws, title: title.trim(), goal: goal.trim(), constraints, approvalMode: mode, runtime, budget, targetEnvironment: target === 'none' ? null : target });
+      const m = await call('mission.create', { workspaceId: ws, title: title.trim(), goal: goal.trim(), constraints, approvalMode: mode, runtime, budget, targetEnvironment: target === 'none' ? null : target, model: runtime === 'pi' ? model : null, ...(item ? { item: item.id } : {}) });
       await call('mission.plan', { missionId: m.id });
       await refreshLists();
       go({ screen: 'mission', missionId: m.id });
@@ -68,6 +72,7 @@ export function NewMission({ workspaceId }: { workspaceId?: string }) {
       <div className="at-pagehead"><span className="heading">New mission</span></div>
       <div className="lv-scroll">
         <form className="lv-narrow lv-form" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          {item && <div className="lv-callout" data-testid="mission-for-item" style={{ marginTop: 0 }}><span>For the team item <b>{item.title}</b>. Starting it takes the item (refused if a teammate already has it) and shares this mission with the team.</span></div>}
           <Field label="Repository">
             <div className="at-row" style={{ gap: 8 }}>
               <Select value={ws ?? ''} width={360} onChange={(v) => setWs(v)} options={workspaces.map((w) => ({ id: w.id, label: w.name, hint: w.branch ?? 'no git' }))} />
@@ -89,6 +94,11 @@ export function NewMission({ workspaceId }: { workspaceId?: string }) {
             : pi?.detail ?? 'Checking Pi…'}>
             <Seg items={[{ id: 'fake' as const, label: 'Scripted (no model)' }, { id: 'pi' as const, label: `Pi${pi ? (pi.ok ? '' : ' · not configured') : ''}` }]} value={runtime} onChange={setRuntime} />
           </Field>
+          {runtime === 'pi' && (
+            <Field label="Model" help="Every agent of this mission uses it. Leave it on Settings to use the default, fast and strong models chosen there per role.">
+              <ModelSelect testId="mission-model" models={models} value={model} onChange={setModel} empty="From Settings (per role)" />
+            </Field>
+          )}
           <Field label="Target environment" help={targets.length === 0
             ? 'No deploy target in atlas.config.json: the mission verifies the change locally and deploys nothing.'
             : target === 'none' ? 'Verify locally only. Nothing is deployed.' : targets.find((t) => t.target === target)?.allowed

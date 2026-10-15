@@ -20,7 +20,7 @@ export interface CaseResult {
   missionId: string | null;
   outcome: string;
   durationMs: number;
-  resources: { toolCalls: number; commands: number; approvals: number; artifactBytes: number; tokens: number };
+  resources: { toolCalls: number; commands: number; approvals: number; artifactBytes: number; tokens: number; skillLoads?: number };
   /** Traceable evidence for anything that went wrong: event seqs, check names, artifact ids. */
   trace: string[];
   note?: string;
@@ -72,7 +72,7 @@ export function summarize(results: CaseResult[]): Summary {
   };
 }
 
-export interface RunMeta { runtime: string; model: string | null; atlasCommit: string; startedAt: string; platform: string; node: string; sandbox: string; browser: string | null }
+export interface RunMeta { runtime: string; model: string | null; /** Skill variant (Skill Laboratory): none, bundled, or a directory. */ skills?: string; atlasCommit: string; startedAt: string; platform: string; node: string; sandbox: string; browser: string | null }
 
 /**
  * Compare against a baseline run. Only matched cases (same id) with the same runtime and model are compared;
