@@ -32,3 +32,14 @@ After merging the upstream `claude/gifted-volta-j4hvy4` branch (all Pi providers
 - Packaged Intel `.app`: `dashboard.spec.ts` and the crash/restart mission spec pass against it; installed at `~/Applications/ATLAS.app`.
 - `pnpm test:cloud-live` passes against the deployed `atlas-mission-control` Worker; the demo recording published a mission live as well.
 - DeepSeek: `credentials.test` (unit-tested against a mocked api.deepseek.com) checks keys and balance at the official API only. A live check of the operator's own key was not run from this session; use Settings → Test.
+
+## Real missions on Operon with DeepSeek — October 15, 2026 (03:00–05:20 UTC)
+
+Repository: `premalshah999/OPERON-ATLAS` (private; Operon complaint-operations platform, FastAPI + React), with GitHub Actions CI (backend pytest, frontend tests/types/lint/build, smoke). Models: DeepSeek via api.deepseek.com only (`deepseek-flash` for all tiers in the final runs). No scripted runtime.
+
+What the runs showed, recorded as it happened:
+- **Model planning works and staffs a team.** After fixing the planner (its own working directory; no long-held renderer call), the orchestrator model planned every mission itself, e.g. CSV export: 8 tasks — coder ×3, tester ×2, reviewer, security engineer, deployment verifier — with dependencies; writers ran concurrently in separate worktrees.
+- **Coders delivered** every implementation and test task in the final export and SLA runs; testers and the security engineer completed their tasks. The security engineer's findings on export: export memory not bounded with off-filter parameters (medium), no role/scope check for bulk extract (low), and verified formula-injection and header-injection protections.
+- **Honest failures, fixed one by one:** the 5-minute planner budget fell back to the default plan (fixed); coder 60-call and reviewer 40/120-call budgets were too small for a real codebase (raised: coder 160, reviewer 400, other read-only roles 100–120); macOS `git` xcrun shim could not write its cache inside the sandbox (now the Command Line Tools binaries are used); Vite needed a writable `node_modules` (Operon's toolchain script fixed); `mktemp -d` ignored the sandbox `TMPDIR` on macOS (fixed). Missions whose reviewer ran out of budget were recorded as **failed**, never as verified.
+- The operator policy used by the driver approved low/elevated requests and the project's own check scripts, and denied other high-risk shells (for example `rm` of files) — every decision is in the mission log.
+- Cost: under $1.50 of the DeepSeek balance for all runs (balance read through Settings → Test).
