@@ -58,6 +58,7 @@ export class BrowserSession {
           return done(true, `clicked ${s.selector ?? s.role ?? s.text}`);
         }
         case 'fill': await page.locator(s.selector).first().fill(s.value, { timeout: timeoutMs }); return done(true, `filled ${s.selector}`);
+        case 'select': await page.locator(s.selector).first().selectOption(s.value, { timeout: timeoutMs }); return done(true, `selected ${s.value} in ${s.selector}`);
         case 'press': await (s.selector ? page.locator(s.selector).first().press(s.key, { timeout: timeoutMs }) : page.keyboard.press(s.key)); return done(true, `pressed ${s.key}`);
         case 'expectText': {
           const loc = s.selector ? page.locator(s.selector).first() : page.locator('body');

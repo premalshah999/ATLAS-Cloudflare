@@ -9,6 +9,7 @@ export const BrowserStep = z.discriminatedUnion('action', [
   z.object({ action: z.literal('goto'), path: relPath }).strict(),
   z.object({ action: z.literal('click'), selector: z.string().max(500).optional(), text: z.string().max(500).optional(), role: z.string().max(40).optional(), name: z.string().max(500).optional() }).strict(),
   z.object({ action: z.literal('fill'), selector: z.string().min(1).max(500), value: z.string().max(10_000) }).strict(),
+  z.object({ action: z.literal('select'), selector: z.string().min(1).max(500), value: z.string().max(2000) }).strict(),
   z.object({ action: z.literal('press'), key: z.string().min(1).max(40), selector: z.string().max(500).optional() }).strict(),
   z.object({ action: z.literal('expectText'), text: z.string().min(1).max(2000), selector: z.string().max(500).optional() }).strict(),
   z.object({ action: z.literal('expectNoText'), text: z.string().min(1).max(2000), selector: z.string().max(500).optional() }).strict(),

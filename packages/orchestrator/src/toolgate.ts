@@ -34,7 +34,7 @@ export const TOOL_SPECS: ToolSpec[] = [
   },
   {
     name: 'browser_action',
-    description: 'Drive the project app in an isolated browser. One step per call: goto {path}, click {selector|text|role+name}, fill {selector,value}, press {key}, expectText {text,selector?}, expectNoText, expectUrl {path}, expectVisible {selector}, screenshot {name}, wait {ms}. The app is started from your worktree on first use.',
+    description: 'Drive the project app in an isolated browser. One step per call: goto {path}, click {selector|text|role+name}, fill {selector,value}, select {selector,value}, press {key}, expectText {text,selector?}, expectNoText, expectUrl {path}, expectVisible {selector}, screenshot {name}, wait {ms}. The app is started from your worktree on first use.',
     parameters: { type: 'object', additionalProperties: false, required: ['step'], properties: { step: { type: 'object', description: 'e.g. {"action":"goto","path":"/"}' } } },
   },
   {
