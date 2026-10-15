@@ -4,7 +4,10 @@ import type { AtlasEvent, Workspace } from '@atlas/contracts';
 import { bridge, call, type DaemonStatus, type MissionListItem } from './api';
 
 export type Route =
+  | { screen: 'home' }
   | { screen: 'projects' }
+  | { screen: 'activity' }
+  | { screen: 'agents' }
   | { screen: 'new'; workspaceId?: string; item?: { id: string; title: string; detail: string } }
   | { screen: 'team'; workspaceId?: string }
   | { screen: 'mission'; missionId: string }

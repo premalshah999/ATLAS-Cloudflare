@@ -2,18 +2,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { pipelineOf, type Approval, type AtlasEvent, type CheckRecord, type Mission, type Task } from '@atlas/contracts';
 import { Badge, Button, cx, EmptyState, Icon, PanelHead, RoleMark, Status, Tabs, Tip } from '../ui/primitives';
-import { ICheck, ICheckCircle, IClock, IFileDiff, IShield, IStopCircle, ITerminal, IWarn, IXCircle, IUndo, IMerge, IFileText, ITube, ITree, IGraph, IReviews, IGlobe, IImage, IDeploy, IComputer, IMore, IDisk, IClose, IUsers } from '../lib/icons';
+import { ICheck, ICheckCircle, IClock, IFileDiff, IShield, IStopCircle, ITerminal, IWarn, IXCircle, IUndo, IMerge, IFileText, ITube, ITree, IGraph, IReviews, IGlobe, IImage, IDeploy, IComputer, IMore, IDisk, IClose, IUsers, IDoc } from '../lib/icons';
 import { Menu, MenuItem } from '../ui/primitives';
 import { BrowserPanel, BudgetMeter, DeployPanel, DesktopPanel, Findings, TaskGraph, TerminalPanel, VisualPanel } from './panels';
 import { go, refreshLists } from './store';
 import { call, type ForgeView } from './api';
 import { CloudPanel } from './cloud';
+import { ReportPanel } from './report';
 import { useMission } from './useMission';
 import { actorName, describeEvent, fmtMs, markOf, missionStatus, resultWord, roleMark, roleName, stalledTasks, stateWord, time, type Row } from './format';
 import { toast } from './toast';
 
 const ACTIVE = new Set(['planning', 'running', 'verifying']);
-type Tab = 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'visual' | 'browser' | 'deploy' | 'desktop' | 'terminal';
+type Tab = 'report' | 'cloud' | 'activity' | 'graph' | 'changes' | 'evidence' | 'findings' | 'visual' | 'browser' | 'deploy' | 'desktop' | 'terminal';
 
 export function MissionView({ missionId }: { missionId: string }) {
   const { snap, events, error } = useMission(missionId);
@@ -103,6 +104,7 @@ export function MissionView({ missionId }: { missionId: string }) {
                 { id: 'graph', label: 'Tasks', icon: IGraph, count: snap.tasks.length || undefined },
                 { id: 'changes', label: 'Changes', icon: IFileDiff, count: patchCount || undefined },
                 { id: 'evidence', label: 'Evidence', icon: ITube, count: snap.checks.length || undefined },
+                { id: 'report', label: 'Report', icon: IDoc },
                 { id: 'cloud', label: 'Cloudflare', icon: IGlobe },
                 { id: 'findings', label: 'Review', icon: IReviews, count: snap.findings.filter((f) => f.status === 'open').length || undefined },
                 ...(hasVisual ? [{ id: 'visual' as Tab, label: 'Visual', icon: IImage, count: visualChanged || undefined }] : []),
@@ -112,6 +114,7 @@ export function MissionView({ missionId }: { missionId: string }) {
                 ...(m.archived ? [] : [{ id: 'terminal' as Tab, label: 'Terminal', icon: ITerminal }]),
               ]} />
             </div>
+            {tab === 'report' && <ReportPanel snap={snap} events={events} />}
             {tab === 'cloud' && <CloudPanel mission={m} />}
             {tab === 'activity' && <ActivityTimeline events={events} />}
             {tab === 'graph' && <TaskGraph snap={snap} />}

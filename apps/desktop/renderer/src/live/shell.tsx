@@ -2,7 +2,7 @@
 import React from 'react';
 import type { IconType } from 'react-icons';
 import { cx, Dot, Icon, Kbd, Menu, MenuItem, Tip } from '../ui/primitives';
-import { IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IMissions, IPlus, ISettings, IPalette, ISearch, IShield, IUsers } from '../lib/icons';
+import { IActivity, IAgents, IBranch, IChevronDown, IFolder, IFolderOpen, IHome, IWorkspaces, IMissions, IPlus, ISettings, IPalette, ISearch, IShield, IUsers } from '../lib/icons';
 import { call } from './api';
 import { go, refreshLists, useLive, type Route } from './store';
 import { missionStatus } from './format';
@@ -25,9 +25,12 @@ export async function openRepository(): Promise<string | null> {
 }
 
 const NAV: { id: Route['screen']; label: string; icon: IconType; kbd?: string }[] = [
-  { id: 'projects', label: 'Projects', icon: IHome, kbd: '⌘ 1' },
+  { id: 'home', label: 'Home', icon: IHome, kbd: '⌘ 0' },
+  { id: 'projects', label: 'Projects', icon: IWorkspaces, kbd: '⌘ 1' },
   { id: 'new', label: 'New mission', icon: IPlus, kbd: '⌘ N' },
   { id: 'team', label: 'Team', icon: IUsers, kbd: '⌘ 2' },
+  { id: 'activity', label: 'Activity', icon: IActivity, kbd: '⌘ 3' },
+  { id: 'agents', label: 'Agents', icon: IAgents, kbd: '⌘ 4' },
 ];
 
 export function LiveTitleBar() {

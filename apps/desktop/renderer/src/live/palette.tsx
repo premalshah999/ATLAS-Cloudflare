@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { IconType } from 'react-icons';
 import { Dot, Icon, Kbd, usePresence } from '../ui/primitives';
-import { IEnter, IFolderOpen, IHome, IPalette, IPlus, ISearch, ISettings, IShield, IFolder } from '../lib/icons';
+import { IActivity, IAgents, IUsers, IWorkspaces, IEnter, IFolderOpen, IHome, IPalette, IPlus, ISearch, ISettings, IShield, IFolder } from '../lib/icons';
 import { get, go, set, useLive } from './store';
 import { openRepository, dotFor } from './shell';
 import { missionStatus } from './format';
@@ -43,7 +43,11 @@ function PaletteSession({ closing }: { closing: boolean }) {
       { id: 'new', label: 'New mission', group: 'Actions', icon: IPlus, kbd: '⌘ N', run: () => go({ screen: 'new' }) },
       { id: 'open', label: 'Open repository…', group: 'Actions', icon: IFolderOpen, kbd: '⌘ O', run: () => { close(); void openRepository(); } },
       ...workspaces.map((w) => ({ id: `nw-${w.id}`, label: `New mission in ${w.name}`, group: 'Actions', icon: IFolder, hint: w.branch ?? '', run: () => go({ screen: 'new', workspaceId: w.id }) })),
-      { id: 'projects', label: 'Projects', group: 'Go to', icon: IHome, kbd: '⌘ 1', run: () => go({ screen: 'projects' }) },
+      { id: 'home', label: 'Home', group: 'Go to', icon: IHome, kbd: '⌘ 0', run: () => go({ screen: 'home' }) },
+      { id: 'projects', label: 'Projects', group: 'Go to', icon: IWorkspaces, kbd: '⌘ 1', run: () => go({ screen: 'projects' }) },
+      { id: 'team', label: 'Team', group: 'Go to', icon: IUsers, kbd: '⌘ 2', run: () => go({ screen: 'team' }) },
+      { id: 'activity', label: 'Activity across missions', group: 'Go to', icon: IActivity, kbd: '⌘ 3', run: () => go({ screen: 'activity' }) },
+      { id: 'agents', label: 'Agents and their permissions', group: 'Go to', icon: IAgents, kbd: '⌘ 4', run: () => go({ screen: 'agents' }) },
       { id: 'settings', label: 'Settings', group: 'Go to', icon: ISettings, kbd: '⌘ ,', run: () => go({ screen: 'settings' }) },
       { id: 'preview', label: 'Design preview (sample data)', group: 'Go to', icon: IPalette, run: () => go({ screen: 'preview' }) },
       ...missions.map((m) => ({ id: `m-${m.id}`, label: m.title, group: 'Missions', dot: dotFor(m), hint: missionStatus(m).word, keywords: `${m.id} ${m.goal}`, run: () => go({ screen: 'mission', missionId: m.id }) })),

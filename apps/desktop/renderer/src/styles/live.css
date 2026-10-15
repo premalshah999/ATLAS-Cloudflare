@@ -258,3 +258,21 @@
 /* Section headings: one clear title per section, the rest of the page stays quiet. */
 .lv-section > .at-label:first-child, .lv-evid > .at-label:first-child { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink); letter-spacing: -0.005em; }
 .lv-section > .at-label:first-child + p, .lv-section > p:first-of-type { margin-top: -4px; }
+
+/* Home, Activity, Agents and Report (live versions of the design preview screens) */
+.lv-home-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 4px 0 20px; }
+.lv-home-stat { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; }
+.lv-home-stat b { font-size: 22px; line-height: 28px; font-weight: 600; }
+.lv-home-row { width: 100%; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; border-radius: 6px; }
+.lv-home-row:hover, .lv-home-row[aria-current='true'] { background: var(--bg-surface); }
+.lv-agents-grid { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 24px; align-items: start; }
+.lv-agents-list { display: flex; flex-direction: column; gap: 2px; }
+.lv-agents-instr { white-space: pre-wrap; max-height: 320px; overflow: auto; padding: 12px; border-radius: 6px; background: var(--bg-surface); }
+@media (max-width: 760px) { .lv-agents-grid { grid-template-columns: 1fr; } }
+.lv-line { display: flex; align-items: center; gap: 12px; padding: 8px 10px; min-height: 36px; text-align: left; }
+.lv-line + .lv-line { border-top: 1px solid var(--line-soft); }
+#root .lv-section > .lv-line:first-of-type { margin-top: 4px; }
+[data-testid^='home-'] > .lv-line, [data-testid^='report-'] > .lv-line, [data-testid='home-setup'] > .lv-line { background: var(--bg-surface); }
+[data-testid^='home-'] > .lv-line:first-of-type, [data-testid^='report-'] > .lv-line:first-of-type { border-radius: var(--radius-md) var(--radius-md) 0 0; }
+[data-testid^='home-'] > .lv-line:last-child, [data-testid^='report-'] > .lv-line:last-child { border-radius: 0 0 var(--radius-md) var(--radius-md); }
+[data-testid='home'] > .lv-scroll, [data-testid='global-activity'] > .lv-scroll, [data-testid='agents'] > .lv-scroll { padding: 20px 24px 32px; }
