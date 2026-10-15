@@ -1,0 +1,254 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/11-sla.json",
+    "key": "sla",
+    "title": "SLA clock for every complaint case",
+    "goal": "Operators cannot see which complaints are about to breach their response deadline. Add an SLA clock: the backend computes, for every complaint, sla_due_at from its received/created date and its severity or priority (critical 1 day, high 3 days, medium 7 days, low 15 days; treat unknown as medium), and sla_status: 'breached' when now is past the due time, 'at_risk' within the last 20% of the window, else 'on_track'. Expose sla_due_at and sla_status on the complaint list and detail APIs. In the frontend Cases workspace (and the Complaints list if it shows the same records), show an SLA badge per case with a clear label and color, and add a filter to show only cases that are at risk or breached. Add backend unit tests for the SLA computation (including boundary cases) and an API test, plus a frontend test for the badge.",
+    "constraints": "Compute SLA in one backend function; do not duplicate the rules in the frontend. Keep existing API fields unchanged (only add). All checks must pass."
+  },
+  "mission": {
+    "id": "msn_MtHb97auPipq",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "SLA clock for every complaint case",
+    "goal": "Operators cannot see which complaints are about to breach their response deadline. Add an SLA clock: the backend computes, for every complaint, sla_due_at from its received/created date and its severity or priority (critical 1 day, high 3 days, medium 7 days, low 15 days; treat unknown as medium), and sla_status: 'breached' when now is past the due time, 'at_risk' within the last 20% of the window, else 'on_track'. Expose sla_due_at and sla_status on the complaint list and detail APIs. In the frontend Cases workspace (and the Complaints list if it shows the same records), show an SLA badge per case with a clear label and color, and add a filter to show only cases that are at risk or breached. Add backend unit tests for the SLA computation (including boundary cases) and an API test, plus a frontend test for the badge.",
+    "constraints": "Compute SLA in one backend function; do not duplicate the rules in the frontend. Keep existing API fields unchanged (only add). All checks must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: sla-review failed (Budget exhausted (tool calls 121/120, tokens 164071/900000))",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T04:43:15.663Z",
+    "updatedAt": "2026-10-15T05:01:53.465Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_QfkktrUxK8qa",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "sla-backend-core",
+      "title": "Implement single SLA computation function with severity windows and status thresholds",
+      "role": "coder",
+      "dependencies": [],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "A single exported function in the backend computes sla_due_at from the complaint's received/created date plus severity window: critical 1 day, high 3 days, medium 7 days, low 15 days, and falls back to medium for missing or unknown severity.",
+        "The same function returns sla_status: 'breached' when now is strictly after sla_due_at, 'at_risk' when now is within the last 20% of the window (including the exact 20% boundary), otherwise 'on_track'.",
+        "SLA rules are defined in exactly one place in the backend with no duplicated thresholds elsewhere in backend or frontend.",
+        "Existing complaint-related fields and values are unchanged."
+      ],
+      "resultRef": "art_gw6ywMZGVSy8",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/sla-backend-core-1",
+      "branch": "atlas/msn_MtHb97auPipq/sla-backend-core-1",
+      "checkpoint": "368be66ce041d93e8b88a5a14ca5ff23604b356b",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_CkwfygSvNAPD",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "sla-api-surface",
+      "title": "Expose sla_due_at and sla_status on complaint list and detail APIs additively",
+      "role": "coder",
+      "dependencies": [
+        "tsk_QfkktrUxK8qa"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "GET /api/complaints returns sla_due_at and sla_status for every item.",
+        "GET /api/complaints/{complaint_id} returns sla_due_at and sla_status.",
+        "All previously returned fields remain present with unchanged names and semantics; only new fields are added.",
+        "The API layer calls the single SLA function rather than re-deriving rules."
+      ],
+      "resultRef": "art_8qvD8Mj2Gsmf",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/sla-api-surface-1",
+      "branch": "atlas/msn_MtHb97auPipq/sla-api-surface-1",
+      "checkpoint": "3603667484f447fe65517f3fd8a00ec883d723f6",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_4deuBrrc2mhd",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "sla-backend-tests",
+      "title": "Backend unit tests for SLA computation incl. boundary cases and an API test",
+      "role": "tester",
+      "dependencies": [
+        "tsk_QfkktrUxK8qa",
+        "tsk_CkwfygSvNAPD"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Unit tests cover each severity window (critical/high/medium/low) and the unknown-severity fallback to medium.",
+        "Boundary cases covered: now exactly at sla_due_at is not breached, now just past due is breached, now exactly at the 20% at_risk threshold is at_risk, and just before it is on_track.",
+        "An API test asserts sla_due_at and sla_status are present on the complaint list and detail responses and that pre-existing fields are unchanged.",
+        "All new tests pass under the repository's backend test command."
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/sla-backend-tests-1",
+      "branch": "atlas/msn_MtHb97auPipq/sla-backend-tests-1",
+      "checkpoint": "ffe82f2a9adf23a59313547411296f3e1026a606",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_TTjDmyz3bYBd",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "frontend-sla-badge",
+      "title": "SLA badge component and rendering in Cases workspace and Complaints list",
+      "role": "coder",
+      "dependencies": [
+        "tsk_CkwfygSvNAPD"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "A reusable SLA badge renders a clear text label (On track / At risk / Breached) with distinct colors per status and shows the due date/time.",
+        "Badge is shown per case in the Cases workspace and in the Complaints list for the same records.",
+        "Missing or unrecognized sla_status renders a neutral fallback without crashing.",
+        "Frontend does not compute SLA thresholds; it only reads sla_due_at and sla_status from the API."
+      ],
+      "resultRef": "art_igQr3qEA5Lv9",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/frontend-sla-badge-1",
+      "branch": "atlas/msn_MtHb97auPipq/frontend-sla-badge-1",
+      "checkpoint": "379b4045bc80931f214cffad827f802470969d7c",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_usqswVu6jq4t",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "frontend-sla-filter",
+      "title": "At-risk/breached filter in Cases workspace and Complaints list",
+      "role": "coder",
+      "dependencies": [
+        "tsk_TTjDmyz3bYBd"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "A filter control shows only cases whose sla_status is 'at_risk' or 'breached', with the active state visible.",
+        "Clearing the filter restores the unfiltered list without data loss or refetch errors.",
+        "Filtering relies solely on the API-provided sla_status field.",
+        "Existing filters and list behavior are unaffected when the SLA filter is off."
+      ],
+      "resultRef": "art_fGrxe2RcuXkf",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/frontend-sla-filter-1",
+      "branch": "atlas/msn_MtHb97auPipq/frontend-sla-filter-1",
+      "checkpoint": "c84a74a830b5867c9f541ec6af87b95b3d012892",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_AaM2BWfffNtn",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "frontend-sla-test",
+      "title": "Frontend test for SLA badge rendering and risk filter",
+      "role": "tester",
+      "dependencies": [
+        "tsk_TTjDmyz3bYBd",
+        "tsk_usqswVu6jq4t"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Test asserts the badge renders the correct label and color class for on_track, at_risk, and breached, plus the neutral fallback for missing status.",
+        "Test asserts the at-risk/breached filter shows only matching cases and clearing it restores all cases.",
+        "Test passes under the repository's frontend test command."
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/frontend-sla-test-1",
+      "branch": "atlas/msn_MtHb97auPipq/frontend-sla-test-1",
+      "checkpoint": "0e3cc57abc6c045b830d76e4dbd647f89825e031",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_bHhqUq3GP4Ck",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "docs-sla",
+      "title": "Document SLA rules and new API fields",
+      "role": "coder",
+      "dependencies": [
+        "tsk_QfkktrUxK8qa",
+        "tsk_CkwfygSvNAPD"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "docs/testing.md or docs/architecture.md documents the severity windows, the 20% at-risk rule, and the additive sla_due_at/sla_status fields.",
+        "Documentation stays consistent with the implemented behavior and does not duplicate thresholds as an alternative source of truth."
+      ],
+      "resultRef": "art_ZgS49B6Ddpwm",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/docs-sla-1",
+      "branch": "atlas/msn_MtHb97auPipq/docs-sla-1",
+      "checkpoint": "694eb1c0bb355940e79b6fa7f138f2982861476a",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_kdHRZNMFewsr",
+      "missionId": "msn_MtHb97auPipq",
+      "key": "sla-review",
+      "title": "Review SLA implementation for single-source-of-truth and additive API contract",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_QfkktrUxK8qa",
+        "tsk_CkwfygSvNAPD",
+        "tsk_TTjDmyz3bYBd",
+        "tsk_usqswVu6jq4t",
+        "tsk_4deuBrrc2mhd",
+        "tsk_AaM2BWfffNtn",
+        "tsk_bHhqUq3GP4Ck"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Confirms SLA rules exist in exactly one backend function and are not duplicated in the frontend or API layer.",
+        "Confirms API changes are additive only, with no existing field renamed, removed, or reinterpreted.",
+        "Confirms boundary handling matches the stated rules and that tests actually exercise the specified boundaries.",
+        "Reports any blocking finding with file and line evidence; otherwise records an approval."
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_MtHb97auPipq/sla-review-1",
+      "branch": "atlas/msn_MtHb97auPipq/sla-review-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 713024,
+    "toolCalls": 507,
+    "tasks": 8,
+    "agentsNow": 0,
+    "elapsedMs": 1106320
+  }
+}

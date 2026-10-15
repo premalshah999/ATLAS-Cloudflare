@@ -1,0 +1,361 @@
+{
+  "spec": {
+    "file": "scripts/live/missions/12-export.json",
+    "key": "export",
+    "title": "Export complaints to CSV",
+    "goal": "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV with a header row and a Content-Disposition attachment filename containing the date. Protect against CSV/formula injection: any cell starting with =, +, -, @, tab or carriage return must be prefixed with a single quote. Stream or bound the response so large exports do not exhaust memory (cap at 10,000 rows and say so in a response header). In the frontend Complaints page add an 'Export CSV' button that downloads the export for the current filters. Add backend tests for headers, escaping of commas/quotes/newlines, formula-injection protection, filtering and the row cap, and a frontend test for the button.",
+    "constraints": "Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass."
+  },
+  "mission": {
+    "id": "msn_DcXe2Ucpj853",
+    "workspaceId": "ws_ggXjwkmfvJ74",
+    "title": "Export complaints to CSV",
+    "goal": "Compliance teams need to export what they see. Add GET /api/complaints/export.csv that returns the complaints matching the same filters the existing complaints list endpoint accepts, as RFC 4180 CSV with a header row and a Content-Disposition attachment filename containing the date. Protect against CSV/formula injection: any cell starting with =, +, -, @, tab or carriage return must be prefixed with a single quote. Stream or bound the response so large exports do not exhaust memory (cap at 10,000 rows and say so in a response header). In the frontend Complaints page add an 'Export CSV' button that downloads the export for the current filters. Add backend tests for headers, escaping of commas/quotes/newlines, formula-injection protection, filtering and the row cap, and a frontend test for the button.",
+    "constraints": "Reuse the existing query/filter logic rather than duplicating it. No new dependencies. All checks must pass.",
+    "approvalMode": "ask_risky",
+    "runtime": "pi",
+    "baseCommit": "06ba4205a346aacf0cd9425ac4b20d765e2a7ae6",
+    "state": "failed",
+    "planVersion": 1,
+    "policyId": "default@2",
+    "outcome": "Failed: review-export failed (Budget exhausted (tool calls 121/120, tokens 106814/900000)), verify-export failed",
+    "decision": null,
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "integrationBranch": null,
+    "integrationCommit": null,
+    "archived": false,
+    "targetEnvironment": "local-staging",
+    "verdict": "failed",
+    "followUp": null,
+    "model": null,
+    "createdAt": "2026-10-15T04:43:15.655Z",
+    "updatedAt": "2026-10-15T04:59:00.444Z"
+  },
+  "tasks": [
+    {
+      "id": "tsk_miH8fKLVM86v",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "backend-export-endpoint",
+      "title": "Implement GET /api/complaints/export.csv reusing existing complaint filter logic",
+      "role": "coder",
+      "dependencies": [],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Route GET /api/complaints/export.csv exists and accepts the same filter query params as GET /api/complaints",
+        "Filtering is implemented by calling the existing complaints list query/filter helper rather than a copy",
+        "Response is RFC 4180 CSV with a header row",
+        "Content-Type is text/csv and Content-Disposition is attachment with a filename containing the current date",
+        "Results are capped at 10,000 rows and a response header (e.g. X-Export-Truncated or X-Row-Cap) states the cap/truncation",
+        "Implementation streams or bounds memory (no full unbounded list materialization)",
+        "No new dependencies added"
+      ],
+      "resultRef": "art_tSsrqknrH4Mi",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/backend-export-endpoint-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/backend-export-endpoint-1",
+      "checkpoint": "33cf089015a29e7a741ad0c68b2ddd3d9d19e677",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_ixQCdFrfkiFQ",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "backend-csv-injection-guard",
+      "title": "Add CSV/formula-injection escaping helper and wire it into the export",
+      "role": "coder",
+      "dependencies": [
+        "tsk_miH8fKLVM86v"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Any cell whose value starts with =, +, -, @, tab, or carriage return is prefixed with a single quote",
+        "Commas, double quotes, and newlines are correctly RFC 4180 escaped",
+        "Helper is used by the export serializer only and does not alter existing list endpoint output"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/backend-csv-injection-guard-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/backend-csv-injection-guard-1",
+      "checkpoint": "33cf089015a29e7a741ad0c68b2ddd3d9d19e677",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_JDc9wegcGqni",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "backend-export-tests",
+      "title": "Backend tests for export headers, escaping, injection protection, filtering, and row cap",
+      "role": "tester",
+      "dependencies": [
+        "tsk_miH8fKLVM86v",
+        "tsk_ixQCdFrfkiFQ"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Test asserts text/csv content type, attachment Content-Disposition with a date, and the row-cap response header",
+        "Test verifies header row presence",
+        "Test verifies commas, double quotes, and newlines are escaped per RFC 4180",
+        "Test verifies cells starting with =, +, -, @, tab, and carriage return are prefixed with a single quote",
+        "Test verifies filter query params are applied consistently with GET /api/complaints",
+        "Test verifies the 10,000 row cap behavior"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/backend-export-tests-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/backend-export-tests-1",
+      "checkpoint": "33cf089015a29e7a741ad0c68b2ddd3d9d19e677",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_LtSYKKwubdKv",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "frontend-export-button",
+      "title": "Add 'Export CSV' button on Complaints page that downloads export for current filters",
+      "role": "coder",
+      "dependencies": [
+        "tsk_miH8fKLVM86v"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Complaints page renders an 'Export CSV' button",
+        "Clicking it requests /api/complaints/export.csv with the current filter query params",
+        "Download uses the server-provided filename (from Content-Disposition) when available",
+        "No new dependencies added"
+      ],
+      "resultRef": "art_Km8cv8vXntiq",
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/frontend-export-button-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/frontend-export-button-1",
+      "checkpoint": "a2f93c0b7cf24a0a78763da38dd3b3ace7c7fddc",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_JZm5PP8fYZd8",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "frontend-export-test",
+      "title": "Frontend test for Export CSV button",
+      "role": "tester",
+      "dependencies": [
+        "tsk_LtSYKKwubdKv"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Test asserts the 'Export CSV' button is rendered on the Complaints page",
+        "Test asserts clicking the button calls the export URL with the current filters",
+        "Test passes under the existing vitest setup"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/frontend-export-test-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/frontend-export-test-1",
+      "checkpoint": "a2f93c0b7cf24a0a78763da38dd3b3ace7c7fddc",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_BxEApbtCuBTk",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "review-export",
+      "title": "Review backend export implementation and frontend button changes",
+      "role": "reviewer",
+      "dependencies": [
+        "tsk_miH8fKLVM86v",
+        "tsk_ixQCdFrfkiFQ",
+        "tsk_JDc9wegcGqni",
+        "tsk_LtSYKKwubdKv",
+        "tsk_JZm5PP8fYZd8"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "Confirms filter logic is reused and not duplicated",
+        "Confirms RFC 4180 escaping and formula-injection prefixing cover all required leading characters",
+        "Confirms row cap and response header are present and correct",
+        "Confirms frontend button passes current filters and uses server filename",
+        "Reports any blocking findings with file/line references"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/review-export-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/review-export-1",
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_n4smrjUNcmFj",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "security-export-review",
+      "title": "Security review of CSV export (injection, headers, unbounded memory)",
+      "role": "security_reviewer",
+      "dependencies": [
+        "tsk_miH8fKLVM86v",
+        "tsk_ixQCdFrfkiFQ"
+      ],
+      "state": "done",
+      "retries": 0,
+      "acceptance": [
+        "Verifies formula-injection protection for all leading characters =, +, -, @, tab, CR",
+        "Verifies Content-Disposition filename cannot enable header injection",
+        "Verifies response is bounded/streamed to avoid memory exhaustion",
+        "Reports findings with severity and file references"
+      ],
+      "resultRef": null,
+      "worktree": "/Users/premalshah/Library/Application Support/ATLAS/data/worktrees/msn_DcXe2Ucpj853/security-export-review-1",
+      "branch": "atlas/msn_DcXe2Ucpj853/security-export-review-1",
+      "checkpoint": "33cf089015a29e7a741ad0c68b2ddd3d9d19e677",
+      "parentTaskId": null,
+      "depth": 0
+    },
+    {
+      "id": "tsk_AyUS4iC6LHpF",
+      "missionId": "msn_DcXe2Ucpj853",
+      "key": "verify-export",
+      "title": "Run full verification checks for export feature",
+      "role": "deployment_verifier",
+      "dependencies": [
+        "tsk_JDc9wegcGqni",
+        "tsk_JZm5PP8fYZd8",
+        "tsk_BxEApbtCuBTk",
+        "tsk_n4smrjUNcmFj"
+      ],
+      "state": "failed",
+      "retries": 0,
+      "acceptance": [
+        "All configured checks pass: tests, frontend-tests, frontend-types-lint, frontend-build",
+        "GET /api/complaints/export.csv returns 200 with expected headers and CSV body",
+        "Truncation/cap header is observable when row cap is reached"
+      ],
+      "resultRef": null,
+      "worktree": null,
+      "branch": null,
+      "checkpoint": null,
+      "parentTaskId": null,
+      "depth": 0
+    }
+  ],
+  "checks": [],
+  "findings": [
+    {
+      "id": "fnd_P7FM3qHGp3vk",
+      "missionId": "msn_DcXe2Ucpj853",
+      "taskId": "tsk_n4smrjUNcmFj",
+      "file": "backend/main.py",
+      "line": 1361,
+      "endLine": 1363,
+      "severity": "medium",
+      "kind": "suspected",
+      "title": "Export materialises the whole result set, so memory is not bounded when off-filter query params are supplied",
+      "observation": "The CSV export materialises one dict per matching complaint in memory before truncating to the 10,000-row cap, then keeps that population alive through CSV serialisation.\n\nRoot cause (outside this diff, but loaded by this change):\n- `_complaint_export_payload` (backend/main.py:536) calls `_filtered_complaint_summaries(dict(filters))` with no `summaries`, which calls `_full_summary_details()`.\n- `_full_summary_details()` (backend/main.py:342-345) does `total = count_complaints()` then `_all_summary_details(limit=total, offset=0)` — an unbounded DB read.\n- `_all_summary_details` (backend/main.py:317-320) issues `get_all_complaints(limit=<all rows>)` and calls `get_latest_review_decisions([...])` with one id per row, so the `IN (…)` clause grows to the full row count.\n- `_filtered_complaint_summaries` (backend/main.py:494-497) then builds a second full list from the returned rows, `_complaint_export_payload` slices it to a third (10k) list, and `iter_csv` serialises from that.\n- `backend/services/csv_export.py:cap_rows` implements true lazy capping but is not called by the endpoint — the module docstring's claim that the document is streamed \"without materialising the whole file\" is not true of the row source.\n\nCritically, the read is triggered by *any* active filter. `_has_active_filters` is only consulted by the list endpoint, not by the export: `_filtered_complaint_summaries` applies the filter predicate by reading every row and discarding non-matches, so exports that match ~0 rows (and exports with no filters at all) still read and summarise the whole table.\n\nImpact: a tenant/account whose complaint history has grown large (or in whose table an attacker can cause inserts) can drive the export path to allocate the full table's summaries + narrative previews. The 10,000 cap and `StreamingResponse` limit only the bytes written to the socket, not the peak server memory: one authenticated read-only session can get this path over the service's memory limit and 502/OOM the API for everyone (cost amplification / availability impact, not data disclosure).",
+      "recommendation": "Make the cap a limit on the source, not on the already-read result. Because the filter predicate must be applied to every candidate row to reproduce the list endpoint's exact semantics, page the source and apply the cap while streaming: iterate `get_all_complaints(limit=PAGE, offset=…)` in batches (PAGE ~500), build summaries per batch, run `_matches_filters` on them, and feed matches into `iter_csv` through `cap_rows(rows, EXPORT_ROW_CAP)` (already written) so the generator stops pulling once the cap is reached — then peak memory is O(page + cap) instead of O(table). Also push the \"truncated\" decision to the streaming path and set `X-Export-Truncated`/`X-Row-Cap` accordingly (a leading informational CSV comment or a trailer is needed if the header must reflect it, since the header is written before streaming starts). If bounded memory matters more than byte-identical parity, consider moving the filter predicates into SQL with a `LIMIT cap+1` so the DB does the bounding. Add a regression test that asserts the number of rows read from the repository is bounded, rather than monkeypatching the filter helper.",
+      "evidence": "Static trace in backend/main.py: `_complaint_export_payload` → `_filtered_complaint_summaries` → `if summaries is None: summaries = [build_summary_from_detail(detail) for detail in _full_summary_details()]` → `_full_summary_details` → `count_complaints()` + `_all_summary_details(limit=total, offset=0)` → `get_all_complaints(limit=total, offset=0)` plus `get_latest_review_decisions([one id per row])`. `cap_rows` (backend/services/csv_export.py:95) is defined and never referenced by backend/main.py (only `EXPORT_COLUMNS, iter_csv` are imported). The existing component tests do not cover this: backend/tests/test_complaints_export.py monkeypatches `_filtered_complaint_summaries` for the cap/truncation cases and only exercises the small demo dataset otherwise; the full suite (log art_2C2iYpEkjGYq / art_bffQwGZJRZfX, 24 passed) shows a green run that says nothing about peak memory at scale. Could not be confirmed by running an attack here: this role has no shell/command approval (every `shell_exec`, including plain `bash scripts/atlas/…`, `cat`, `git`, was denied by policy), so no failing reproduction artifact exists.",
+      "reproductionArtifactId": null,
+      "confidence": 0.5,
+      "status": "open",
+      "fingerprint": "7d5ee2f22587b7a438196706",
+      "createdAt": "2026-10-15T04:51:39.856Z",
+      "source": "review"
+    },
+    {
+      "id": "fnd_Skx3wRzpcP3b",
+      "missionId": "msn_DcXe2Ucpj853",
+      "taskId": "tsk_n4smrjUNcmFj",
+      "file": "backend/main.py",
+      "line": 1328,
+      "endLine": 1344,
+      "severity": "low",
+      "kind": "informational",
+      "title": "Export endpoint has no role/scope check: read-only \"viewer\" sessions can pull a full-dataset bulk extract",
+      "observation": "`GET /api/complaints/export.csv` accepts the same filter params as the list endpoint and does not call `require_role` (contrast `_enqueue_request` → `require_role(http_request)` at backend/main.py:1053, `normalize_submit` at :1620, `submit_review` at :1786). Authorization is therefore entirely the global `RequestProtection` middleware (backend/security.py:98-124): any authenticated session passes, and for GET there is no role floor and no CSRF check, so the lowest-privileged `viewer` role can download up to 10,000 complaints — the same data the list endpoint already returns over the same pagination, but in one bulk, machine-readable response with `narrative_preview`, `customer_id` and `ticket_id` columns (backend/services/csv_export.py:19-40).\n\nThis is not a new authorization bypass — `viewer` can already page the same rows through `GET /api/complaints` — so it is bulk-export capability rather than a leak, and it matches the mission requirement. Flagging it because a bulk-export capability is normally an audited action in a compliance tool: the export is not written to `security_events` (backend/security.py:83-88), so a 10,000-row PII extract leaves no trail, and there is now one endpoint that is cheap to harvest by a low-privilege account even if `viewer` is intended to be a read-limited role. Confirm the intended role for bulk export with the product owner; if `viewer` should not export, add `require_role(http_request, \"operator\")` (or a dedicated \"analyst\"/\"compliance\" role) to the handler.",
+      "recommendation": "Decide explicitly who may bulk-export and encode it: add `request: Request` and `require_role(request, \"<role>\")` to `export_complaints_csv`, and record a `security_event(\"complaint_export\", user, target=<filters summary>)` with the row count and whether it was truncated. If `viewer` export is intended, note that decision so the next reviewer does not re-open it.",
+      "evidence": "backend/main.py:1326-1370 — handler signature and body; no `require_role` call, no `request: Request` parameter. Middleware path: backend/security.py:104-113 — `user = session_for(...)`; for GET requests the `minimum` role and the CSRF check are skipped, so any authenticated session (including `viewer`, the lowest entry in `ROLES`) reaches the handler. Audit gap: no `security_event(...)` call in the export path, while `login`/`logout` raise one (backend/security.py:196, 214). Not demonstrated by a run: this role's shell approvals are denied, so no request artifact exists.",
+      "reproductionArtifactId": null,
+      "confidence": 0.5,
+      "status": "open",
+      "fingerprint": "5d6b0f5e7bbe8098c4654c5f",
+      "createdAt": "2026-10-15T04:51:39.857Z",
+      "source": "review"
+    },
+    {
+      "id": "fnd_GuZMeppQAPxm",
+      "missionId": "msn_DcXe2Ucpj853",
+      "taskId": "tsk_n4smrjUNcmFj",
+      "file": "backend/services/csv_export.py",
+      "line": 85,
+      "endLine": 88,
+      "severity": "info",
+      "kind": "informational",
+      "title": "Verified: formula-injection guard covers all six required lead characters, including the list/iterable join path",
+      "observation": "`sanitize_cell` (backend/services/csv_export.py:44-63) prefixes a single quote when the rendered text starts with `=`, `+`, `-`, `@`, tab or CR. All cell values reach it through `iter_csv`'s `writer.writerow([sanitize_cell(row.get(column)) for column in columns])` (line 79-80), including the `tags` column, which is the only list-valued field in `EXPORT_COLUMNS`.\n\nVerified the requirement's six characters against the code: `_FORMULA_PREFIXES = (\"=\", \"+\", \"-\", \"@\", \"\\t\", \"\\r\")` matches the mission list exactly, and the check is `text.startswith(_FORMULA_PREFIXES)` on the *final* rendered text, so it applies after the bool → \"true\"/\"false\" normalisation and after `str(value)` coercion. Two edge cases I checked and found correctly handled: (a) the list branch joins `sanitize_cell(item)` results with \", \", so a leading formula payload inside a list element (e.g. `tags: [\"=cmd|'/C calc'!A0\"]`) comes out as `\"'=cmd|…\"` — the per-element sanitisation happens before the join, so the guard fires on the element rather than being lost behind a quote/comma; (b) `=1+1` values are neutralised at the element level, so no combination of list values can a produce a cell whose first character is a formula lead without the guard having fired. `\\r` and `\\t` are also covered, and a CR payload additionally gets RFC 4180 quoting from `csv.writer` (line 63, `lineterminator=\"\\r\\n\"`).\n\nThe delimiter/quote/newline escaping itself is delegated to the stdlib `csv` module with `\\r\\n` line endings, which is RFC 4180-conformant; the component tests in backend/tests/test_complaints_export.py:41-53 and 56-74 round-trip `Card, \"Premium\"` and `Line one\\nLine two` through `csv.reader` and assert the formula prefixes. No finding here — recorded as the verification evidence for the first acceptance criterion.",
+      "recommendation": "No change required. Optional hardening only: also guard a leading apostrophe-free payload preceded by whitespace/other control characters (e.g. a leading space then `=`) if either spreadsheet application used by compliance is known to trim before parsing formulas; and consider applying the same `sanitize_cell` to any future export column that is user-controlled free text outside `narrative_preview`.",
+      "evidence": "Read of backend/services/csv_export.py:44-88 (`sanitize_cell` prefix list vs the mission's required characters; single `sanitize_cell` call site in `iter_csv`; `csv.writer(lineterminator=\"\\r\\n\")`). Covered by the change's own tests, which pass in the full suite: log art_2C2iYpEkjGYq and art_bffQwGZJRZfX, `24 passed` (patched by role: run_tests maps to `bash scripts/atlas/test-backend.sh` / art_2C2iYpEkjGYq; the direct pytest invocation could not be run because shell is denied for this role).",
+      "reproductionArtifactId": null,
+      "confidence": 0.5,
+      "status": "open",
+      "fingerprint": "dcd7484b446a176de2e4e907",
+      "createdAt": "2026-10-15T04:51:39.858Z",
+      "source": "review"
+    },
+    {
+      "id": "fnd_yTYcttnLYfR8",
+      "missionId": "msn_DcXe2Ucpj853",
+      "taskId": "tsk_n4smrjUNcmFj",
+      "file": "backend/main.py",
+      "line": 1363,
+      "endLine": 1368,
+      "severity": "info",
+      "kind": "informational",
+      "title": "Verified: Content-Disposition filename is fully server-constructed, so it cannot carry header injection",
+      "observation": "The response header is built as `f'attachment; filename=\"{payload[\"filename\"]}\"'` (backend/main.py:1363-1364), and `filename` is produced only by `_complaint_export_payload` as `f\"complaints-export-{_utc_now().strftime('%Y-%m-%d')}.csv\"` (backend/main.py:541). No request-derived value (and in particular none of the filter parameters `product`, `risk_level`, `customer_state`, `channel`, `tag`, `source`) is interpolated into the filename, the disposition type, or the other two headers (`X-Export-Truncated` is a literal, `X-Row-Cap` is `str(int)` of a module constant).\n\nI confirmed the trust-boundary reasoning for this class: all ten query parameters of the export handler are plain `Optional[str]`/`Optional[bool]`/`bool` FastAPI params, so they are values inside the filters dict, never header material; the only clock-dependent part of the filename is `strftime('%Y-%m-%d')`, which cannot yield CR/LF. Changing `EXPORT_ROW_CAP` (as the cap test does via monkeypatch) also cannot reach the filename. Because CR/LF cannot enter the header value, this cannot split the response, cannot inject a second header or a fake body, and cannot cause a cache-poisoning/response-splitting issue with a downstream proxy. The one related nuance worth noting is that the CSV body itself deliberately contains CR/LF (narrative cells with newlines), which is correct RFC 4180 data and separated from the headers by the framework; nothing in the body is interpreted as a header.\n\nRecorded as the verification evidence for the second acceptance criterion; no finding.",
+      "recommendation": "No change required. If a future revision derives the filename from a filter value (e.g. `complaints-{product}.csv`), sanitise it to `[A-Za-z0-9._-]` and RFC 6266-encode it first; the current construction must stay server-side.",
+      "evidence": "Read of backend/main.py:536-542 (`filename` construction from `_utc_now()`), 1326-1370 (handler signature: every filter is a typed scalar parameter; headers built only from `payload[\"filename\"]`, a literal, and a constant), and the framing guarantees of `StreamingResponse`. Asserted by the change's test at backend/tests/test_complaints_export.py:14-25 (disposition starts with `attachment` and contains today's date), green in the suite at log art_2C2iYpEkjGYq. No header-injection artefact could be produced here: shell is denied for this role, and the property is proven structurally (no user-controlled substring in the header).",
+      "reproductionArtifactId": null,
+      "confidence": 0.5,
+      "status": "open",
+      "fingerprint": "39596bc5de60a12115a6dec5",
+      "createdAt": "2026-10-15T04:51:39.858Z",
+      "source": "review"
+    },
+    {
+      "id": "fnd_3PGgfuqnPL2C",
+      "missionId": "msn_DcXe2Ucpj853",
+      "taskId": "tsk_n4smrjUNcmFj",
+      "file": "backend/main.py",
+      "line": 1363,
+      "endLine": 1370,
+      "severity": "info",
+      "kind": "informational",
+      "title": "Verified the other attack classes the change could have opened, and dismissed the scan",
+      "observation": "`security_scan` returned nothing for the added code, dependencies or CI configuration — consistent with my own read: the diff adds no dependency, no shell call, no TLS change, no CI change, and no credential; the only new outbound surface is the endpoint itself.\n\nClasses checked against the two changed entry points (`GET /api/complaints/export.csv`, and the refactor of `_list_complaints_payload`/`_filtered_complaint_summaries` that the list endpoint now uses):\n- SQL injection: none introduced. `_filtered_complaint_summaries` only runs Python predicates (`_matches_filters`, backend/main.py:347-377) over already-fetched dicts; the filter values never reach a query string. The database access underneath (`get_all_complaints`) is unchanged by this diff. The list-refactor preserves the response contract (same filter semantics, `total` = matched count, same `available_filters`); I found no behavioural drift that could bypass a filter — the export and the list call the same helper, which is the property the constraint asked for.\n- Command injection / path traversal: none. No `subprocess`, no file-system path from input; the export writes no files. (The pre-existing `subprocess.run([\"curl\", ..., f\"{CFPB_SEARCH_URL}?{query}\"])` at backend/main.py:700+ is outside this change and uses a list-based argv with a constant base URL.)\n- SSRF / open redirect: none. The export makes no outbound call and issues no redirect; `source` and friends are compared against stored values, not fetched.\n- Deserialization / template / HTML injection: none. `csv.writer` output is opaque bytes downstream; the CSV is served as `text/csv; charset=utf-8` with `Content-Security-Policy` and `X-Content-Type-Options: nosniff` added by `RequestProtection` (backend/security.py:155-163), and nothing renders the CSV as HTML.\n- Secrets in logs/errors: none. The handler logs nothing; `RequestProtection` logs only id, method, path, status and latency (backend/security.py:165-167), and on exception returns a generic 500 with the request id.\n- Race on a security check: n/a — the endpoint has no check-then-act; it is a read-only GET, and `filters` is copied per request.\n- CSRF/CORS: the endpoint is a GET with no state change, so the middleware's CSRF gate correctly does not apply; CORS is unchanged from the base.\n- Unbounded input: the body-size limit in `RequestProtection` (backend/security.py:100-105) does not bound the cost of this GET, which is why the memory finding above is the one real issue in this diff.\n\nRecorded as the verification evidence for the fourth acceptance criterion and as the reason the clean scan was accepted rather than treated as \"nothing to report\".",
+      "recommendation": "No action. Keep the export a pure read-only GET with no request-derived header material, and re-run these checks if a later revision lets filters reach SQL, the filename, or the filesystem.",
+      "evidence": "security_scan result (\"nothing found in the added code, dependencies or CI configuration\"); view_diff of backend/main.py, backend/services/csv_export.py, backend/tests/test_complaints_export.py (3 files, no dependency/config files); reads of backend/main.py:429-542 and 1326-1370, backend/services/csv_export.py, backend/security.py:83-170, backend/config.py. Suite green at logs art_2C2iYpEkjGYq and art_bffQwGZJRZfX (24 passed). The only command executed in this review was run_tests; shell_exec was denied for this role, so every denial listed in mission_memory (sed/cat/git/scripts/atlas invocations) has no artifact and nothing here depends on them.",
+      "reproductionArtifactId": null,
+      "confidence": 0.5,
+      "status": "open",
+      "fingerprint": "933a625c54dd3a22fccf70d7",
+      "createdAt": "2026-10-15T04:51:39.859Z",
+      "source": "review"
+    }
+  ],
+  "budget": {
+    "budget": {
+      "maxConcurrentAgents": 2,
+      "maxTasks": 12,
+      "maxDelegationDepth": 2,
+      "maxTokens": 2000000,
+      "maxWallClockMinutes": 120
+    },
+    "tokens": 594637,
+    "toolCalls": 381,
+    "tasks": 8,
+    "agentsNow": 0,
+    "elapsedMs": 933474
+  }
+}
