@@ -19,6 +19,7 @@ import { createDesktopTool, DesktopManager, desktopSupport } from '@atlas/deskto
 import { loadConfig } from '@atlas/workspace';
 import { createLogger, type Logger } from './log';
 import { TeamHub } from './team';
+import { LiveBrowserManager } from './liveBrowser';
 import { cleanup as hygieneCleanup, CLEANABLE, report as hygieneReport, type Category, type CleanupResult, type HygieneInput } from './hygiene';
 import { rotateLog } from './log';
 import { git, gitHardening } from '@atlas/workspace';
@@ -62,12 +63,15 @@ export class DaemonService {
   readonly deploy: DeployManager;
   readonly desktop: DesktopManager;
   readonly team: TeamHub;
+  /** The operator's real-time browser (Browser screen); never reachable by agents. */
+  readonly liveBrowser: LiveBrowserManager;
 
   constructor(private readonly o: ServiceOptions) {
     mkdirSync(o.dataDir, { recursive: true });
     this.log = createLogger(path.join(o.dataDir, 'logs'));
     this.db = openDb(path.join(o.dataDir, 'atlas.db'));
     this.repo = new Repo(this.db);
+    this.liveBrowser = new LiveBrowserManager({ repo: this.repo });
     // Every process the executor starts is journaled until it exits, so a crash cannot leave orphans (P0-4).
     setProcessJournal(this.repo.processJournal());
     this.artifacts = new ArtifactStore(this.db, path.join(o.dataDir, 'artifacts'));
@@ -311,6 +315,7 @@ export class DaemonService {
     if (this.ciTimer) clearInterval(this.ciTimer);
     this.team.stop();
     if (this.hygieneTimer) clearInterval(this.hygieneTimer);
+    await this.liveBrowser.shutdown();
     await this.desktop.shutdown();
     await this.deploy.shutdown();
     await this.orch.shutdown();
@@ -508,6 +513,11 @@ export class DaemonService {
         return { ...this.web.view(), test };
       }
       case 'web.account.reset': this.web.pool.reset(p.id); return this.web.view();
+      case 'browser.live.open': return this.liveBrowser.open(p);
+      case 'browser.live.frame': return this.liveBrowser.frame(p.sessionId);
+      case 'browser.live.input': { const { sessionId, ...input } = p; return this.liveBrowser.input(sessionId, input); }
+      case 'browser.live.close': return this.liveBrowser.close(p.sessionId);
+      case 'browser.live.urls': return this.liveBrowser.urls();
       case 'mcp.list': return this.mcpView();
       case 'mcp.save': {
         const others = this.mcpServers().filter((s) => s.name !== p.server.name);

@@ -20,6 +20,20 @@ const credentialName = z.enum([...PROVIDER_IDS, 'github']);
 /** A harness sync target (ADR 0019); project scope needs a workspace. */
 const syncTarget = z.object({ harness: z.enum(['claude-code', 'codex', 'opencode']), scope: z.enum(['user', 'project']), workspaceId: Id.optional(), skills: z.boolean().default(true), mcp: z.boolean().default(true) }).strict();
 
+/** Live-browser addresses: http(s) only; plain http only on loopback (127.0.0.1, localhost, [::1]); https to any host. */
+export function isLiveBrowserUrl(raw: string): boolean {
+  let u: URL;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.username || u.password) return false;
+  if (u.protocol === 'https:') return !!u.hostname;
+  if (u.protocol !== 'http:') return false;
+  const h = u.hostname.toLowerCase();
+  return h === '127.0.0.1' || h === 'localhost' || h === '[::1]' || h.endsWith('.localhost');
+}
+/** Keys the live browser forwards (Playwright names, optional modifiers): "Enter", "ArrowLeft", "Meta+a". */
+export const LIVE_KEY = /^((Shift|Control|Alt|Meta)\+){0,3}([A-Za-z0-9]|F[1-9]|F1[0-2]|Enter|Backspace|Tab|Escape|Delete|Insert|Home|End|PageUp|PageDown|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Space|[-=[\];',./`\\])$/;
+const liveUrl = z.string().trim().min(1).max(2048).refine(isLiveBrowserUrl, 'only https, or http on 127.0.0.1/localhost');
+
 export const Requests = {
   'app.info': empty,
   'workspace.open': empty,
@@ -121,6 +135,20 @@ export const Requests = {
     z.object({ key: z.literal('security.aiReview'), value: z.boolean() }).strict(),
     z.object({ key: z.literal('maintenance.auto'), value: z.boolean() }).strict(),
   ]),
+  /** Operator-driven live browser (never agent-driven): fresh isolated context per session; http only on loopback, https anywhere. */
+  'browser.live.open': z.object({ url: liveUrl, width: z.number().int().min(320).max(2560).optional(), height: z.number().int().min(240).max(1600).optional() }).strict(),
+  'browser.live.frame': z.object({ sessionId: Id }).strict(),
+  'browser.live.input': z.object({
+    sessionId: Id,
+    kind: z.enum(['click', 'move', 'scroll', 'type', 'key', 'navigate', 'back', 'forward', 'reload']),
+    x: z.number().min(0).max(4096).optional(), y: z.number().min(0).max(4096).optional(),
+    dx: z.number().min(-10_000).max(10_000).optional(), dy: z.number().min(-10_000).max(10_000).optional(),
+    text: z.string().max(2000).optional(),
+    key: z.string().regex(LIVE_KEY, 'unsupported key').optional(),
+    url: liveUrl.optional(),
+  }).strict(),
+  'browser.live.close': z.object({ sessionId: Id }).strict(),
+  'browser.live.urls': empty,
   'mcp.list': empty,
   'mcp.save': z.object({ server: McpServerConfig }).strict(),
   'mcp.remove': z.object({ name: z.string().regex(MCP_NAME) }).strict(),

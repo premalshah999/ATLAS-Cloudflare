@@ -53,6 +53,11 @@ export type AppInfo = { version: string; schema: number; pi: { package: string; 
 
 export type CloudPublication = { name: string; remote: string; verified: boolean; refs: { ref: string; expected: string; actual: string | null; matches: boolean }[]; checkedAt: string };
 
+/** The operator's live browser tab (Browser screen). */
+export type LiveBrowserState = { url: string; title: string };
+export type LiveBrowserOpened = LiveBrowserState & { sessionId: string; width: number; height: number; error?: string };
+export type LiveBrowserFrame = LiveBrowserState & { png: string; mime: 'image/jpeg'; ts: number };
+
 type Results = {
   'cloud.publish': CloudPublication;
   'cloud.status': CloudPublication | null;
@@ -121,6 +126,11 @@ type Results = {
   'runtime.health': RuntimeHealth[];
   'models.list': ModelInfo[];
   'credentials.test': { provider: string; ok: boolean; status: number | null; detail: string };
+  'browser.live.open': LiveBrowserOpened;
+  'browser.live.frame': LiveBrowserFrame;
+  'browser.live.input': LiveBrowserState & { ok: boolean; error?: string };
+  'browser.live.close': { ok: boolean };
+  'browser.live.urls': string[];
   'mcp.list': McpServerView[];
   'mcp.save': McpServerView[];
   'mcp.remove': McpServerView[];

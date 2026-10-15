@@ -7,6 +7,7 @@ import { Screenshot, TerminalPanel } from './panels';
 import { Projects } from './projects';
 import { TeamScreen } from './team';
 import { Settings } from './settings';
+import { LiveBrowser } from './liveBrowser';
 
 function HumanTerminal() {
   const { snap } = useMission(live.missionId);
@@ -16,6 +17,7 @@ function HumanTerminal() {
 
 export function installDesignSlots() {
   slots.HumanTerminal = () => <HumanTerminal />;
+  slots.LiveBrowser = () => <LiveBrowser />;
   slots.Shot = ({ artifactId, alt }) => <Screenshot artifactId={artifactId} alt={alt} />;
   slots.Page = { projects: () => <Projects />, team: () => <TeamScreen />, preferences: () => <Settings /> };
 }
