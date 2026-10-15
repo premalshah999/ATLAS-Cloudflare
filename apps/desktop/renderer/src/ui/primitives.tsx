@@ -25,10 +25,10 @@ export function Tip({ label, kbd, side = 'bottom', children, delay = 450 }: { la
     }, delay);
   };
   const hide = () => { window.clearTimeout(timer.current); setPos(null); };
-  useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => { const off = () => hide(); window.addEventListener('scroll', off, true); window.addEventListener('blur', off); return () => { window.clearTimeout(timer.current); window.removeEventListener('scroll', off, true); window.removeEventListener('blur', off); }; }, []);
   const centered = side === 'bottom' || side === 'top';
   return (
-    <span ref={ref} onMouseEnter={show} onMouseLeave={hide} onMouseDown={hide} onFocus={show} onBlur={hide} style={{ display: 'inline-flex' }}>
+    <span ref={ref} onMouseEnter={show} onMouseLeave={hide} onMouseDown={hide} onFocus={(e) => { if ((e.target as HTMLElement).matches?.(':focus-visible')) show(); }} onBlur={hide} style={{ display: 'inline-flex' }}>
       {children}
       {pos && (
         <span className="at-tip" role="tooltip" style={{ left: pos.x, top: pos.y, transform: centered ? 'translateX(-50%)' : side === 'left' ? 'translateX(-100%)' : undefined }}>
