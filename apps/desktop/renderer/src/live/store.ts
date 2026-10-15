@@ -53,7 +53,10 @@ export function set(patch: Partial<LiveState>) {
   listeners.forEach((l) => l());
 }
 export const get = () => state;
-export const go = (route: Route) => set({ route, palette: false });
+/** While the dashboard is open, classic navigation is routed to its screens (designActions installs this). */
+let designRouter: ((route: Route) => boolean) | null = null;
+export const setDesignRouter = (r: typeof designRouter) => { designRouter = r; };
+export const go = (route: Route) => { if (state.route.screen === 'preview' && route.screen !== 'preview' && designRouter?.(route)) { set({ palette: false }); return; } set({ route, palette: false }); };
 
 export function useLive<T>(sel: (s: LiveState) => T): T {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => sel(state), () => sel(state));

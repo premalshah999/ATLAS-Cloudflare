@@ -6,7 +6,9 @@ import { approvals as sampleApprovals, timeline as sampleTimeline, liveEvents, l
 
 export type ScreenId =
   | 'welcome' | 'home' | 'workspaces' | 'create' | 'mission' | 'graph' | 'agent' | 'terminal' | 'review'
-  | 'computer' | 'deploy' | 'studio' | 'settings' | 'report' | 'activity';
+  | 'computer' | 'deploy' | 'studio' | 'settings' | 'report' | 'activity'
+  /** Live pages hosted inside the dashboard (registered by the live app through slots.Page). */
+  | 'projects' | 'team' | 'preferences';
 
 export interface Toast { id: number; tone: 'success' | 'warning' | 'danger' | 'info' | 'human'; title: string; body?: string; action?: { label: string; screen?: ScreenId } }
 
@@ -68,7 +70,7 @@ export interface DesignAdapter {
 }
 export let adapter: DesignAdapter | null = null;
 /** Live components the design screens host (the operator's real sandboxed terminal). */
-export const slots: { HumanTerminal?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element } = {};
+export const slots: { HumanTerminal?: () => JSX.Element; Shot?: (p: { artifactId: string; alt: string }) => JSX.Element; Page?: Partial<Record<'projects' | 'team' | 'preferences', () => JSX.Element>> } = {};
 export const setAdapter = (a: DesignAdapter | null) => { adapter = a; };
 export function createStore(init: Partial<AppState> = {}) {
   const wide = typeof window === 'undefined' || window.innerWidth >= 1300;

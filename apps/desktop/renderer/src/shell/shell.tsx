@@ -141,8 +141,8 @@ export function Rail() {
       <div style={{ flex: 1 }} />
       <div className="at-rail-group">
         {live.on && adapter && <>
-          <Tip label="Team spaces" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => adapter!.openLive('team')}><Icon as={IUsers} size="lg" /><span className="at-rail-label">Team</span></button></Tip>
-          <Tip label="Projects, imports and classic views" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => adapter!.openLive('projects')}><Icon as={IFolderOpen} size="lg" /><span className="at-rail-label">Projects</span></button></Tip>
+          <Tip label="Team spaces" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => A.go('team')}><Icon as={IUsers} size="lg" /><span className="at-rail-label">Team</span></button></Tip>
+          <Tip label="Projects, imports and classic views" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => A.go('projects')}><Icon as={IFolderOpen} size="lg" /><span className="at-rail-label">Projects</span></button></Tip>
         </>}
         {item({ id: 'settings', label: 'Settings', icon: ISettings, kbd: '⌘ ,' })}
         <Tip label={expanded ? 'Collapse sidebar' : 'Expand sidebar'} kbd="⌘ \" side="right">

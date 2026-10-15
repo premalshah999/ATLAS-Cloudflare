@@ -5,7 +5,7 @@ import { setAdapter, type Store } from '../lib/store';
 import { live } from '../data/source';
 import { call } from './api';
 import { buildSnapshot, hydrate, shortId } from './designBridge';
-import { refreshLists, useLive, get, go } from './store';
+import { refreshLists, useLive, get, go, setDesignRouter } from './store';
 import { installDesignSlots } from './designSlots';
 
 async function currentMission() {
@@ -53,7 +53,7 @@ export function installDesignAdapter(store: Store) {
       const r = await call('mission.export', { missionId: live.missionId });
       if (r) store.toast({ tone: 'success', title: 'Audit log exported', body: `${r.records} records · SHA-256 ${r.sha256.slice(0, 16)}… → ${r.path}` });
     },
-    openLive(screen) { go({ screen } as never); },
+    openLive(screen) { store.go(screen === 'settings' ? 'preferences' : screen); },
     async reverify() {
       const snap = await currentMission();
       await call('mission.reverify', { missionId: snap.mission.id });
@@ -76,7 +76,19 @@ export function useDesignLive(store: Store, active: boolean) {
   const workspaces = useLive((s) => s.workspaces);
   const [sel, setSel] = useState(store.get().missionId);
   useEffect(() => { const off = store.subscribe(() => { const id = store.get().missionId; setSel((x) => (x === id ? x : id)); }); return () => { off(); }; }, [store]);
-  useEffect(() => { if (active) { installDesignAdapter(store); installDesignSlots(); } return () => setAdapter(null); }, [active, store]);
+  useEffect(() => {
+    if (!active) return;
+    installDesignAdapter(store); installDesignSlots();
+    setDesignRouter((r) => {
+      const map: Record<string, Parameters<typeof store.go>[0]> = { projects: 'projects', team: 'team', settings: 'preferences', new: 'create', home: 'home', activity: 'activity', agents: 'studio', reviews: 'review', deployments: 'deploy', terminal: 'terminal', browser: 'computer' };
+      if (r.screen === 'mission') { store.go('mission', { missionId: r.missionId }); return true; }
+      const to = map[r.screen];
+      if (!to) return false;
+      store.go(to);
+      return true;
+    });
+    return () => { setAdapter(null); setDesignRouter(null); };
+  }, [active, store]);
   useEffect(() => { if (active) void call('settings.get').then((st) => { (window as unknown as Record<string, unknown>).__atlasTargets = st.values['deploy.allowedTargets']; }).catch(() => {}); }, [active]);
   useEffect(() => {
     if (!active) return;

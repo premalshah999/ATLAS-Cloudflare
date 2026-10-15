@@ -4,6 +4,9 @@ import { slots } from '../lib/store';
 import { live } from '../data/source';
 import { useMission } from './useMission';
 import { Screenshot, TerminalPanel } from './panels';
+import { Projects } from './projects';
+import { TeamScreen } from './team';
+import { Settings } from './settings';
 
 function HumanTerminal() {
   const { snap } = useMission(live.missionId);
@@ -14,4 +17,5 @@ function HumanTerminal() {
 export function installDesignSlots() {
   slots.HumanTerminal = () => <HumanTerminal />;
   slots.Shot = ({ artifactId, alt }) => <Screenshot artifactId={artifactId} alt={alt} />;
+  slots.Page = { projects: () => <Projects />, team: () => <TeamScreen />, preferences: () => <Settings /> };
 }
