@@ -42,7 +42,7 @@ Use **`pnpm run doctor`**, not `pnpm doctor`: newer pnpm versions have their own
 7. In **Cloudflare**, choose **Publish to Cloudflare** after configuring the Worker. This uploads committed source and history. Inspect the returned commit matches.
 8. **Accept changes** preserves the integration branch. The original checkout is unchanged. Acceptance does not merge it into `main`.
 
-The scripted runtime makes deterministic decisions. The isolated worktrees, concurrent scheduling, edits, merge, tests and browser checks are real. Remote publication is implemented but remains unverified because this account lacks Artifacts access. For a fresh demonstration, seed a new sample path; do not reset a repository containing work you want to retain.
+The scripted runtime makes deterministic decisions. The isolated worktrees, concurrent scheduling, edits, merge, tests and browser checks are real. Remote publication to Cloudflare Artifacts is live-verified; see [Cloudflare setup](CLOUDFLARE.md). For a fresh demonstration, seed a new sample path; do not reset a repository containing work you want to retain.
 
 ## Add model keys
 

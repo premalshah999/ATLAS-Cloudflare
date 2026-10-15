@@ -18,6 +18,6 @@ Environment: macOS 15.8.1, Intel x64, Node 24.21.0, pnpm 10.28.0, Electron 44.1.
 
 No model API key was supplied and no live provider request was tested. The demo uses the explicitly labeled scripted runtime with real Git operations and checks.
 
-Cloudflare deployment returned error 10403: Artifacts requires Workers Paid. Worker type checking and mocked protocol tests pass, but no live repository creation, push or remote hash readback has succeeded. Wrangler's local mode also requires remote Artifacts access. This is an unresolved challenge requirement.
+Cloudflare: after upgrading to Workers Paid, the Worker deployed and `pnpm test:cloud-live` passed on October 15, 01:31 UTC — live repository creation, scoped-token push of five mission refs and independent remote hash readback all succeeded. Two defects found only against the live service were fixed: tokens are `art_v2_`-prefixed, and `ArtifactsRepo.log` resolves branch names, not full `refs/heads/` refs.
 
 The Mac bundle is unsigned and not notarized. External Node, Git and Python 3 are needed for agent commands and the terminal. Mac Seatbelt is not Linux process-namespace isolation. This prototype does not demonstrate massive agent scale.

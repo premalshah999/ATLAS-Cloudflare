@@ -12,7 +12,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.resetAllMocks(); });
 function setup(matching = true, target = remote) {
   vi.mocked(gitOk).mockResolvedValue(`${taskSha} refs/heads/atlas/msn_test/integration`);
   vi.mocked(run).mockResolvedValue({ exitCode: 0 } as any);
-  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ remote: target, token: 'art_v1_TEST_SECRET' })).mockResolvedValueOnce(Response.json({
+  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ remote: target, token: 'art_v2_x_TEST_SECRET' })).mockResolvedValueOnce(Response.json({
     name: 'atlas-msn_test', verified: matching, checkedAt: new Date().toISOString(), refs: [
       { ref: 'refs/heads/main', expected: sha, actual: sha, matches: true },
       { ref: 'refs/heads/atlas/msn_test/integration', expected: taskSha, actual: matching ? taskSha : sha, matches: matching },
@@ -29,7 +29,7 @@ describe('publication protocol (mocked service)', () => {
     const command = vi.mocked(run).mock.calls[0][0];
     expect(command.args).toContain(`${taskSha}:refs/heads/atlas/msn_test/integration`);
     expect(JSON.stringify(command.args)).not.toContain('TEST_SECRET');
-    expect(command.env?.GIT_CONFIG_VALUE_4).toBe('Authorization: Bearer art_v1_TEST_SECRET');
+    expect(command.env?.GIT_CONFIG_VALUE_4).toBe('Authorization: Bearer art_v2_x_TEST_SECRET');
     expect(fetcher.mock.calls[1][0]).toContain('/verify');
   });
   it('refuses to claim success when readback differs', async () => {
@@ -45,5 +45,11 @@ describe('publication protocol (mocked service)', () => {
     const fetcher = setup();
     await expect(publishMission({ ...options, secret: '' })).rejects.toThrow('connection token');
     expect(fetcher).not.toHaveBeenCalled();
+  });
+  it('refuses a token that could inject another Git HTTP header', async () => {
+    const fetcher = setup();
+    fetcher.mockReset().mockResolvedValueOnce(Response.json({ remote, token: 'art_v2_test\r\nX-Injected: true' }));
+    await expect(publishMission(options)).rejects.toThrow('Invalid repository token');
+    expect(run).not.toHaveBeenCalled();
   });
 });

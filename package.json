@@ -15,6 +15,7 @@
     "lint": "node scripts/check-deps.mjs && eslint .",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:cloud-live": "vitest run --project integration tests/integration/cloudflare-live.test.ts",
     "test:e2e": "pnpm build && playwright test -c tests/e2e-electron/playwright.config.ts",
     "package": "pnpm --filter @atlas/desktop package",
     "doctor": "node scripts/doctor.mjs",

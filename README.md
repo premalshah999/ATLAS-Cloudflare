@@ -4,7 +4,7 @@
 
 This edition adds Mac setup fixes, a reproducible concurrent-agent demo, nine API-key provider inputs with model selection, and a Workers + Artifacts publication integration.
 
-**Deployment status:** local Mac missions are tested. Live Cloudflare deployment is blocked: the account requires Workers Paid for Artifacts (error 10403). The integration is implemented and locally tested, but no live Artifacts push/readback has been verified. Local Wrangler development also uses remote Artifacts; it is not a free storage emulator.
+**Deployment status:** local Mac missions are tested. The Cloudflare Worker is deployed with an Artifacts binding, and a live concurrent mission was published to a per-mission Artifacts repository with every commit hash independently verified (`pnpm test:cloud-live`, see [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md)).
 
 - [Run on your Mac and configure model keys](docs/MAC-SETUP.md)
 - [Cloudflare integration and deployment](docs/CLOUDFLARE.md)

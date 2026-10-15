@@ -16,9 +16,11 @@ describe('Worker authorization and verification', () => {
   });
   it('reports a remote mismatch as unverified and disposes the handle', async () => {
     const dispose = vi.fn();
-    const get = vi.fn(async () => ({ log: async () => [{ hash: 'b'.repeat(40) }], [Symbol.dispose]: dispose }));
+    const log = vi.fn(async () => [{ hash: 'b'.repeat(40) }]);
+    const get = vi.fn(async () => ({ log, [Symbol.dispose]: dispose }));
     const response = await worker.fetch(request('/repos/atlas-test/verify', { refs: [{ ref: 'refs/heads/main', sha: 'a'.repeat(40) }] }), { ARTIFACTS: { get } as any, ATLAS_CLOUD_TOKEN: secret });
     expect(response.status).toBe(200); expect(((await response.json()) as { verified: boolean }).verified).toBe(false); expect(dispose).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith({ ref: 'main', limit: 1 });
   });
   it('never returns upstream credential-bearing exceptions', async () => {
     const get = vi.fn(async () => { throw new Error('secret-art_v1_hidden'); });

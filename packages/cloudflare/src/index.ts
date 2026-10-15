@@ -36,7 +36,7 @@ export async function publishMission(o: { root: string; missionId: string; baseC
   if (refs.length < 2) throw new Error('No mission checkpoints to publish yet.');
   const connection = await api('connect', {}) as { remote: string; token: string };
   const remote = artifactsRemote(connection.remote);
-  if (typeof connection.token !== 'string' || !connection.token.startsWith('art_v1_') || /[\r\n]/.test(connection.token)) throw new Error('Invalid repository token');
+  if (typeof connection.token !== 'string' || !/^art_v\d+_[A-Za-z0-9_]+(\?expires=\d+)?$/.test(connection.token)) throw new Error('Invalid repository token');
   registerSecret(connection.token);
   // Credentials are scoped to this exact remote, passed in environment, never argv or git config.
   const config: Record<string, string> = {
@@ -48,6 +48,9 @@ export async function publishMission(o: { root: string; missionId: string; baseC
   const pushed = await run({ command: 'git', args: ['push', '--porcelain', remote, ...refs.map(({ sha, ref }) => `${sha}:${ref}`)], cwd: o.root, timeoutMs: 120_000, env });
   if (pushed.exitCode !== 0) throw new Error(`Artifacts push failed: ${pushed.output.slice(0, 1000)}`);
   const checked = await api('verify', { refs }) as Omit<Publication, 'remote'>;
-  if (!checked.verified || checked.refs?.length !== refs.length || refs.some((r) => !checked.refs.some((c) => c.ref === r.ref && c.actual === r.sha && c.matches))) throw new Error('Artifacts did not confirm every published commit. Publication is unverified; retry after checking the remote.');
+  if (!checked.verified || checked.refs?.length !== refs.length || refs.some((r) => !checked.refs.some((c) => c.ref === r.ref && c.actual === r.sha && c.matches))) {
+    const bad = refs.filter((r) => !checked.refs?.some((c) => c.ref === r.ref && c.actual === r.sha && c.matches)).map((r) => `${r.ref} expected ${r.sha.slice(0, 12)}, got ${checked.refs?.find((c) => c.ref === r.ref)?.actual?.slice(0, 12) ?? 'nothing'}`);
+    throw new Error(`Artifacts did not confirm every published commit (${bad.join('; ')}). Publication is unverified; retry after checking the remote.`);
+  }
   return { ...checked, remote };
 }

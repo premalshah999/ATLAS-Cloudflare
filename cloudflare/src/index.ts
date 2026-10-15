@@ -44,7 +44,7 @@ export default {
         typeof r.ref !== 'string' || !/^refs\/heads\/(main|atlas\/[a-zA-Z0-9_/-]+)$/.test(r.ref) || !/^[a-f0-9]{40}$/.test(r.sha))) return json({ error: 'Invalid refs' }, 400);
       using repo = await env.ARTIFACTS.get(name);
       const refs = await Promise.all(body.refs.map(async ({ ref, sha }) => {
-        const history = await repo.log({ ref, limit: 1 });
+        const history = await repo.log({ ref: ref.slice('refs/heads/'.length), limit: 1 });
         const actual = history[0]?.hash ?? null;
         return { ref, expected: sha, actual, matches: actual === sha };
       }));

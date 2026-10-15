@@ -2,7 +2,7 @@
 
 Artifacts is Git-compatible versioned repository storage, not a desktop app hosting service. ATLAS continues to run locally. A Worker creates per-mission Artifacts repositories, issues ten-minute Git write tokens, and reads commit IDs back independently after publication.
 
-**Current account status:** deployment was rejected with error 10403 (Workers Paid required). Live push and readback are unverified. Local Wrangler development also uses remote Artifacts; no free local Artifacts emulator is provided by the installed SDK.
+**Live status (verified October 15, 2026, 01:31 UTC):** deployed on Workers Paid. `pnpm test:cloud-live` ran a real concurrent mission, pushed five refs (base, two parallel writers, review, integration) to `atlas-msn_ASLu9BwdSNdC` in the `atlas` namespace, and the Worker independently read every hash back as matching. Local Wrangler development also uses remote Artifacts; there is no local emulator.
 
 ## Account and deploy
 
@@ -44,10 +44,16 @@ All repository routes require `Authorization: Bearer <connection-secret>`.
 - `POST /repos/atlas-<mission>/verify`: body `{ "refs": [{ "ref": "refs/heads/main", "sha": "<40-character-sha>" }] }`; independently read remote refs and compare.
 - `GET /health`: public service metadata only.
 
-This prototype uses one owner token, not multi-tenant user authentication. It publishes completed local collaboration; it does not run agents in Workers or claim large-scale concurrency. A complete competition demonstration needs a successful live publication, not only unit tests with a mocked Artifacts binding.
+This prototype uses one owner token, not multi-tenant user authentication. It publishes completed local collaboration; it does not run agents in Workers or claim large-scale concurrency. Repository tokens are short-lived `art_v<N>_…` Bearer credentials (the live service currently issues `art_v2_`); the Worker resolves refs by branch name, as `ArtifactsRepo.log` expects.
 
 ## Verification
 
-`pnpm cloud:check` checks against Wrangler-generated binding types. `pnpm test` covers unauthorized access, invalid refs, remote mismatch, credential-bearing error redaction and destination validation. Local tests do not establish cloud deployment status.
+`pnpm cloud:check` checks against Wrangler-generated binding types. `pnpm test` covers unauthorized access, invalid refs, remote mismatch, credential-bearing error redaction and destination validation. Local tests do not establish cloud deployment status; for that, run the opt-in live check against your deployment:
+
+```sh
+ATLAS_CLOUD_URL=https://<worker>.workers.dev ATLAS_CLOUD_TOKEN=<connection-secret> pnpm test:cloud-live
+```
+
+It runs the parallel sample mission, publishes it and fails unless every remote hash matches. Each run costs a handful of Artifacts operations (10,000 per month are included).
 
 References: [Workers binding](https://developers.cloudflare.com/artifacts/api/workers-binding/), [Git protocol](https://developers.cloudflare.com/artifacts/api/git-protocol/), [getting started](https://developers.cloudflare.com/artifacts/get-started/workers/).

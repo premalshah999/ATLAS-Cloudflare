@@ -1,6 +1,6 @@
 # Cloudflare challenge submission draft
 
-**Status: local application ready; live Artifacts deployment blocked by account plan.** Do not describe this as a verified Workers + Artifacts deployment. The integration code and mocked service tests exist, but the account rejected deployment with error 10403 because Workers Paid is required. Wrangler also says Artifacts bindings always access the remote service, even during local development.
+**Status: local application ready; Workers + Artifacts deployed and verified live.** **Live status (verified October 15, 2026, 01:31 UTC):** deployed on Workers Paid. `pnpm test:cloud-live` ran a real concurrent mission, pushed five refs (base, two parallel writers, review, integration) to `atlas-msn_ASLu9BwdSNdC` in the `atlas` namespace, and the Worker independently read every hash back as matching.
 
 ## Project name
 
@@ -18,7 +18,7 @@ The Cloudflare extension is designed to make mission checkpoints shareable throu
 
 We implemented a Cloudflare Worker with an Artifacts binding. The Worker creates per-mission repositories, issues ten-minute repository-scoped Git write tokens, and reads published branch tips back through the Artifacts API. ATLAS's daemon publishes immutable base, task and integration commit IDs, and requires every remote hash to match before recording success. Connection secrets are encrypted in the desktop's OS credential store; model keys never reach Cloudflare.
 
-The Worker is type-checked against Wrangler-generated Artifacts types. Tests cover authorization failure, invalid refs, remote hash mismatch, credential redaction and invalid destinations. **Live deployment and Artifacts readback have not been verified: this account is on a plan without Artifacts access.** This limitation must remain in the submission unless a live deployment is completed and recorded.
+The Worker is type-checked against Wrangler-generated Artifacts types. Tests cover authorization failure, invalid refs, remote hash mismatch, credential redaction and invalid destinations. This was verified live: a concurrent mission's five branches were pushed to a per-mission Artifacts repository and every commit ID was independently read back as matching (`pnpm test:cloud-live`).
 
 ## Source URL
 
@@ -34,7 +34,7 @@ For Cloudflare, use an account with Workers Paid, run `pnpm cloud:login`, `pnpm 
 
 ## Video
 
-The narrated walkthrough uses screenshots captured from a real Electron mission and locally synthesized narration. The raw interaction video is retained alongside it. It explicitly discloses the scripted runtime, absence of live provider calls, and blocked Cloudflare deployment. It is a demo draft, not evidence of completed challenge compliance. Review it before upload; a successful live cloud segment should replace the blocked segment if access becomes available.
+The narrated walkthrough uses screenshots captured from a real Electron mission and locally synthesized narration. The raw interaction video is retained alongside it. It explicitly discloses the scripted runtime and the absence of live provider calls. Its Cloudflare segment was recorded while deployment was blocked; replace it with a recording of a live **Publish to Cloudflare** (green matching hashes) before upload.
 
 ## Manual entry
 
@@ -43,14 +43,6 @@ The official rules prohibit automated entry. The account owner must submit manua
 Required personal/team fields: team name, contact name/email, team location, first attendee name/email; second attendee is optional. Do not invent these fields.
 
 The stated deadline is **October 14, 2026, 11:59 p.m. Pacific** (October 15, 2:59 a.m. Eastern). The form needs a 5–10 minute MP4, WebM or MOV under 2 GiB, the public source URL, run instructions, and the Workers + Artifacts confirmation. Source is MIT licensed in `LICENSE`.
-
-## Optional organizer inquiry draft — not sent
-
-To: git-competition@cloudflare.com
-
-Subject: Artifacts access for today's Git competition submission
-
-Hello, I am preparing an ATLAS submission for the Git platform challenge. The prototype and Worker/Artifacts integration are implemented, but deployment is blocked with error 10403 because my account does not have Workers Paid. I cannot enable a paid plan. Is there competition access or a credit option, and are source-complete integrations without a live deployment eligible? I want to describe the limitation accurately rather than claim a deployment that has not run. Thank you.
 
 ## Sources
 
