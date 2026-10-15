@@ -8,7 +8,7 @@ import { openRepository } from '../lib/workspace';
 import {
   IHome, IWorkspaces, IMissions, IAgents, IReviews, IDeploy, IActivity, ISettings, ITerminal, IComputer, ISearch, IBranch, IChevronDown,
   IPause, IPlay, IStop, IBell, IPanelLeft, IPanelRight, IClose, IHistory, IUndo, IFolder, IPlus, IFileCode, 
-  ICpu, IMaximize, IWarn, IFolderOpen,
+  ICpu, IMaximize, IWarn, IFolderOpen, IUsers,
 } from '../lib/icons';
 
 const nav: { id: ScreenId; label: string; icon: IconType; kbd?: string; badge?: number; also?: ScreenId[] }[] = [
@@ -130,8 +130,8 @@ export function Rail() {
             </button>
           ))}
           <div className="at-label" style={{ padding: '16px 12px 6px' }}>Recent missions</div>
-          {missions.slice(1, 4).map((m) => (
-            <button key={m.id} type="button" className="at-side-agent" onClick={() => A.go(m.status === 'verified' ? 'report' : 'mission')}>
+          {missions.slice(live.on ? 0 : 1, live.on ? 6 : 4).map((m) => (
+            <button key={m.id} type="button" className="at-side-agent" onClick={() => A.go(m.status === 'verified' ? 'report' : 'mission', live.on ? { missionId: (window as unknown as { __atlasMissionIds?: Record<string, string> }).__atlasMissionIds?.[m.id] ?? null } : {})}>
               <Dot s={m.status === 'verified' ? 'done' : m.status === 'failed' ? 'failed' : m.status === 'review' ? 'waiting' : 'idle'} />
               <span className="at-trunc">{m.title}</span>
             </button>
@@ -140,11 +140,15 @@ export function Rail() {
       )}
       <div style={{ flex: 1 }} />
       <div className="at-rail-group">
+        {live.on && adapter && <>
+          <Tip label="Team spaces" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => adapter!.openLive('team')}><Icon as={IUsers} size="lg" /><span className="at-rail-label">Team</span></button></Tip>
+          <Tip label="Projects, imports and classic views" side="right" delay={250}><button type="button" className="at-rail-item" onClick={() => adapter!.openLive('projects')}><Icon as={IFolderOpen} size="lg" /><span className="at-rail-label">Projects</span></button></Tip>
+        </>}
         {item({ id: 'settings', label: 'Settings', icon: ISettings, kbd: '⌘ ,' })}
         <Tip label={expanded ? 'Collapse sidebar' : 'Expand sidebar'} kbd="⌘ \" side="right">
           <button type="button" className="at-rail-item" onClick={() => A.set({ sidebar: !expanded })}><Icon as={IPanelLeft} size="lg" /><span className="at-rail-label">Collapse</span></button>
         </Tip>
-        <button type="button" className="at-rail-item at-rail-user"><span className="at-rail-avatar">PS</span><span className="at-rail-label">premal@shahpremal.com</span></button>
+        <button type="button" className="at-rail-item at-rail-user"><span className="at-rail-avatar">PS</span><span className="at-rail-label">{live.on ? 'Local operator' : 'premal@shahpremal.com'}</span></button>
       </div>
     </nav>
   );

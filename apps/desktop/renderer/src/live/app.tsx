@@ -5,7 +5,7 @@ import { Toasts } from '../ui/overlays';
 import { AtlasApp } from '../shell/app';
 import { createStore } from '../lib/store';
 import { connect, go, useLive } from './store';
-import { LiveRail, LiveStatusBar, LiveTitleBar, PreviewBanner, openRepository } from './shell';
+import { LiveRail, LiveStatusBar, LiveTitleBar, openRepository } from './shell';
 import { Projects } from './projects';
 import { NewMission } from './newMission';
 import { MissionView } from './mission';
@@ -65,7 +65,6 @@ export function LiveApp() {
   if (route.screen === 'preview') {
     return (
       <div className="lv-preview">
-        <PreviewBanner live={!!bridge} onExit={() => go({ screen: 'projects' })} />
         <div className="lv-preview-body"><AtlasApp store={preview} frame={false} /></div>
       </div>
     );

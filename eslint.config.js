@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/dist-*/**', '**/release/**', '**/node_modules/**', 'fixtures/**', 'docs/**', 'test-results/**', '**/.wrangler/**', 'cloudflare/worker-configuration.d.ts'] },
+  { ignores: ['**/dist/**', '**/dist-*/**', '**/release/**', '**/node_modules/**', 'fixtures/**', 'docs/**', 'test-results/**', '**/.wrangler/**', '.claude/**', 'cloudflare/worker-configuration.d.ts'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

@@ -31,7 +31,12 @@ interface LiveState {
 }
 
 let state: LiveState = {
-  route: (() => { try { const r = JSON.parse(localStorage.getItem('atlas:route') ?? 'null'); return r && r.screen !== 'preview' ? r : { screen: 'projects' }; } catch { return { screen: 'projects' }; } })(),
+  // The Command center (the design system on live data) is the main dashboard; automated test runs land on Projects.
+  route: (() => {
+    const automated = !!(window as unknown as { atlas?: { e2e?: unknown } }).atlas?.e2e;
+    const fallback: Route = automated ? { screen: 'projects' } : { screen: 'preview' };
+    try { const r = JSON.parse(localStorage.getItem('atlas:route') ?? 'null'); return r && (r.screen !== 'preview' || !automated) ? r : fallback; } catch { return fallback; }
+  })(),
   status: { state: 'starting', pid: null, restarts: 0 },
   workspaces: [],
   missions: [],

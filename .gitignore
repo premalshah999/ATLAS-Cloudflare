@@ -13,3 +13,4 @@ evals/out/
 .env*
 !.env.example
 cloudflare/worker-configuration.d.ts
+.claude/worktrees/

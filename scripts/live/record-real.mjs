@@ -32,7 +32,7 @@ try {
   const verified = finished.filter((m) => m.verdict === 'verified').length;
 
   const go = async (s, extra = {}) => { await page.evaluate(([s, e]) => window.__atlasPreview.go(s, e), [s, extra]); await wait(1800); };
-  await page.getByRole('button', { name: 'Command center' }).click();
+  await page.getByRole('button', { name: 'Dashboard' }).click();
   await wait(3500);
   await page.evaluate((id) => window.__atlasPreview.set({ missionId: id }), best.id);
   await wait(3500);

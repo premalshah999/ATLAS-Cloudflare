@@ -123,8 +123,8 @@ export function LiveRail() {
       </div>
       <div style={{ flex: 1 }} />
       <div className="at-rail-group">
-        <Tip label="Command center · the full mission-control design on live data" side="right" delay={250}>
-          <button type="button" className="at-rail-item" aria-label="Command center" onClick={() => go({ screen: 'preview' })}><Icon as={IPalette} size="lg" /></button>
+        <Tip label="Dashboard · Mission Control, agents, reviews, deployments" side="right" delay={250}>
+          <button type="button" className="at-rail-item" aria-label="Dashboard" onClick={() => go({ screen: 'preview' })}><Icon as={IPalette} size="lg" /></button>
         </Tip>
         <Tip label="Settings" kbd="⌘ ," side="right" delay={250}>
           <button type="button" className="at-rail-item" aria-label="Settings" aria-current={route.screen === 'settings' ? 'page' : undefined} onClick={() => go({ screen: 'settings' })}><Icon as={ISettings} size="lg" /></button>

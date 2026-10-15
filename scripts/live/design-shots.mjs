@@ -16,7 +16,7 @@ await page.getByTestId('mission-goal').fill('[parallel sample] Fix slugify and a
 await page.getByTestId('preflight').and(page.locator('[data-ready="true"]')).waitFor();
 await page.getByTestId('plan-mission').click(); await page.getByTestId('approve-plan').click();
 await page.getByTestId('mission').and(page.locator('[data-state="completed"]')).waitFor({ timeout: 90_000 });
-await page.getByRole('button', { name: 'Command center' }).click(); await page.waitForTimeout(3000);
+await page.getByRole('button', { name: 'Dashboard' }).click(); await page.waitForTimeout(3000);
 for (const s of (process.env.SCREENS ?? 'home,workspaces,create,mission,graph,agent,terminal,review,computer,deploy,studio,settings,report,activity,welcome').split(',')) {
   await page.evaluate((s) => window.__atlasPreview.go(s), s); await page.waitForTimeout(900);
   const guards = await page.locator('[data-testid^="guard-"]').allTextContents();
