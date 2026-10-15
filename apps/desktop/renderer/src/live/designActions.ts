@@ -5,7 +5,7 @@ import { setAdapter, type Store } from '../lib/store';
 import { live } from '../data/source';
 import { call } from './api';
 import { buildSnapshot, hydrate, shortId } from './designBridge';
-import { refreshLists, useLive, get, go, setDesignRouter } from './store';
+import { refreshLists, useLive, get, setDesignRouter } from './store';
 import { installDesignSlots } from './designSlots';
 
 async function currentMission() {
