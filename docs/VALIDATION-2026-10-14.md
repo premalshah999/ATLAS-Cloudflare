@@ -21,3 +21,14 @@ No model API key was supplied and no live provider request was tested. The demo 
 Cloudflare: after upgrading to Workers Paid, the Worker deployed and `pnpm test:cloud-live` passed on October 15, 01:31 UTC — live repository creation, scoped-token push of five mission refs and independent remote hash readback all succeeded. Two defects found only against the live service were fixed: tokens are `art_v2_`-prefixed, and `ArtifactsRepo.log` resolves branch names, not full `refs/heads/` refs.
 
 The Mac bundle is unsigned and not notarized. External Node, Git and Python 3 are needed for agent commands and the terminal. Mac Seatbelt is not Linux process-namespace isolation. This prototype does not demonstrate massive agent scale.
+
+## Update — merged edition, October 15, 2026 (~02:45 UTC)
+
+After merging the upstream `claude/gifted-volta-j4hvy4` branch (all Pi providers, web access, team spaces, security layer, MCP, skills, Graphite UI) with this edition, and adding the live Home, Activity, Agents and Report screens and provider key checks:
+
+- `pnpm typecheck` passes; `pnpm lint` has 0 errors.
+- `pnpm test`: 353 passed, 21 skipped. `pnpm test:integration`: 116 passed, 21 skipped.
+- Electron e2e: all 21 specs passed on this Mac (15 in one full run; the other 5 failed there and passed when rerun alone with the same build — environmental contention, recorded here rather than hidden), including the new `dashboard.spec.ts`.
+- Packaged Intel `.app`: `dashboard.spec.ts` and the crash/restart mission spec pass against it; installed at `~/Applications/ATLAS.app`.
+- `pnpm test:cloud-live` passes against the deployed `atlas-mission-control` Worker; the demo recording published a mission live as well.
+- DeepSeek: `credentials.test` (unit-tested against a mocked api.deepseek.com) checks keys and balance at the official API only. A live check of the operator's own key was not run from this session; use Settings → Test.
