@@ -3,7 +3,7 @@
 import path from 'node:path';
 import { publishMission, workerUrl, type Publication } from '@atlas/cloudflare';
 import { mkdirSync, readFileSync } from 'node:fs';
-import { AtlasError, InternalRequests, McpServerConfig, SearchAccount, WebSettings, mcpSecretEnv, parseRequest, PROVIDER_ENV, registerSecret, type AtlasEvent, type McpServerView, type McpToolInfo, type Method } from '@atlas/contracts';
+import { AtlasError, InternalRequests, KEY_CHECKS, McpServerConfig, SearchAccount, WebSettings, mcpSecretEnv, parseRequest, PROVIDER_ENV, registerSecret, type AtlasEvent, type McpServerView, type McpToolInfo, type Method } from '@atlas/contracts';
 import { McpManager } from '@atlas/mcp';
 import { emptyPoolState, environmentAccounts, WebService, type AddressFilter, type PoolState } from '@atlas/web';
 import { apply as syncApply, foreignServers, locations as syncLocations, plan as syncPlan, type SyncState, type Target as SyncTarget } from '@atlas/sync';
@@ -183,6 +183,37 @@ export class DaemonService {
   private syncInput() {
     const off = new Set(this.repo.setting<string[]>('skills.disabled', []));
     return { skills: this.orch.skills.trusted().skills.filter((s) => !off.has(s.name)), mcp: this.mcpServers() };
+  }
+
+  /** Free read-only check of a configured key at the provider's official API. Never logs or returns the key. */
+  private async testKey(provider: string): Promise<{ provider: string; ok: boolean; status: number | null; detail: string }> {
+    const check = KEY_CHECKS[provider];
+    const key = this.keys[provider];
+    if (!key) return { provider, ok: false, status: null, detail: 'No key is configured for this provider. Paste one and save it first.' };
+    if (!check) return { provider, ok: true, status: null, detail: 'Key is configured. This provider has no free check; a mission confirms it on first use.' };
+    const headers: Record<string, string> = check.auth === 'bearer' ? { Authorization: `Bearer ${key}` } : check.auth === 'x-api-key' ? { 'x-api-key': key, 'anthropic-version': '2023-06-01' } : { 'x-goog-api-key': key };
+    const get = (url: string) => fetch(url, { headers, redirect: 'error', signal: AbortSignal.timeout(15_000) });
+    try {
+      const r = await get(check.url);
+      if (r.status === 401 || r.status === 403) return { provider, ok: false, status: r.status, detail: `The provider rejected this key (HTTP ${r.status}). Create a new key and save it again.` };
+      if (r.status === 429) return { provider, ok: false, status: r.status, detail: 'The key is valid but rate-limited right now (HTTP 429). Try again shortly.' };
+      if (r.status >= 500) return { provider, ok: false, status: r.status, detail: `The provider is unavailable (HTTP ${r.status}). The key may be fine; try again shortly.` };
+      if (!r.ok) return { provider, ok: false, status: r.status, detail: `Unexpected response from the provider (HTTP ${r.status}).` };
+      let models = 0;
+      try { const body = await r.json() as { data?: unknown[]; models?: unknown[] }; models = (body.data ?? body.models ?? []).length; } catch { /* key endpoints without a model list */ }
+      if (check.balance) {
+        const b = await get(check.balance);
+        if (b.ok) {
+          const body = await b.json() as { is_available?: boolean; balance_infos?: { currency: string; total_balance: string }[] };
+          const bal = (body.balance_infos ?? []).map((x) => `${x.total_balance} ${x.currency}`).join(', ');
+          if (body.is_available === false) return { provider, ok: false, status: 402, detail: `The key is valid but the account has no usable balance${bal ? ` (${bal})` : ''}. Top up at platform.deepseek.com, then retry.` };
+          return { provider, ok: true, status: r.status, detail: `Key accepted by the official API${models ? ` · ${models} models` : ''}${bal ? ` · balance ${bal}` : ''}.` };
+        }
+      }
+      return { provider, ok: true, status: r.status, detail: `Key accepted by the official API${models ? ` · ${models} models` : ''}.` };
+    } catch (e) {
+      return { provider, ok: false, status: null, detail: `Could not reach the provider: ${(e as Error).name === 'TimeoutError' ? 'timed out after 15 s' : (e as Error).message}.` };
+    }
   }
 
   private makePi() {
@@ -449,6 +480,7 @@ export class DaemonService {
       }
       case 'runtime.health': return Promise.all([this.fake.health(), this.pi.health()]);
       case 'models.list': return this.pi.models();
+      case 'credentials.test': return this.testKey(p.provider);
       case 'web.view': return this.web.view();
       case 'web.settings.save': {
         this.repo.setSetting('web.settings', p.settings);

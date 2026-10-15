@@ -365,7 +365,7 @@ export class Orchestrator {
    * Propose (or re-propose) a plan. A model plan is untrusted: it must pass the validator (one repair round);
    * otherwise the rejection is recorded and the deterministic plan is offered instead.
    */
-  async plan(missionId: string, proposed?: unknown): Promise<Mission> {
+  async plan(missionId: string, proposed?: unknown, options: { skipModel?: boolean } = {}): Promise<Mission> {
     const m = this.mission(missionId);
     const w = this.repo.workspace(m.workspaceId)!;
     if (m.state === 'draft' || m.state === 'awaiting_approval') this.setMission(m, 'planning');
@@ -376,7 +376,7 @@ export class Orchestrator {
     let candidate: unknown = proposed;
     let source: 'operator' | 'model' | 'default' = proposed ? 'operator' : 'default';
     const rt = this.o.runtimes[m.runtime];
-    if (!candidate && rt?.plan && w.isGit && w.head) {
+    if (!candidate && !options.skipModel && rt?.plan && w.isGit && w.head) {
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 5 * 60_000);
       try {
@@ -1515,7 +1515,9 @@ export class Orchestrator {
       if (m.archived) continue;
       missions.push(m.id);
       this.emit({ missionId: m.id, type: 'daemon.recovered', actor: SYSTEM('recovery'), payload: { state: m.state } });
-      if (m.state === 'planning') await this.plan(m.id);
+      // Startup must not wait on an external provider or silently repeat a billable request.
+      // Offer a deterministic proposal for operator review; explicit replanning can use the model.
+      if (m.state === 'planning') await this.plan(m.id, undefined, { skipModel: true });
       else this.kick(m.id); // running: reschedule; verifying: integration and checks re-run deterministically
     }
     return { missions, lostAttempts, expiredApprovals };

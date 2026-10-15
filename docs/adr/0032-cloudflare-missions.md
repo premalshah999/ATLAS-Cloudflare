@@ -1,4 +1,4 @@
-# ADR 0012 — Cloudflare mission publication
+# ADR 0032 — Cloudflare mission publication
 
 2026-10-14. Keep ATLAS's local DAG, isolated worktrees, review and verification. Add an explicit operator action to publish a completed mission's base and agent/integration branches to a dedicated Cloudflare Artifacts repository.
 

@@ -7,6 +7,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const product=process.env.ATLAS_DEMO_REPO??path.join(os.homedir(),'Desktop/Afterlight');
+const expectRollback=process.env.ATLAS_EXPECT_ROLLBACK==='1';
 const out = process.env.ATLAS_DEMO_OUT??path.join(root,'test-results',`afterlight-${Date.now()}`);
 mkdirSync(out,{recursive:true});
 const env={...process.env,ATLAS_E2E:'1',ATLAS_USER_DATA:process.env.ATLAS_DEMO_PROFILE??path.join(os.homedir(),'Library/Application Support/ATLAS-Afterlight'),ATLAS_E2E_OPEN_DIR:product,ATLAS_E2E_SAVE_PATH:path.join(out,'afterlight-mission.atlas.jsonl')};
@@ -20,7 +21,7 @@ try{
  const workspace=await call('workspace.open');
  const settings=await call('settings.get');
  await call('settings.set',{key:'deploy.allowedTargets',value:[...new Set([...settings.values['deploy.allowedTargets'],'afterlight-staging'])]});
- const mission=await call('mission.create',{workspaceId:workspace.id,title:'Afterlight — launch verification '+Date.now(),goal:'Verify the real Afterlight product. Independently execute its tests, syntax checks, HTTP boundary checks, complete browser launch lifecycle, persisted locked decision and exact staging revision. Do not change code or claim a live model was used. This pass uses the labeled scripted survey runtime.',constraints:'No sample fixture behavior. No fabricated evidence. No external or production deployment in this pass.',runtime:'fake',approvalMode:'plan_only',targetEnvironment:'afterlight-staging',budget:{maxWallClockMinutes:15,maxTokens:100000,maxTasks:4,maxConcurrentAgents:2}});
+ const mission=await call('mission.create',{workspaceId:workspace.id,title:(expectRollback?'Afterlight — bad revision rollback proof ':'Afterlight — launch verification ')+Date.now(),goal:'Verify the real Afterlight product. Independently execute its tests, syntax checks, HTTP boundary checks, complete browser launch lifecycle, persisted locked decision and exact staging revision. Do not change code or claim a live model was used. This pass uses the labeled scripted survey runtime.',constraints:'No sample fixture behavior. No fabricated evidence. No external or production deployment in this pass.',runtime:'fake',approvalMode:'plan_only',targetEnvironment:'afterlight-staging',budget:{maxWallClockMinutes:15,maxTokens:100000,maxTasks:4,maxConcurrentAgents:2}});
  console.log('MISSION_ID='+mission.id+' OUTPUT='+out);
  writeFileSync(path.join(out,'mission-id.txt'),mission.id);
  await call('mission.plan',{missionId:mission.id});
@@ -51,10 +52,12 @@ try{
  console.log(JSON.stringify(final.mission??final));
 
  const state=(final.mission??final).state;
- if(state!=='completed')throw new Error('ATLAS mission '+state+'; inspect '+path.join(out,'result.json'));
+ if(expectRollback){
+  if(state!=='failed'||!final.checks?.some(c=>c.name==='staging:revision'&&c.result==='fail')||!final.checks?.some(c=>c.name==='staging:rollback'&&c.result==='pass'))throw new Error('Expected a blocked bad revision and independently confirmed rollback. Inspect '+path.join(out,'result.json'));
+ }else if(state!=='completed')throw new Error('ATLAS mission '+state+'; inspect '+path.join(out,'result.json'));
  await page.getByRole('tab',{name:/Browser/}).click();await page.screenshot({path:path.join(out,'04-browser.png'),fullPage:true});
  await page.getByRole('tab',{name:/Deploy/}).click();await page.screenshot({path:path.join(out,'05-staging.png'),fullPage:true});
- if(process.env.ATLAS_CLOUD_PUBLISH==='1'){
+ if(process.env.ATLAS_CLOUD_PUBLISH==='1'&&!expectRollback){
   const text=readFileSync(process.env.ATLAS_CLOUD_VARS_FILE??path.join(root,'cloudflare/.dev.vars'),'utf8');
   const token=text.split('\n').find(l=>l.startsWith('ATLAS_CLOUD_TOKEN=')).slice('ATLAS_CLOUD_TOKEN='.length).replace(/^['"]|['"]$/g,'').trim();
   await call('settings.set',{key:'cloud.url',value:process.env.ATLAS_CLOUD_URL??'https://atlas-mission-control.premalshah1305.workers.dev'});
@@ -65,7 +68,7 @@ try{
   console.log('ARTIFACTS_VERIFIED='+publication.verified);
  }
  await page.getByTestId('mission-menu').click();await page.getByRole('menuitem',{name:/Export audit log/}).click();
- await call('mission.decide',{missionId:mission.id,decision:'accept'});
- console.log('ATLAS verified Afterlight; audit exported to '+out);
+ await call('mission.decide',{missionId:mission.id,decision:expectRollback?'reject':'accept'});
+ console.log((expectRollback?'EXPECTED_ROLLBACK_VERIFIED':'ATLAS verified Afterlight')+'; audit exported to '+out);
 }catch(e){await page.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});console.error(e);process.exitCode=1;}
 finally{await app.close();}

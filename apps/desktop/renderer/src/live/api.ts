@@ -119,6 +119,7 @@ type Results = {
   'artifact.read': { artifact: Artifact; intact: boolean; truncated: boolean; text: string; base64?: string | null };
   'runtime.health': RuntimeHealth[];
   'models.list': ModelInfo[];
+  'credentials.test': { provider: string; ok: boolean; status: number | null; detail: string };
   'mcp.list': McpServerView[];
   'mcp.save': McpServerView[];
   'mcp.remove': McpServerView[];

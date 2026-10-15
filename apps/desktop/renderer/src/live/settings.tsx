@@ -37,8 +37,16 @@ export function Settings() {
   };
   useEffect(load, []);
   const save = async (provider: Provider) => {
-    try { setCreds(await call('credentials.set', { provider, key: draft[provider] ?? '' })); setDraft((d) => ({ ...d, [provider]: '' })); toast({ tone: 'info', title: `${NAMES[provider]} key saved`, body: 'Encrypted with the OS credential store. It is never shown again or sent to the interface.' }); load(); }
+    try { setCreds(await call('credentials.set', { provider, key: draft[provider] ?? '' })); setDraft((d) => ({ ...d, [provider]: '' })); toast({ tone: 'info', title: `${NAMES[provider]} key saved`, body: 'Encrypted with the OS credential store. It is never shown again or sent to the interface.' }); load(); void test(provider); }
     catch (e) { toast({ tone: 'danger', title: 'Key not saved', body: (e as Error).message }); }
+  };
+  const [testing, setTesting] = useState('');
+  const [tested, setTested] = useState<Record<string, { ok: boolean; detail: string }>>({});
+  const test = async (provider: Provider) => {
+    setTesting(provider);
+    try { const r = await call('credentials.test', { provider }); setTested((t) => ({ ...t, [provider]: r })); }
+    catch (e) { setTested((t) => ({ ...t, [provider]: { ok: false, detail: (e as Error).message } })); }
+    finally { setTesting(''); }
   };
   const remove = async (provider: Provider) => {
     try { setCreds(await call('credentials.remove', { provider })); toast({ tone: 'info', title: `${NAMES[provider]} key removed` }); load(); }
@@ -107,8 +115,10 @@ export function Settings() {
                 <div className="at-row" style={{ gap: 8 }}>
                   <Input data-testid={`key-${p.provider}`} type="password" autoComplete="off" spellCheck={false} placeholder={p.stored ? '•••••••• saved' : `Paste a ${NAMES[p.provider] ?? p.provider} API key`} value={draft[p.provider] ?? ''} onChange={(e) => setDraft((d) => ({ ...d, [p.provider]: e.target.value }))} style={{ flex: 1 }} disabled={!creds.available} />
                   <Button data-testid={`key-${p.provider}-save`} disabled={!creds.available || (draft[p.provider] ?? '').trim().length < 8} onClick={() => void save(p.provider).then(() => setAdding(''))}>Save</Button>
+                  {(p.stored || p.fromEnvironment) && <Button variant="ghost" data-testid={`key-${p.provider}-test`} disabled={testing === p.provider} onClick={() => void test(p.provider)}>{testing === p.provider ? 'Testing…' : 'Test'}</Button>}
                   {p.stored && <Button variant="ghost" onClick={() => void remove(p.provider)}>Remove</Button>}
                 </div>
+                {tested[p.provider] && <p role="status" data-testid={`key-${p.provider}-result`} className={`lv-small ${tested[p.provider].ok ? 'at-muted' : 'lv-callout'}`}>{tested[p.provider].ok ? '✓ ' : '✕ '}{tested[p.provider].detail}</p>}
               </Field>
             ))}
             {creds && (

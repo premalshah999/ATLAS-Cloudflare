@@ -20,7 +20,7 @@ try{
  await expect(page.getByTestId('daemon-status')).toHaveAttribute('data-state','ready',{timeout:30000});
  const health=await call('runtime.health');const pi=health.find(h=>h.runtime==='pi');console.log('RUNTIME_HEALTH='+JSON.stringify(pi));
  if(!pi?.ok)throw new Error('Live model not available');
- const model=pi.models.includes('deepseek/deepseek-chat')?'deepseek/deepseek-chat':pi.models[0];
+ const model=pi.models.includes('deepseek/deepseek-flash')?'deepseek/deepseek-flash':pi.models[0];
  await call('settings.set',{key:'runtime.model',value:model});
  const workspace=await call('workspace.open');
  const mission=await call('mission.create',{workspaceId:workspace.id,title:'Afterlight — live agents add launch briefs '+Date.now(),goal,constraints:'Keep tasks bounded and files disjoint. Tests must import launchBrief from ../public/brief.js. Two coder tasks in parallel; reviewer depends on both. No credentials, external networking, or unrelated refactors.',runtime:'pi',approvalMode:'ask_risky',targetEnvironment:'afterlight-staging',budget:{maxConcurrentAgents:2,maxTasks:4,maxDelegationDepth:0,maxTokens:600000,maxWallClockMinutes:25}});

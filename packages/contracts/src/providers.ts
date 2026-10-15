@@ -49,6 +49,23 @@ export const PROVIDERS: readonly ProviderInfo[] = [
   { id: 'xiaomi-token-plan-sgp', label: 'Xiaomi Token Plan (Singapore)', env: 'XIAOMI_TOKEN_PLAN_SGP_API_KEY' },
 ];
 
+/**
+ * Free, read-only key checks against each provider's own official API (no model tokens are spent). DeepSeek is only
+ * ever reached at api.deepseek.com, never through a gateway, and its balance is checked too: a valid key with no
+ * credit is the usual reason a DeepSeek mission fails.
+ */
+export const KEY_CHECKS: Record<string, { url: string; auth: 'bearer' | 'x-api-key' | 'x-goog-api-key'; balance?: string }> = {
+  deepseek: { url: 'https://api.deepseek.com/models', auth: 'bearer', balance: 'https://api.deepseek.com/user/balance' },
+  openai: { url: 'https://api.openai.com/v1/models', auth: 'bearer' },
+  anthropic: { url: 'https://api.anthropic.com/v1/models', auth: 'x-api-key' },
+  google: { url: 'https://generativelanguage.googleapis.com/v1beta/models', auth: 'x-goog-api-key' },
+  mistral: { url: 'https://api.mistral.ai/v1/models', auth: 'bearer' },
+  xai: { url: 'https://api.x.ai/v1/models', auth: 'bearer' },
+  groq: { url: 'https://api.groq.com/openai/v1/models', auth: 'bearer' },
+  cerebras: { url: 'https://api.cerebras.ai/v1/models', auth: 'bearer' },
+  openrouter: { url: 'https://openrouter.ai/api/v1/key', auth: 'bearer' },
+};
+
 export const PROVIDER_IDS = PROVIDERS.map((p) => p.id) as [string, ...string[]];
 
 /** Model provider → variable that can supply its key. */

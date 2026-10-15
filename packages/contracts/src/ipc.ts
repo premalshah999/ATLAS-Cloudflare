@@ -99,6 +99,8 @@ export const Requests = {
   'artifact.read': z.object({ artifactId: Id }).strict(),
   'runtime.health': empty,
   'models.list': empty,
+  /** Live, free check of a configured provider key against the provider's official API (KEY_CHECKS). */
+  'credentials.test': z.object({ provider: z.string().min(1).max(64) }).strict(),
   'settings.get': empty,
   /** Windows only (ADR 0020): create or remove the sandbox accounts; Windows asks the operator for administrator consent. */
   'sandbox.windows.setup': empty,

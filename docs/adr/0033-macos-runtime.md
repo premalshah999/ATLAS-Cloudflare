@@ -1,4 +1,4 @@
-# ADR 0013 — macOS launch and operator terminal
+# ADR 0033 — macOS launch and operator terminal
 
 2026-10-14. The original Linux implementation built on macOS but had not been exercised there. This change verifies the source app and an unsigned Intel Mac bundle using the existing Electron mission tests.
 
