@@ -37,9 +37,8 @@ try {
     log(`[${s.key}] mission ${m.id} created: ${s.title}`);
   }
   // Plans are made concurrently by the orchestrator model.
-  await Promise.all(missions.map(async (x) => {
-    try { await invoke('mission.plan', { missionId: x.id }); } catch (e) { log(`[${x.spec.key}] plan request: ${e.message}`); }
-  }));
+  // Fire planning without holding page.evaluate open for minutes; progress is polled below.
+  for (const x of missions) await page.evaluate((id) => { void window.atlas.invoke('mission.plan', { missionId: id }).catch(() => {}); return true; }, x.id);
   const started = Date.now();
   let lastShot = 0, shotIdx = 0;
   for (;;) {
